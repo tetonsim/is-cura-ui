@@ -1163,14 +1163,7 @@ class SmartSliceCloudConnector(QObject):
 
         # Create the bulk material definition. This likely will be pre-defined
         # in a materials database or file somewhere
-        bulk = pywim.fea.model.Material(name=material_found["name"])
-        bulk.density = material_found["density"]
-        bulk.elastic = pywim.fea.model.Elastic(properties={'E': material_found["elastic"]['E'],
-                                                               'nu': material_found["elastic"]['nu']})
-        bulk.failure_yield = pywim.fea.model.Yield(type='von_mises',
-                                                       properties={'Sy': material_found['failure_yield']['Sy']}
-                                                       )
-        bulk.fracture = pywim.fea.model.Fracture(material_found['fracture']['KIc'])
+        bulk = pywim.fea.model.Material.from_dict(material_found)
 
         # The bulk attribute in Job is a list as of version 20
         job.bulk.append(bulk)

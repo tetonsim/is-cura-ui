@@ -145,16 +145,12 @@
             ],
             "density": 1.35e-9,
             "elastic": {
-                "type": "orthotropic",
-                "E11": 5698.0,
-                "E22": 1818.0,
-                "E33": 1818.0,
-                "nu12": 0.32,
-                "nu13": 0.32,
-                "nu23": 0.46,
-                "G12": 634.0,
-                "G13": 634.0,
-                "G23": 623.0
+                "type": "transverse_isotropic",
+                "Ea": 5698.0,
+                "Et": 1818.0,
+                "nuat": 0.32,
+                "nutt": 0.46,
+                "Gat": 634.0
             },
             "failure_yield": {
                 "type": "isotropic",
@@ -173,16 +169,12 @@
             ],
             "density": 1.35e-9,
             "elastic": {
-                "type": "orthotropic",
-                "E11": 4443.0,
-                "E22": 731.0,
-                "E33": 731.0,
-                "nu12": 0.38,
-                "nu13": 0.38,
-                "nu23": 0.61,
-                "G12": 230.0,
-                "G13": 230.0,
-                "G23": 227.0
+                "type": "transverse_isotropic",
+                "Ea": 4443.0,
+                "Et": 731.0,
+                "nuat": 0.38,
+                "nutt": 0.61,
+                "Gat": 230.0
             },
             "failure_yield": {
                 "type": "isotropic",
@@ -201,16 +193,12 @@
             ],
             "density": 1.35e-9,
             "elastic": {
-                "type": "orthotropic",
-                "E11": 2608.0,
-                "E22": 1797.0,
-                "E33": 1797.0,
-                "nu12": 0.32,
-                "nu13": 0.32,
-                "nu23": 0.43,
-                "G12": 637.0,
-                "G13": 637.0,
-                "G23": 628.0
+                "type": "transverse_isotropic",
+                "Ea": 2608.0,
+                "Et": 1797.0,
+                "nuat": 0.32,
+                "nutt": 0.43,
+                "Gat": 637.0
             },
             "failure_yield": {
                 "type": "isotropic",
@@ -229,16 +217,12 @@
             ],
             "density": 1.35e-9,
             "elastic": {
-                "type": "orthotropic",
-                "E11": 2025.0,
-                "E22": 723.0,
-                "E33": 723.0,
-                "nu12": 0.38,
-                "nu13": 0.38,
-                "nu23": 0.59,
-                "G12": 230.0,
-                "G13": 230.0,
-                "G23": 227.0
+                "type": "transverse_isotropic",
+                "Ea": 2025.0,
+                "Et": 723.0,
+                "nuat": 0.38,
+                "nutt": 0.59,
+                "Gat": 230.0
             },
             "failure_yield": {
                 "type": "isotropic",

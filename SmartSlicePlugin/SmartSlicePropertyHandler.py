@@ -388,9 +388,8 @@ class SmartSlicePropertyHandler(QObject):
             #    self.connector.doOptimization()
             if self.connector.status is SmartSliceCloudStatus.ReadyToVerify:
                 self.connector.doVerfication()
-            #else:
-            #    self.connector.prepareValidation()
-            #    self.connector.onConfirmationConfirmClicked()
+            else:
+                self.connector.prepareValidation()
         else:
             self.connector.onConfirmationCancelClicked()
 
