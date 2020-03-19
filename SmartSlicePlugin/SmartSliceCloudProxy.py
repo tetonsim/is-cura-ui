@@ -9,7 +9,7 @@ from UM.i18n import i18nCatalog
 from UM.Application import Application
 from UM.Logger import Logger
 
-from .SmartSliceProperty import SmartSliceProperty, SmartSlicePropertyColor
+from .SmartSliceProperty import SmartSlicePropertyEnum, SmartSlicePropertyColor
 
 i18n_catalog = i18nCatalog("smartslice")
 
@@ -25,13 +25,15 @@ class SmartSliceCloudStatus():
     BusyOptimizing = 9
     Optimized = 10
 
-    Busy = (BusyValidating,
-            BusyOptimizing,
-            )
+    Busy = (
+        BusyValidating,
+        BusyOptimizing
+    )
 
-    Optimizable = (Underdimensioned,
-                   Overdimensioned,
-                   )
+    Optimizable = (
+        Underdimensioned,
+        Overdimensioned
+    )
 
 class SmartSliceCloudProxy(QObject):
     def __init__(self, connector) -> None:
@@ -96,14 +98,15 @@ class SmartSliceCloudProxy(QObject):
         self._resultTimeSkin = QTime(0, 0, 0, 1)
         self._resultTimeSkirt = QTime(0, 0, 0, 1)
         self._resultTimeTravel = QTime(0, 0, 0, 1)
-        self._resultTimes = (self._resultTimeInfill,
-                             self._resultTimeInnerWalls,
-                             self._resultTimeOuterWalls,
-                             self._resultTimeRetractions,
-                             self._resultTimeSkin,
-                             self._resultTimeSkirt,
-                             self._resultTimeTravel,
-                             )
+        self._resultTimes = (
+            self._resultTimeInfill,
+            self._resultTimeInnerWalls,
+            self._resultTimeOuterWalls,
+            self._resultTimeRetractions,
+            self._resultTimeSkin,
+            self._resultTimeSkirt,
+            self._resultTimeTravel
+        )
         self._percentageTimeInfill = 0.0
         self._percentageTimeInnerWalls = 0.0
         self._percentageTimeOuterWalls = 0.0
@@ -290,15 +293,15 @@ class SmartSliceCloudProxy(QObject):
             self._secondaryButtonVisible = value
             self.secondaryButtonVisibleChanged.emit()
 
-    #  
-    #   CONFIRMATION WINDOW 
+    #
+    #   CONFIRMATION WINDOW
     #
 
     confirmationWindowEnabledChanged = pyqtSignal()
     confirmationWindowTextChanged = pyqtSignal()
     confirmationConfirmClicked = pyqtSignal()
     confirmationCancelClicked = pyqtSignal()
-    
+
     @pyqtProperty(bool, notify=confirmationWindowEnabledChanged)
     def confirmationWindowEnabled(self):
         return self._confirmationWindowEnabled
@@ -362,18 +365,19 @@ class SmartSliceCloudProxy(QObject):
     """
     @settingEdited.setter
     def settingEdited(self, value):
+        Logger.log("w", "TODO"); return
         if value:
             if self._loadMagnitude != self._bufferMagnitude:
-                self.connector.propertyHandler._propertiesChanged.append(SmartSliceProperty.LoadMagnitude)
+                self.connector.propertyHandler._propertiesChanged.append(SmartSlicePropertyEnum.LoadMagnitude)
                 self.connector.propertyHandler._changedValues.append(0) #  Keep '_propertiesChanged' index aligned with '_changedValues'
                 self.connector.confirmPendingChanges()
             if self.connector.status in {SmartSliceCloudStatus.BusyOptimizing, SmartSliceCloudStatus.Optimized}:
                 if self._targetMaximalDisplacement != self._bufferDeflect:
-                    self.connector.propertyHandler._propertiesChanged.append(SmartSliceProperty.MaxDisplacement)
+                    self.connector.propertyHandler._propertiesChanged.append(SmartSlicePropertyEnum.MaxDisplacement)
                     self.connector.propertyHandler._changedValues.append(0) #  Keep '_propertiesChanged' index aligned with '_changedValues'
                     self.connector.confirmPendingChanges()
                 if self._targetFactorOfSafety != self._bufferSafety:
-                    self.connector.propertyHandler._propertiesChanged.append(SmartSliceProperty.FactorOfSafety)
+                    self.connector.propertyHandler._propertiesChanged.append(SmartSlicePropertyEnum.FactorOfSafety)
                     self.connector.propertyHandler._changedValues.append(0) #  Keep '_propertiesChanged' index aligned with '_changedValues'
                     self.connector.confirmPendingChanges()
 
@@ -390,7 +394,7 @@ class SmartSliceCloudProxy(QObject):
     @pyqtProperty(float, notify=bufferDisplacementChanged)
     def bufferDisplacement(self):
         return self._bufferDeflect
-    
+
     @bufferDisplacement.setter
     def bufferDisplacement(self, value):
         self._bufferDeflect = value
@@ -426,14 +430,15 @@ class SmartSliceCloudProxy(QObject):
 
     @targetFactorOfSafety.setter
     def targetFactorOfSafety(self, value):
+        Logger.log("w", "TODO"); return
         if value == self._targetFactorOfSafety:
             return
         if self.connector.status is SmartSliceCloudStatus.BusyOptimizing or (self.connector.status is SmartSliceCloudStatus.Optimized):
-            self.connector.propertyHandler._propertiesChanged.append(SmartSliceProperty.FactorOfSafety)
+            self.connector.propertyHandler._propertiesChanged.append(SmartSlicePropertyEnum.FactorOfSafety)
             self.connector.propertyHandler._changedValues.append(value)
             self.connector.confirmPendingChanges()
         elif self.connector.status in SmartSliceCloudStatus.Optimizable:
-            self.reqsSafetyFactor = value 
+            self.reqsSafetyFactor = value
             self.setFactorOfSafety()
             self.connector.prepareOptimization()
         else:
@@ -462,13 +467,14 @@ class SmartSliceCloudProxy(QObject):
     @pyqtProperty(float, notify=targetMaximalDisplacementChanged)
     def targetMaximalDisplacement(self):
         return self._targetMaximalDisplacement
-    
+
     @targetMaximalDisplacement.setter
     def targetMaximalDisplacement(self, value):
+        Logger.log("w", "TODO"); return
         if value == self._targetMaximalDisplacement:
             return
         if self.connector.status is SmartSliceCloudStatus.BusyOptimizing or (self.connector.status is SmartSliceCloudStatus.Optimized):
-            self.connector.propertyHandler._propertiesChanged.append(SmartSliceProperty.MaxDisplacement)
+            self.connector.propertyHandler._propertiesChanged.append(SmartSlicePropertyEnum.MaxDisplacement)
             self.connector.propertyHandler._changedValues.append(value)
             self.connector.confirmPendingChanges()
         elif self.connector.status in SmartSliceCloudStatus.Optimizable:
@@ -505,10 +511,11 @@ class SmartSliceCloudProxy(QObject):
 
     @loadMagnitude.setter
     def loadMagnitude(self, value):
+        Logger.log("w", "TODO"); return
         if value == self._loadMagnitude:
             return
         if self.connector.status in {SmartSliceCloudStatus.BusyValidating, SmartSliceCloudStatus.BusyOptimizing, SmartSliceCloudStatus.Optimized}:
-            self.connector.propertyHandler._propertiesChanged.append(SmartSliceProperty.LoadMagnitude)
+            self.connector.propertyHandler._propertiesChanged.append(SmartSlicePropertyEnum.LoadMagnitude)
             self.connector.propertyHandler._changedValues.append(value)
             self.connector.confirmPendingChanges()
         else:
@@ -527,10 +534,11 @@ class SmartSliceCloudProxy(QObject):
 
     @loadDirection.setter
     def loadDirection(self, value):
+        Logger.log("w", "TODO"); return
         if value == self.reqsLoadDirection:
             return
         if self.connector.status in {SmartSliceCloudStatus.BusyValidating, SmartSliceCloudStatus.BusyOptimizing, SmartSliceCloudStatus.Optimized}:
-            self.connector.propertyHandler._propertiesChanged.append(SmartSliceProperty.LoadDirection)
+            self.connector.propertyHandler._propertiesChanged.append(SmartSlicePropertyEnum.LoadDirection)
             self.connector.propertyHandler._changedValues.append(value)
             self.connector.confirmPendingChanges()
         else:
@@ -762,8 +770,9 @@ class SmartSliceCloudProxy(QObject):
 
     @materialName.setter
     def materialName(self, value):
+        Logger.log("w", "TODO"); return
         if self.connector.status is SmartSliceCloudStatus.BusyValidating:
-            self._propertyChanged = SmartSliceProperty.Material
+            self._propertyChanged = SmartSlicePropertyEnum.Material
             self._changedMaterial = value
             self.connector.confirmPendingChanges()
         elif self._materialName is not value:
@@ -854,10 +863,9 @@ class SmartSliceCloudProxy(QObject):
         # Override if part has gone through optimization
         if self.connector.status is SmartSliceCloudStatus.Optimized:
             self.maxDisplaceColor = SmartSlicePropertyColor.SuccessColor
-            
+
         self.maxDisplaceColorChanged.emit()
 
     def updateColorUI(self):
         self.updateColorSafetyFactor()
         self.updateColorMaxDisplacement()
-        

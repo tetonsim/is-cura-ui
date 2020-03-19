@@ -1,45 +1,38 @@
-#   SmartSliceProperty.py
-#   Teton Simulation
-#   Authored on   December 11, 2019
-#   Last Modified December 11, 2019
-
-#
-#   ENUMERATION of Properties involved with SmartSlice Validation/Optimization
-#
-
-#  Standard Imports
+from typing import List
 from enum import Enum
 
-class SmartSliceProperty(Enum):
+from UM.Settings.SettingInstance import InstanceState
+
+from cura.CuraApplication import CuraApplication
+
+from . utils import getPrintableNodes
+
+class SmartSlicePropertyEnum(Enum):
     # Mesh Properties
-      MeshScale       =  1
-      MeshRotation    =  2
-      ModifierMesh    =  3
+    MeshScale       =  1
+    MeshRotation    =  2
+    ModifierMesh    =  3
     # Requirements
-      FactorOfSafety  =  11
-      MaxDisplacement =  12
+    FactorOfSafety  =  11
+    MaxDisplacement =  12
     # Loads/Anchors
-      SelectedFace    =  20
-      LoadMagnitude   =  21
-      LoadDirection   =  22
+    SelectedFace    =  20
+    LoadMagnitude   =  21
+    LoadDirection   =  22
 
     # Material
-      Material        =  170
+    Material        =  170
 
     # Global Props
-      GlobalProperty   = 1000
-      ExtruderProperty = 1001
+    GlobalProperty   = 1000
+    ExtruderProperty = 1001
 
 class SmartSliceLoadDirection(Enum):
     Pull = 1
     Push = 2
 
-'''  
+'''
     Cura Property Keys that Explicitly affect SmartSlice results
-
-    For list of settings that affect validation/optimization see:
-        https://tetoncomposites.atlassian.net/wiki/spaces/CURA/pages/99549204/Validation+Workflow
-        https://tetoncomposites.atlassian.net/wiki/spaces/CURA/pages/99549245/Optimization+Workflow
 
     For a list of strings that Cura correlates with settings see:
         https://github.com/Ultimaker/Cura/blob/master/resources/setting_visibility/expert.cfg
@@ -47,12 +40,12 @@ class SmartSliceLoadDirection(Enum):
 class SmartSliceContainerProperties():
     def __init__(self):
         #  Global Settings
-        self.global_keys = ["layer_height",                 #   Layer Height 
+        self.global_keys = ["layer_height",                 #   Layer Height
                             "layer_height_0",               #   Initial Layer Height
                             "quality"]                      #   Quality Profile
 
         #  Per Extruder Settings
-        self.extruder_keys = ["line_width",                 #  Line Width 
+        self.extruder_keys = ["line_width",                 #  Line Width
                               "wall_line_width",            #  Wall Line Width
                               "wall_line_width_x",          #  Outer Wall Line Width
                               "wall_line_width_0",          #  Inner Wall Line Width
@@ -74,3 +67,144 @@ class SmartSlicePropertyColor():
     WarningColor = "#F3BA1A"
     ErrorColor = "#F15F63"
     SuccessColor = "#5DBA47"
+
+class TrackedProperty:
+    def value(self):
+        raise NotImplementedError()
+
+    def cache(self):
+        raise NotImplementedError()
+
+    def restore(self):
+        raise NotImplementedError()
+
+    def changed(self) -> bool:
+        raise NotImplementedError()
+
+    def _getMachineAndExtruder(self):
+        machine = CuraApplication.getInstance().getMachineManager().activeMachine
+        extruder = None
+        if machine and len(machine.extruderList) > 0:
+            extruder = machine.extruderList[0]
+        return machine, extruder
+
+class ContainerProperty(TrackedProperty):
+    NAMES = []
+    def __init__(self, name):
+        self.name = name
+        self._cached_value = None
+
+    @classmethod
+    def CreateAll(cls) -> List['ContainerProperty']:
+        return list(
+            map( lambda n: cls(n), cls.NAMES )
+        )
+
+    def cache(self):
+        self._cached_value = self.value()
+
+    def changed(self) -> bool:
+        return self._cached_value == self.value()
+
+class GlobalProperty(ContainerProperty):
+    NAMES = [
+      "layer_height",                 #   Layer Height
+      "layer_height_0",               #   Initial Layer Height
+      "quality"
+    ]
+
+    def value(self):
+        machine, extruder = self._getMachineAndExtruder()
+        if machine:
+            return machine.getProperty(self.name, "value")
+        return None
+
+    def restore(self):
+        machine, extruder = self._getMachineAndExtruder()
+        if machine and self._cached_value and self._cached_value != self.value():
+            machine.setProperty(self.name, "value", self._cached_value, set_from_cache=True)
+            machine.setProperty(self.name, "state", InstanceState.Default, set_from_cache=True)
+
+class ExtruderProperty(ContainerProperty):
+    NAMES = [
+        "line_width",                 #  Line Width
+        "wall_line_width",            #  Wall Line Width
+        "wall_line_width_x",          #  Outer Wall Line Width
+        "wall_line_width_0",          #  Inner Wall Line Width
+        "wall_line_count",            #  Wall Line Count
+        "wall_thickness",             #  Wall Thickness
+        "skin_angles",                #  Skin (Top/Bottom) Angles
+        "top_layers",                 #  Top Layers
+        "bottom_layers",              #  Bottom Layers
+        "infill_pattern",             #  Infill Pattern
+        "infill_sparse_density",      #  Infill Density
+        "infill_angles",              #  Infill Angles
+        "infill_line_distance",       #  Infill Line Distance
+        "infill_sparse_thickness",    #  Infill Line Width
+        "alternate_extra_perimeter"   #  Alternate Extra Walls
+    ]
+
+    def value(self):
+        machine, extruder = self._getMachineAndExtruder()
+        if extruder:
+            return extruder.getProperty(self.name, "value")
+        return None
+
+    def restore(self):
+        machine, extruder = self._getMachineAndExtruder()
+        if extruder and self._cached_value and self._cached_value != self.value():
+            extruder.setProperty(self.name, "value", self._cached_value, set_from_cache=True)
+            extruder.setProperty(self.name, "state", InstanceState.Default, set_from_cache=True)
+
+class SelectedMaterial(TrackedProperty):
+    def __init__(self):
+        self._cached_material = None
+
+    def value(self):
+        machine, extruder = self._getMachineAndExtruder()
+        if extruder:
+            return extruder.material
+
+    def cache(self):
+        self._cached_material = self.value()
+
+    def restore(self):
+        machine, extruder = self._getMachineAndExtruder()
+        if extruder and self._cached_material:
+            extruder.material = self._cached_material
+
+    def changed(self) -> bool:
+        return not (self._cached_material is self.value())
+
+class Scene(TrackedProperty):
+    def __init__(self):
+        self._print_node = None
+        self._print_node_scale = None
+        self._print_node_ori = None
+
+    def value(self):
+        nodes = getPrintableNodes()
+        if nodes:
+            n = nodes[0]
+            return (n, n.getScale(), n.getOrientation())
+        return None, None, None
+
+    def cache(self):
+        self._print_node, self._print_node_scale, self._print_node_ori = self.value()
+
+    def restore(self):
+        self._print_node.setScale(self._print_node_scale)
+        self._print_node.setOrientation(self._print_node_ori)
+        self._print_node.transformationChanged.emit(self._print_node)
+
+    def changed(self) -> bool:
+        node, scale, ori = self.value()
+
+        if self._print_node is not node:
+            # What should we do here? The entire model was swapped out
+            self.cache()
+            return False
+
+        return \
+            scale != self._print_node_scale or \
+            ori != self._print_node_ori

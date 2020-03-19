@@ -18,10 +18,11 @@ from UM.Application import Application
 from UM.PluginRegistry import PluginRegistry
 from UM.Message import Message
 from UM.Scene.Selection import Selection
-from UM.Scene.Iterator.DepthFirstIterator import DepthFirstIterator
 
 from cura.Stages.CuraStage import CuraStage
 from cura.CuraApplication import CuraApplication
+
+from .. utils import getPrintableNodes
 
 i18n_catalog = i18nCatalog("smartslice")
 
@@ -51,28 +52,6 @@ class SmartSliceStage(CuraStage):
             "SmartSlicePlugin_RequirementsTool",
         )
 
-    @staticmethod
-    def _printable_nodes():
-        scene = CuraApplication.getInstance().getController().getScene()
-        root = scene.getRoot()
-
-        printable_nodes = []
-
-        for node in DepthFirstIterator(root):
-            isSliceable = node.callDecoration("isSliceable")
-            isPrinting = not node.callDecoration("isNonPrintingMesh")
-            isSupport = False
-
-            stack = node.callDecoration("getStack")
-
-            if stack:
-                isSupport = stack.getProperty("support_mesh", "value")
-
-            if isSliceable and isPrinting and not isSupport:
-                printable_nodes.append(node)
-
-        return printable_nodes
-
     def _scene_not_ready(self, text):
         app = CuraApplication.getInstance()
 
@@ -85,7 +64,7 @@ class SmartSliceStage(CuraStage):
         app.getController().setActiveStage("PrepareStage")
 
     def _exit_stage_if_scene_is_invalid(self):
-        printable_nodes = SmartSliceStage._printable_nodes()
+        printable_nodes = getPrintableNodes()
         if len(printable_nodes) == 0:
             self._scene_not_ready(
                 i18n_catalog.i18n("Smart Slice requires a printable model on the build plate.")
@@ -133,9 +112,7 @@ class SmartSliceStage(CuraStage):
         if self._previous_tool:
             controller.setActiveTool(use_tool)
 
-        if not self._connector.propertyHandler._initialized:
-            self._connector.propertyHandler.cacheChanges()
-            self._connector.propertyHandler._initialized = True
+        self._connector.propertyHandler.cacheChanges()
 
         self._connector.updateSliceWidget()
 

@@ -47,7 +47,7 @@ from cura.UI.PrintInformation import PrintInformation
 
 from .SmartSliceCloudProxy import SmartSliceCloudStatus
 from .SmartSliceCloudProxy import SmartSliceCloudProxy
-from .SmartSliceProperty import SmartSliceProperty
+from .SmartSliceProperty import SmartSlicePropertyEnum
 from .SmartSlicePropertyHandler import SmartSlicePropertyHandler
 
 i18n_catalog = i18nCatalog("smartslice")
@@ -336,7 +336,7 @@ class SmartSliceCloudJob(Job):
                 text=i18n_catalog.i18nc("@info:status", "SmartSlice was unable to find a solution")
             ).show()
 
-        self.connector.propertyHandler.prepareCache()
+        #self.connector.propertyHandler.prepareCache()
 
     def _process_analysis_result(self, analysis : pywim.smartslice.result.Analysis, optimized : bool):
         # TODO: We need a per node solution here as soon as we want to analysis multiple models.
@@ -669,7 +669,7 @@ class SmartSliceCloudConnector(QObject):
                                 Pushes to OPTIMIZE when the change is a requirement, e.g. Safety Factor/Maximum Displacement
                                 Pushes to VALIDATE otherwise
     """
-    def showConfirmDialog(self, scene_node=None):
+    def __DELETE_THIS_showConfirmDialog(self, scene_node=None):
         validationMsg = "Modifying this setting will invalidate your results.\nDo you want to continue and lose the current\n validation results?"
         optimizationMsg = "Modifying this setting will invalidate your results.\nDo you want to continue and lose your \noptimization results?"
 
@@ -747,7 +747,7 @@ class SmartSliceCloudConnector(QObject):
 
         Handles confirmation dialog during validation runs according to 'pressed' button
     """
-    def onConfirmAction_Validate(self, msg, action):
+    def __DELETE_onConfirmAction_Validate(self, msg, action):
         if action == "continue":
             Logger.log ("d", "Property Change accepted during validation")
             self.continueChanges()
@@ -762,24 +762,24 @@ class SmartSliceCloudConnector(QObject):
 
         Handles confirmation dialog during optimization runs according to 'pressed' button
     """
-    def onConfirmAction_Optimize(self, msg, action):
+    def __DELETE_onConfirmAction_Optimize(self, msg, action):
         if action == "continue":
             self.cancelCurrentJob()
             goToOptimize = False
             #  Special Handling for Use-Case Requirements
             #  Max Displace
-            if SmartSliceProperty.MaxDisplacement in self.propertyHandler._propertiesChanged:
+            if SmartSlicePropertyEnum.MaxDisplacement in self.propertyHandler._propertiesChanged:
                 goToOptimize = True
-                index = self.propertyHandler._propertiesChanged.index(SmartSliceProperty.MaxDisplacement)
-                self.propertyHandler._propertiesChanged.remove(SmartSliceProperty.MaxDisplacement)
+                index = self.propertyHandler._propertiesChanged.index(SmartSlicePropertyEnum.MaxDisplacement)
+                self.propertyHandler._propertiesChanged.remove(SmartSlicePropertyEnum.MaxDisplacement)
                 self._proxy.reqsMaxDeflect = self._proxy._bufferDeflect
                 self.propertyHandler._changedValues.pop(index)
                 self._proxy.setMaximalDisplacement()
             #  Factor of Safety
-            if SmartSliceProperty.FactorOfSafety in self.propertyHandler._propertiesChanged:
+            if SmartSlicePropertyEnum.FactorOfSafety in self.propertyHandler._propertiesChanged:
                 goToOptimize = True
-                index = self.propertyHandler._propertiesChanged.index(SmartSliceProperty.FactorOfSafety)
-                self.propertyHandler._propertiesChanged.remove(SmartSliceProperty.FactorOfSafety)
+                index = self.propertyHandler._propertiesChanged.index(SmartSlicePropertyEnum.FactorOfSafety)
+                self.propertyHandler._propertiesChanged.remove(SmartSlicePropertyEnum.FactorOfSafety)
                 self._proxy.reqsSafetyFactor = self._proxy._bufferSafety
                 self.propertyHandler._changedValues.pop(index)
                 self._proxy.setFactorOfSafety()
@@ -970,60 +970,6 @@ class SmartSliceCloudConnector(QObject):
                 self.propertyHandler._propertiesChanged = []
                 self._jobs[self._current_job] = None
                 self._proxy.shouldRaiseConfirmation = False
-
-
-    #
-    #   CONFIRMATION PROMPT
-    #     Changes during Validation/Optimization happen in three steps:
-    #         * Confirm Changes
-    #         * User Action
-    #           * Continue with Changes
-    #           * OR Cancel Changes
-    #         * Conclude Confirmation
-    #
-
-    def confirmPendingChanges(self):
-        #  Make sure a property has actually changed before prompting
-        if len(self.propertyHandler._propertiesChanged) > 0:
-            self.showConfirmDialog()
-
-    '''
-      continueChanges()
-        * Confirm change to Parameter/Setting
-        * Store change to SmartSlice Cache
-        * Close Confirmation Dialog
-        * If change was made to SoF/Max Displace, change to optimize state
-            - Otherwise, change to validate state
-    '''
-    def continueChanges(self):
-        self.cancelCurrentJob()
-        self.propertyHandler._onContinueChanges()
-        self.concludeConfirmation()
-
-    '''
-      cancelChanges()
-        * Cancels all pending property changes
-        * Clears pending property change buffers
-        * Always Maintains the active cache state
-        * (Cache Values should always be used in calculations)
-    '''
-    def cancelChanges(self):
-        self.propertyHandler._onCancelChanges()
-        self.concludeConfirmation()
-
-    '''
-      concludeConfirmation()
-        * Notifies all relevent logic that confirmation is done
-        * Hides/Destroys any confirm changes prompts
-    '''
-    def concludeConfirmation(self):
-        self.confirming = False
-        self.hideMessage()
-
-
-    #
-    #   Prepare/Do Job Actions
-    #
 
     def prepareValidation(self):
         Logger.log("d", "Validation Step Prepared")
