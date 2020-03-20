@@ -23,6 +23,7 @@ from cura.CuraApplication import CuraApplication
 from .SmartSliceCloudProxy import SmartSliceCloudStatus
 from .SmartSliceProperty import SmartSlicePropertyEnum, SmartSliceContainerProperties
 from .select_tool.SmartSliceSelectHandle import SelectionMode
+from .requirements_tool.SmartSliceRequirements import SmartSliceRequirements
 from .utils import getModifierMeshes
 
 from . import SmartSliceProperty
@@ -55,27 +56,39 @@ class SmartSlicePropertyHandler(QObject):
         #  General Purpose properties which affect Smart Slice
         self._container_properties = SmartSliceContainerProperties()
 
+        controller = Application.getInstance().getController()
+
         self._global_properties = SmartSliceProperty.GlobalProperty.CreateAll()
         self._extruder_properties = SmartSliceProperty.ExtruderProperty.CreateAll()
         self._selected_material = SmartSliceProperty.SelectedMaterial()
         self._scene = SmartSliceProperty.Scene()
         self._modifier_mesh = SmartSliceProperty.ModifierMesh()
 
+        req_tool = SmartSliceRequirements.getInstance()
+
+        self._tool_properties = [
+            SmartSliceProperty.ToolProperty(req_tool, "TargetSafetyFactor"),
+            SmartSliceProperty.ToolProperty(req_tool, "MaxDisplacement")
+        ]
+
         self._properties = \
             self._global_properties + \
             self._extruder_properties + \
+            self._tool_properties + \
             [
                 self._selected_material,
                 self._scene,
                 self._modifier_mesh
             ]
 
+        req_tool.toolPropertyChanged.connect(self._onRequirementToolPropertyChanged)
+
         #  Mesh Properties
         self.meshScale = None
         self.meshRotation = None
         #  Scene (for mesh/transform signals)
         self._sceneNode = None
-        self._sceneRoot = Application.getInstance().getController().getScene().getRoot()
+        self._sceneRoot = controller.getScene().getRoot()
 
         #  Selection Proeprties
         self._selection_mode = 1 # Default to AnchorMode
@@ -110,8 +123,8 @@ class SmartSlicePropertyHandler(QObject):
         self._confirmDialog = None
 
         #  Attune to Scale/Rotate Operations
-        Application.getInstance().getController().getTool("ScaleTool").operationStopped.connect(self.onMeshScaleChanged)
-        Application.getInstance().getController().getTool("RotateTool").operationStopped.connect(self.onMeshRotationChanged)
+        controller.getTool("ScaleTool").operationStopped.connect(self._onMeshScaleChanged)
+        controller.getTool("RotateTool").operationStopped.connect(self._onMeshRotationChanged)
 
     def hasModMesh(self) -> bool:
         return self._modifier_mesh.value() is not None
@@ -161,26 +174,8 @@ class SmartSlicePropertyHandler(QObject):
 
                 self.selectedFacesChanged.emit()
 
-          #  Material
-            elif prop is SmartSlicePropertyEnum.Material:
-                self._material = self._changedValues[i]
-
-          #  Mesh Properties
-            elif prop is SmartSlicePropertyEnum.MeshScale:
-                self.meshScale = self._changedValues[i]
-            elif prop is SmartSlicePropertyEnum.MeshRotation:
-                self.meshRotation = self._changedValues[i]
-            elif prop is SmartSlicePropertyEnum.ModifierMesh:
-                self._changedValues.pop(i+1)
-
             i += 0
         self.prepareCache()
-
-        #  Refresh Buffered Property Values
-        self.proxy.setLoadMagnitude()
-        self.proxy.setLoadDirection()
-        self.proxy.setFactorOfSafety()
-        self.proxy.setMaximalDisplacement()
 
     """
       restoreCache()
@@ -278,11 +273,25 @@ class SmartSlicePropertyHandler(QObject):
             # TODO - I don't think this function exists. Anything to do here?
             #self.connector.onConfirmationCancelClicked()
 
-    def onMeshScaleChanged(self, unused):
-        self.confirmPendingChanges( [self._scene] )
+    def _onMeshScaleChanged(self, unused):
+        self.confirmPendingChanges(self._scene)
 
-    def onMeshRotationChanged(self, unused):
-        self.confirmPendingChanges( [self._scene] )
+    def _onMeshRotationChanged(self, unused):
+        self.confirmPendingChanges(self._scene)
+
+    def _onRequirementToolPropertyChanged(self, property_name):
+        # We handle changes in the requirements tool differently, depending on the current
+        # status. We only need to ask for confirmation if the model has been optimized
+        if self.connector.status in { SmartSliceCloudStatus.BusyValidating, SmartSliceCloudStatus.Underdimensioned, SmartSliceCloudStatus.Overdimensioned }:
+            self.connector.prepareOptimization()
+        else:
+            self.confirmPendingChanges(
+                list(filter(lambda p: p.name == property_name, self._tool_properties)),
+                revalidationRequired=False
+            )
+
+        self.connector._proxy.targetSafetyFactorChanged.emit()
+        self.connector._proxy.targetMaximalDisplacementChanged.emit()
 
     #  Signal for Interfacing with Face Selection
     selectedFacesChanged = Signal()
@@ -419,27 +428,30 @@ class SmartSlicePropertyHandler(QObject):
         self._activeExtruder.propertyChanged.connect(self._onExtruderPropertyChanged)
 
     def _onMaterialChanged(self):
-        self.confirmPendingChanges( [self._selected_material] )
+        self.confirmPendingChanges(self._selected_material)
 
     def _onSceneChanged(self, changed_node):
         self.confirmPendingChanges( [self._scene, self._modifier_mesh] )
 
-    def confirmPendingChanges(self, props = None): # TODO remove the default None after cleanup is finished
+    def confirmPendingChanges(self, props, revalidationRequired=True):
         if not props:
             return
+
+        if isinstance(props, SmartSliceProperty.TrackedProperty):
+            props = [props]
 
         if all(not p.changed() for p in props):
             return
 
         if self.connector.status in {SmartSliceCloudStatus.BusyValidating, SmartSliceCloudStatus.BusyOptimizing, SmartSliceCloudStatus.Optimized}:
             if self._addProperties and not self._cancelChanges:
-                self.showConfirmDialog()
+                self.showConfirmDialog(revalidationRequired)
         else:
             self.connector.prepareValidation()
             for p in props:
                 p.cache()
 
-    def showConfirmDialog(self):
+    def showConfirmDialog(self, revalidationRequired : bool):
         if self._confirmDialog and self._confirmDialog.visible:
             return
 
@@ -451,7 +463,7 @@ class SmartSlicePropertyHandler(QObject):
                 lifetime=0
             )
 
-            self._confirmDialog.actionTriggered.connect(self.onConfirmAction_Validate)
+            self._confirmDialog.actionTriggered.connect(self.onConfirmActionRevalidate)
 
         elif self.connector.status in { SmartSliceCloudStatus.BusyOptimizing, SmartSliceCloudStatus.Optimized }:
             self._confirmDialog = Message(
@@ -460,7 +472,10 @@ class SmartSlicePropertyHandler(QObject):
                 lifetime=0
             )
 
-            self._confirmDialog.actionTriggered.connect(self.onConfirmAction_Optimize)
+            if revalidationRequired:
+                self._confirmDialog.actionTriggered.connect(self.onConfirmActionRevalidate)
+            else:
+                self._confirmDialog.actionTriggered.connect(self.onConfirmActionReoptimize)
         else:
             # we're not in a state where we need to ask for confirmation
             return
@@ -480,54 +495,21 @@ class SmartSlicePropertyHandler(QObject):
 
         self._confirmDialog.show()
 
-    def onConfirmAction_Validate(self, msg, action):
+    def onConfirmActionRevalidate(self, msg, action):
         if action == "cancel":
             self.cancelChanges()
         elif action == "continue":
             self.connector.cancelCurrentJob()
+            self.connector.prepareValidation() # TODO Added this - is it okay here?
             self.continueChanges()
 
         msg.hide()
 
-    """
-      onConfirmDialogButtonPressed_Optimize(msg, action)
-        msg: Reference to calling Message()
-        action: Button Type that User Selected
-
-        Handles confirmation dialog during optimization runs according to 'pressed' button
-    """
-    def onConfirmAction_Optimize(self, msg, action):
+    def onConfirmActionReoptimize(self, msg, action):
         if action == "cancel":
             self.cancelChanges()
         elif action == "continue":
             self.connector.cancelCurrentJob()
-
-            goToOptimize = False
-
-            #  Special Handling for Use-Case Requirements
-            #  Max Displace
-            if False: # TODO re-work below to handle new property handling
-                if SmartSlicePropertyEnum.MaxDisplacement in self.propertyHandler._propertiesChanged:
-                    goToOptimize = True
-                    index = self.propertyHandler._propertiesChanged.index(SmartSlicePropertyEnum.MaxDisplacement)
-                    self.propertyHandler._propertiesChanged.remove(SmartSlicePropertyEnum.MaxDisplacement)
-                    self._proxy.reqsMaxDeflect = self._proxy._bufferDeflect
-                    self.propertyHandler._changedValues.pop(index)
-                    self._proxy.setMaximalDisplacement()
-                #  Factor of Safety
-                if SmartSlicePropertyEnum.FactorOfSafety in self.propertyHandler._propertiesChanged:
-                    goToOptimize = True
-                    index = self.propertyHandler._propertiesChanged.index(SmartSlicePropertyEnum.FactorOfSafety)
-                    self.propertyHandler._propertiesChanged.remove(SmartSlicePropertyEnum.FactorOfSafety)
-                    self._proxy.reqsSafetyFactor = self._proxy._bufferSafety
-                    self.propertyHandler._changedValues.pop(index)
-                    self._proxy.setFactorOfSafety()
-
-            if goToOptimize:
-                self.connector.prepareOptimization()
-            else:
-                self.connector.prepareValidation()
-
+            self.connector.prepareOptimization()
             self.continueChanges()
-
         msg.hide()

@@ -1,11 +1,59 @@
-from UM.Tool import Tool
+from PyQt5.QtCore import pyqtProperty
 
-#   Smart Slice Requirements Tool:
-#     When Pressed, this tool produces the "Requirements Dialog"
-#
+from UM.Tool import Tool
+from UM.Signal import Signal
+
+from cura.CuraApplication import CuraApplication
+
 class SmartSliceRequirements(Tool):
     #  Class Initialization
     def __init__(self, extension):
         super().__init__()
 
         self._connector = extension.cloud
+
+        self._targetSafetyFactor = 1.5
+        self._maxDisplacement = 1.0
+
+        self.setExposedProperties(
+            "TargetSafetyFactor",
+            "MaxDisplacement"
+        )
+
+    toolPropertyChanged = Signal()
+
+    @staticmethod
+    def getInstance():
+        return CuraApplication.getInstance().getController().getTool(
+            "SmartSlicePlugin_RequirementsTool"
+        )
+
+    @pyqtProperty(float)
+    def targetSafetyFactor(self):
+        return self._targetSafetyFactor
+
+    @targetSafetyFactor.setter
+    def targetSafetyFactor(self, value : float):
+        self._targetSafetyFactor = float(value)
+        self.toolPropertyChanged.emit("TargetSafetyFactor")
+
+    def getTargetSafetyFactor(self) -> float:
+        return self.targetSafetyFactor
+
+    def setTargetSafetyFactor(self, value : float):
+        self.targetSafetyFactor = value
+
+    @pyqtProperty(float)
+    def maxDisplacement(self):
+        return self._maxDisplacement
+
+    @maxDisplacement.setter
+    def maxDisplacement(self, value : float):
+        self._maxDisplacement = float(value)
+        self.toolPropertyChanged.emit("MaxDisplacement")
+
+    def getMaxDisplacement(self) -> float:
+        return self.maxDisplacement
+
+    def setMaxDisplacement(self, value : float):
+        self.maxDisplacement = value

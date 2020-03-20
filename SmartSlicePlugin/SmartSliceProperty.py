@@ -235,3 +235,25 @@ class ModifierMesh(TrackedProperty):
 
     def getNode(self) -> Optional[CuraSceneNode]:
         return self._node
+
+class ToolProperty(TrackedProperty):
+    def __init__(self, tool, property):
+        self._tool = tool
+        self._property = property
+        self._cached_value = None
+
+    @property
+    def name(self):
+        return self._property
+
+    def value(self):
+        return getattr(self._tool, 'get' + self._property)()
+
+    def cache(self):
+        self._cached_value = self.value()
+
+    def restore(self):
+        self._tool.setProperty(self._property, self._cached_value)
+
+    def changed(self) -> bool:
+        return not (self._cached_value == self.value())

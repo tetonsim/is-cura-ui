@@ -1,16 +1,3 @@
-/*
-  dialogRequirements.qml
-  Teton Simulation
-  Authored on   October 8, 2019
-  Last Modified October 8, 2019
-*/
-
-/*
-  Contains structural definitions for Requirements UI Dialog
-*/
-
-
-// API Imports
 import QtQuick 2.4
 import QtQuick.Controls 1.2
 import QtQuick.Layouts 1.1
@@ -21,17 +8,14 @@ import Cura 1.0 as Cura
 
 import SmartSlice 1.0 as SmartSlice
 
-/*
-    Requirements
-*/
-Item
-{
+Item {
     width: childrenRect.width
     height: childrenRect.height
     UM.I18nCatalog { id: catalog; name: "smartslice"}
 
-    Grid
-    {
+    property string targetSafetyFactorText
+
+    Grid {
         id: textfields;
 
         anchors.top: parent.top;
@@ -40,7 +24,6 @@ Item
         flow: Grid.TopToBottom;
         spacing: Math.round(UM.Theme.getSize("default_margin").width / 2);
 
-        // Safety Factor Text/Text Field
         Label {
             height: UM.Theme.getSize("setting_control").height;
 
@@ -65,17 +48,13 @@ Item
             height: UM.Theme.getSize("setting_control").height;
             style: UM.Theme.styles.text_field;
 
-            onEditingFinished:
-            {
-                SmartSlice.Cloud.targetFactorOfSafety = SmartSlice.Cloud.bufferSafetyFactor; // Will be converted from string to the target data type via SmartSliceVariables
-            }
-            onTextChanged:
-            { 
-                SmartSlice.Cloud.bufferSafetyFactor = text;
-                SmartSlice.Cloud.settingEdited();
+            onEditingFinished: {
+                UM.ActiveTool.setProperty("TargetSafetyFactor", text)
             }
 
-            text: SmartSlice.Cloud.targetFactorOfSafety
+            /*onTextChanged: {
+            }*/
+
             placeholderText: catalog.i18nc("@action:button", "Must be above 1")
             property string unit: "[1]";
         }
@@ -86,19 +65,28 @@ Item
             height: UM.Theme.getSize("setting_control").height;
             style: UM.Theme.styles.text_field;
 
-            onEditingFinished:
-            {
-                SmartSlice.Cloud.targetMaximalDisplacement = SmartSlice.Cloud.bufferDisplacement; // Will be converted from string to the target data type via SmartSliceVariables
+            onEditingFinished: {
+                UM.ActiveTool.setProperty("MaxDisplacement", text)
             }
-            onTextChanged:
-            { 
-                SmartSlice.Cloud.bufferDisplacement = text;
-                SmartSlice.Cloud.settingEdited = true;
-            }
+
+            /*onTextChanged: {
+            }*/
 
             text: SmartSlice.Cloud.targetMaximalDisplacement
             placeholderText: ""
             property string unit: "[mm]";
+        }
+
+        Binding {
+            target: valueSafetyFactor
+            property: "text"
+            value: UM.ActiveTool.properties.getValue("TargetSafetyFactor")
+        }
+
+        Binding {
+            target: valueMaxDeflect
+            property: "text"
+            value: UM.ActiveTool.properties.getValue("MaxDisplacement")
         }
 
     }

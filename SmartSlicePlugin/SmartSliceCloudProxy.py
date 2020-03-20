@@ -10,6 +10,7 @@ from UM.Application import Application
 from UM.Logger import Logger
 
 from .SmartSliceProperty import SmartSlicePropertyEnum, SmartSlicePropertyColor
+from .requirements_tool.SmartSliceRequirements import SmartSliceRequirements
 
 i18n_catalog = i18nCatalog("smartslice")
 
@@ -40,11 +41,6 @@ class SmartSliceCloudProxy(QObject):
         super().__init__()
 
         self.connector = connector
-
-        # Properties (mainly) for the login window
-        self._loginStatus = "Please log in with your credentials below."
-        self._loginName = ""
-        self._loginPassword = ""
 
         # Primary Button (Slice/Validate/Optimize)
         self._sliceStatusEnum = 0
@@ -77,19 +73,17 @@ class SmartSliceCloudProxy(QObject):
         #  QML-Python Buffer Variables
         self._bufferMagnitude = self._loadMagnitude
         self._bufferDeflect = self._targetMaximalDisplacement
-        self._bufferSafety = self._targetFactorOfSafety
         self._safetyFactorColor = "#000000"
         self._maxDisplaceColor = "#000000"
 
         #  Use-case & Requirements Cache
-        self.reqsSafetyFactor = self._targetFactorOfSafety
         self.reqsMaxDeflect  = self._targetMaximalDisplacement
         self.reqsLoadMagnitude = self._loadMagnitude
         self.reqsLoadDirection = self._loadDirection
 
         # Properties (mainly) for the sliceinfo widget
-        self._resultSafetyFactor = copy.copy(self._targetFactorOfSafety)
-        self._resultMaximalDisplacement = copy.copy(self._targetMaximalDisplacement)
+        self._resultSafetyFactor = 0.0 #copy.copy(self._targetFactorOfSafety)
+        self._resultMaximalDisplacement = 0.0 #copy.copy(self._targetMaximalDisplacement)
         self._resultTimeTotal = QTime(0, 0, 0, 1)
         self._resultTimeInfill = QTime(0, 0, 0, 1)
         self._resultTimeInnerWalls = QTime(0, 0, 0, 1)
@@ -127,51 +121,6 @@ class SmartSliceCloudProxy(QObject):
         self._materialCost = 0.0
         self._materialLength = 0.0
         self._materialWeight = 0.0
-
-    # Properties (mainly) for the login window
-
-    loginStatusChanged = pyqtSignal()
-
-    @pyqtProperty(str, notify=loginStatusChanged)
-    def loginStatus(self):
-        return self._loginStatus
-
-    @loginStatus.setter
-    def loginStatus(self, value):
-        if self._loginStatus is not value:
-            Logger.log("d", "loginStatus: <{}> -> <{}>".format(self._loginStatus, value))
-            self._loginStatus = value
-            self.loginStatusChanged.emit()
-
-    loginNameChanged = pyqtSignal()
-
-    @pyqtProperty(str, notify=loginNameChanged)
-    def loginName(self):
-        return self._loginName
-
-    @loginName.setter
-    def loginName(self, value):
-        if self._loginName is not value:
-            Logger.log("d", "loginName: <{}> -> <{}>".format(self._loginName, value))
-            self._loginName = value
-            self.loginNameChanged.emit()
-
-    loginPasswordChanged = pyqtSignal()
-
-    @pyqtProperty(str, notify=loginPasswordChanged)
-    def loginPassword(self):
-        return self._loginPassword
-
-    @loginPassword.setter
-    def loginPassword(self, value):
-        if self._loginPassword is not value:
-            Logger.log("d", "loginPassword: <secret!>")
-            self._loginPassword = value
-            self.loginPasswordChanged.emit()
-
-    @pyqtProperty(bool, notify=loginPasswordChanged)
-    def loginResult(self):
-        return self.connector.login()
 
     # Properties (mainly) for the sliceinfo widget
 
@@ -351,8 +300,6 @@ class SmartSliceCloudProxy(QObject):
     settingEditedChanged = pyqtSignal()
     bufferMagnitudeChanged = pyqtSignal()
     bufferDisplacementChanged = pyqtSignal()
-    bufferSafetyFactorChanged = pyqtSignal()
-
 
     #  NOTE:  Never gets read.  Included to separate cache from buffer
     @pyqtProperty(bool, notify=settingEditedChanged)
@@ -381,69 +328,14 @@ class SmartSliceCloudProxy(QObject):
                     self.connector.propertyHandler._changedValues.append(0) #  Keep '_propertiesChanged' index aligned with '_changedValues'
                     self.connector.confirmPendingChanges()
 
-
-    #  Buffers for separating current change in text from property values
-    @pyqtProperty(float, notify=bufferMagnitudeChanged)
-    def bufferMagnitude(self):
-        return self._bufferMagnitude
-
-    @bufferMagnitude.setter
-    def bufferMagnitude(self, value):
-        self._bufferMagnitude = value
-
-    @pyqtProperty(float, notify=bufferDisplacementChanged)
-    def bufferDisplacement(self):
-        return self._bufferDeflect
-
-    @bufferDisplacement.setter
-    def bufferDisplacement(self, value):
-        self._bufferDeflect = value
-
-    @pyqtProperty(float, notify=bufferSafetyFactorChanged)
-    def bufferSafetyFactor(self):
-        return self._bufferSafety
-
-    @bufferSafetyFactor.setter
-    def bufferSafetyFactor(self, value):
-        self._bufferSafety = value
-
-
-    #
-    # USE-CASE REQUIREMENTS
-    #   * Safety Factor
-    #   * Max Displacement
-    #   * Load Magnitude/Direction
-    #
-
     # Safety Factor
 
-    targetFactorOfSafetyChanged = pyqtSignal()
     resultSafetyFactorChanged = pyqtSignal()
+    targetSafetyFactorChanged = pyqtSignal()
 
-    def setFactorOfSafety(self):
-        self._targetFactorOfSafety = self.reqsSafetyFactor
-        self.targetFactorOfSafetyChanged.emit()
-
-    @pyqtProperty(float, notify=targetFactorOfSafetyChanged)
-    def targetFactorOfSafety(self):
-        return self._targetFactorOfSafety
-
-    @targetFactorOfSafety.setter
-    def targetFactorOfSafety(self, value):
-        Logger.log("w", "TODO"); return
-        if value == self._targetFactorOfSafety:
-            return
-        if self.connector.status is SmartSliceCloudStatus.BusyOptimizing or (self.connector.status is SmartSliceCloudStatus.Optimized):
-            self.connector.propertyHandler._propertiesChanged.append(SmartSlicePropertyEnum.FactorOfSafety)
-            self.connector.propertyHandler._changedValues.append(value)
-            self.connector.confirmPendingChanges()
-        elif self.connector.status in SmartSliceCloudStatus.Optimizable:
-            self.reqsSafetyFactor = value
-            self.setFactorOfSafety()
-            self.connector.prepareOptimization()
-        else:
-            self.reqsSafetyFactor = value
-            self.setFactorOfSafety()
+    @pyqtProperty(float, notify=targetSafetyFactorChanged)
+    def targetSafetyFactor(self):
+        return SmartSliceRequirements.getInstance().targetSafetyFactor
 
     @pyqtProperty(float, notify=resultSafetyFactorChanged)
     def resultSafetyFactor(self):
@@ -451,7 +343,7 @@ class SmartSliceCloudProxy(QObject):
 
     @resultSafetyFactor.setter
     def resultSafetyFactor(self, value):
-        if self._resultSafetyFactor is not value:
+        if self._resultSafetyFactor != value:
             self._resultSafetyFactor = value
             self.resultSafetyFactorChanged.emit()
 
@@ -460,31 +352,9 @@ class SmartSliceCloudProxy(QObject):
     targetMaximalDisplacementChanged = pyqtSignal()
     resultMaximalDisplacementChanged = pyqtSignal()
 
-    def setMaximalDisplacement(self):
-        self._targetMaximalDisplacement = self.reqsMaxDeflect
-        self.targetMaximalDisplacementChanged.emit()
-
     @pyqtProperty(float, notify=targetMaximalDisplacementChanged)
     def targetMaximalDisplacement(self):
-        return self._targetMaximalDisplacement
-
-    @targetMaximalDisplacement.setter
-    def targetMaximalDisplacement(self, value):
-        Logger.log("w", "TODO"); return
-        if value == self._targetMaximalDisplacement:
-            return
-        if self.connector.status is SmartSliceCloudStatus.BusyOptimizing or (self.connector.status is SmartSliceCloudStatus.Optimized):
-            self.connector.propertyHandler._propertiesChanged.append(SmartSlicePropertyEnum.MaxDisplacement)
-            self.connector.propertyHandler._changedValues.append(value)
-            self.connector.confirmPendingChanges()
-        elif self.connector.status in SmartSliceCloudStatus.Optimizable:
-            self.reqsMaxDeflect = value
-            self.setMaximalDisplacement()
-            self.connector.prepareOptimization()
-        else:
-            self.reqsMaxDeflect = value # SET CACHE
-            self.setMaximalDisplacement()
-
+        return SmartSliceRequirements.getInstance().maxDisplacement
 
     @pyqtProperty(float, notify=resultMaximalDisplacementChanged)
     def resultMaximalDisplacement(self):
@@ -492,7 +362,7 @@ class SmartSliceCloudProxy(QObject):
 
     @resultMaximalDisplacement.setter
     def resultMaximalDisplacement(self, value):
-        if self._resultMaximalDisplacement is not value:
+        if self._resultMaximalDisplacement != value:
             self._resultMaximalDisplacement = value
             self.resultMaximalDisplacementChanged.emit()
 
@@ -770,15 +640,9 @@ class SmartSliceCloudProxy(QObject):
 
     @materialName.setter
     def materialName(self, value):
-        Logger.log("w", "TODO"); return
-        if self.connector.status is SmartSliceCloudStatus.BusyValidating:
-            self._propertyChanged = SmartSlicePropertyEnum.Material
-            self._changedMaterial = value
-            self.connector.confirmPendingChanges()
-        elif self._materialName is not value:
-            self._materialName = value
-            self.materialNameChanged.emit()
-            self.connector.prepareValidation()
+        Logger.log("w", "TODO")
+        self._materialName = value
+        self.materialNameChanged.emit()
 
     materialLengthChanged = pyqtSignal()
 
@@ -840,9 +704,9 @@ class SmartSliceCloudProxy(QObject):
 
     def updateColorSafetyFactor(self):
         #  Update Safety Factor Color
-        if self._resultSafetyFactor > self.reqsSafetyFactor:
+        if self._resultSafetyFactor > self.targetSafetyFactor:
             self.safetyFactorColor = SmartSlicePropertyColor.WarningColor
-        elif self._resultSafetyFactor < self.reqsSafetyFactor:
+        elif self._resultSafetyFactor < self.targetSafetyFactor:
             self.safetyFactorColor = SmartSlicePropertyColor.ErrorColor
         else:
             self.safetyFactorColor = SmartSlicePropertyColor.SuccessColor
@@ -854,9 +718,9 @@ class SmartSliceCloudProxy(QObject):
 
     def updateColorMaxDisplacement(self):
         #  Update Maximal Displacement Color
-        if self._resultMaximalDisplacement < self.reqsMaxDeflect:
+        if self._resultMaximalDisplacement < self.targetMaximalDisplacement:
             self.maxDisplaceColor = SmartSlicePropertyColor.WarningColor
-        elif self._resultMaximalDisplacement > self.reqsMaxDeflect:
+        elif self._resultMaximalDisplacement > self.targetMaximalDisplacement:
             self.maxDisplaceColor = SmartSlicePropertyColor.ErrorColor
         else:
             self.maxDisplaceColor = SmartSlicePropertyColor.SuccessColor

@@ -282,12 +282,12 @@ Item {
 
                                         Connections {
                                             target: SmartSlice.Cloud
-                                            onTargetFactorOfSafetyChanged: {
-                                                labelTargetSafetyFactor.text = parseFloat(Math.round(SmartSlice.Cloud.targetFactorOfSafety * 1000) / 1000).toFixed(3)
+                                            onTargetSafetyFactorChanged: {
+                                                labelTargetSafetyFactor.text = parseFloat(Math.round(SmartSlice.Cloud.targetSafetyFactor * 1000) / 1000).toFixed(3)
                                             }
                                         }
 
-                                        text: parseFloat(Math.round(SmartSlice.Cloud.targetFactorOfSafety * 1000) / 1000).toFixed(3)
+                                        text: parseFloat(Math.round(SmartSlice.Cloud.targetSafetyFactor * 1000) / 1000).toFixed(3)
                                     }
                                     Label {
                                         id: labelTargetMaximalDisplacement
