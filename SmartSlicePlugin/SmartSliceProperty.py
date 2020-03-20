@@ -1,11 +1,12 @@
-from typing import List
+from typing import List, Optional
 from enum import Enum
 
 from UM.Settings.SettingInstance import InstanceState
 
 from cura.CuraApplication import CuraApplication
+from cura.Scene.CuraSceneNode import CuraSceneNode
 
-from . utils import getPrintableNodes
+from . utils import getPrintableNodes, getModifierMeshes
 
 class SmartSlicePropertyEnum(Enum):
     # Mesh Properties
@@ -208,3 +209,29 @@ class Scene(TrackedProperty):
         return \
             scale != self._print_node_scale or \
             ori != self._print_node_ori
+
+class ModifierMesh(TrackedProperty):
+    def __init__(self):
+        self._node = None
+
+    def value(self):
+        nodes = getModifierMeshes()
+        for n in nodes:
+            if n.getName() == "SmartSliceMeshModifier.stl":
+                return n
+        return None
+
+    def cache(self):
+        self._node = self.value()
+
+    def restore(self):
+        if self._node:
+            #self._node.setPosition(position, SceneNode.TransformSpace.World)
+            scene_root = CuraApplication.getInstance().getController().getScene().getRoot()
+            scene_root.addChild(self._node)
+
+    def changed(self) -> bool:
+        return not (self._node is self.value())
+
+    def getNode(self) -> Optional[CuraSceneNode]:
+        return self._node

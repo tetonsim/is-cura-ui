@@ -36,23 +36,37 @@ def makeInteractiveMesh(mesh_data : MeshData) -> 'pywim.geom.tri.Mesh':
 
     return int_mesh
 
-def getPrintableNodes():
+def getNodes(func):
     scene = CuraApplication.getInstance().getController().getScene()
     root = scene.getRoot()
 
-    printable_nodes = []
+    nodes = []
 
     for node in DepthFirstIterator(root):
         isSliceable = node.callDecoration("isSliceable")
         isPrinting = not node.callDecoration("isNonPrintingMesh")
         isSupport = False
+        isInfillMesh = False
 
         stack = node.callDecoration("getStack")
 
         if stack:
             isSupport = stack.getProperty("support_mesh", "value")
+            isInfillMesh = stack.getProperty("infill_mesh", "value")
 
-        if isSliceable and isPrinting and not isSupport:
-            printable_nodes.append(node)
+        if func(isSliceable, isPrinting, isSupport, isInfillMesh):
+            nodes.append(node)
 
-    return printable_nodes
+    return nodes
+
+def getPrintableNodes():
+    return getNodes(
+        lambda isSliceable, isPrinting, isSupport, isInfillMesh: \
+            isSliceable and isPrinting and not isSupport and not isInfillMesh
+    )
+
+def getModifierMeshes():
+    return getNodes(
+        lambda isSliceable, isPrinting, isSupport, isInfillMesh: \
+            isSliceable and not isPrinting and not isSupport and isInfillMesh
+    )

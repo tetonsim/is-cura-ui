@@ -50,6 +50,8 @@ from .SmartSliceCloudProxy import SmartSliceCloudProxy
 from .SmartSliceProperty import SmartSlicePropertyEnum
 from .SmartSlicePropertyHandler import SmartSlicePropertyHandler
 
+from .utils import getPrintableNodes
+
 i18n_catalog = i18nCatalog("smartslice")
 
 # #  Formatter class that handles token expansion in start/end gcode
@@ -207,7 +209,7 @@ class SmartSliceCloudJob(Job):
         Logger.log("d", "Saving temporary (and custom!) 3MF file at: {}".format(filepath))
 
         # Checking whether count of models == 1
-        mesh_nodes = self.connector.getSliceableNodes()
+        mesh_nodes = getPrintableNodes()
         if len(mesh_nodes) is not 1:
             Logger.log("d", "Found {} meshes!".format(["no", "too many"][len(mesh_nodes) > 1]))
             return None
@@ -340,7 +342,7 @@ class SmartSliceCloudJob(Job):
 
     def _process_analysis_result(self, analysis : pywim.smartslice.result.Analysis, optimized : bool):
         # TODO: We need a per node solution here as soon as we want to analysis multiple models.
-        our_only_node =  self.connector.getSliceableNodes()[0]
+        our_only_node =  getPrintableNodes()[0]
 
         active_extruder = self.connector.getNodeActiveExtruder(our_only_node)
 
@@ -915,25 +917,12 @@ class SmartSliceCloudConnector(QObject):
             self.token = ""
             return False
 
-    def getSliceableNodes(self):
-        scene_node = Application.getInstance().getController().getScene().getRoot()
-        sliceable_nodes = []
-
-        for node in DepthFirstIterator(scene_node):
-            if node.callDecoration("isSliceable"):
-                sliceable_nodes.append(node)
-
-        return sliceable_nodes
-
     def _onApplicationActivityChanged(self):
-        sliceable_nodes_count = len(self.getSliceableNodes())
-        for node in self.getSliceableNodes():
-            if node.getName() == "SmartSliceMeshModifier":
-                sliceable_nodes_count -= 1
+        printable_nodes_count = len(getPrintableNodes())
 
         #  If no model is reported...
         #   This needs to be reported *first*
-        if sliceable_nodes_count != 1:
+        if printable_nodes_count != 1:
             self.status = SmartSliceCloudStatus.NoModel
 
         #  Check for Anchors and Loads
@@ -944,7 +933,7 @@ class SmartSliceCloudConnector(QObject):
 
         #  If it is ready to Verify
         elif (self.status is SmartSliceCloudStatus.NoConditions) or (self.status is SmartSliceCloudStatus.NoModel):
-            if sliceable_nodes_count == 1:
+            if printable_nodes_count == 1:
                 self.status = SmartSliceCloudStatus.ReadyToVerify
         #  If it is NOT ready to Verify
         else:
@@ -979,8 +968,8 @@ class SmartSliceCloudConnector(QObject):
     def doVerfication(self):
         #  Check if model has an existing modifier mesh
         #    and ask user if they would like to proceed if so
-        if self.propertyHandler.hasModMesh:
-            self.propertyHandler.confirmOptimizeModMesh()
+        if self.propertyHandler.hasModMesh():
+            self.propertyHandler.askToRemoveModMesh()
         else:
             self.propertyHandler._cancelChanges = False
             self._current_job += 1

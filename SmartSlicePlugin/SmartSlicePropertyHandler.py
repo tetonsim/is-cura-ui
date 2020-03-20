@@ -23,6 +23,7 @@ from cura.CuraApplication import CuraApplication
 from .SmartSliceCloudProxy import SmartSliceCloudStatus
 from .SmartSliceProperty import SmartSlicePropertyEnum, SmartSliceContainerProperties
 from .select_tool.SmartSliceSelectHandle import SelectionMode
+from .utils import getModifierMeshes
 
 from . import SmartSliceProperty
 
@@ -58,13 +59,15 @@ class SmartSlicePropertyHandler(QObject):
         self._extruder_properties = SmartSliceProperty.ExtruderProperty.CreateAll()
         self._selected_material = SmartSliceProperty.SelectedMaterial()
         self._scene = SmartSliceProperty.Scene()
+        self._modifier_mesh = SmartSliceProperty.ModifierMesh()
 
         self._properties = \
             self._global_properties + \
             self._extruder_properties + \
             [
                 self._selected_material,
-                self._scene
+                self._scene,
+                self._modifier_mesh
             ]
 
         #  Mesh Properties
@@ -87,9 +90,9 @@ class SmartSlicePropertyHandler(QObject):
         self._activeMachineManager = CuraApplication.getInstance().getMachineManager()
         self._globalStack = self._activeMachineManager.activeMachine
 
-        self._globalStack.propertyChanged.connect(self._onGlobalPropertyChanged)            #  Global
-        self._activeMachineManager.activeMaterialChanged.connect(self._onMaterialChanged)   #  Material
-        self._sceneRoot.childrenChanged.connect(self._onSceneChanged)                       #  Mesh Data
+        self._globalStack.propertyChanged.connect(self._onGlobalPropertyChanged)
+        self._activeMachineManager.activeMaterialChanged.connect(self._onMaterialChanged)
+        self._sceneRoot.childrenChanged.connect(self._onSceneChanged)
 
         #  Check that a printer has been set-up by the wizard.
         #  TODO:  Add a signal listener for when Machine is added
@@ -101,7 +104,6 @@ class SmartSlicePropertyHandler(QObject):
 
         #  Temporary Cache
         self._cachedModMesh = None
-        self.hasModMesh = False
         self._positionModMesh = None
         self._addProperties = True
 
@@ -110,6 +112,9 @@ class SmartSlicePropertyHandler(QObject):
         #  Attune to Scale/Rotate Operations
         Application.getInstance().getController().getTool("ScaleTool").operationStopped.connect(self.onMeshScaleChanged)
         Application.getInstance().getController().getTool("RotateTool").operationStopped.connect(self.onMeshRotationChanged)
+
+    def hasModMesh(self) -> bool:
+        return self._modifier_mesh.value() is not None
 
     def cacheChanges(self):
         #self.cacheSmartSlice()
@@ -236,98 +241,42 @@ class SmartSlicePropertyHandler(QObject):
             if p.name == key:
                 return p.value()
 
-    """
-        This raises a prompt which tells the user that their modifier mesh will be removed
-         for Smart Slice part optimization.
-
-        * On Cancel: Cancels the user's most recent action and leaves Modifier Mesh in scene
-        * On Confirm: Removes the modifier mesh and proceeds with Optimization run
-    """
-    def confirmOptimizeModMesh(self):
-        msg = Message(title="",
-                      text="Modifier meshes will be removed for the validation.\nDo you want to Continue?",
-                      #text="Modifier meshes will be removed for the optimization.\nDo you want to Continue?",
-                      lifetime=0
-                      )
-        msg.addAction("cancelModMesh",
-                      i18n_catalog.i18nc("@action",
-                                         "Cancel"
-                                         ),
-                      "",   # Icon
-                      "",   # Description
-                      button_style=Message.ActionButtonStyle.SECONDARY
-                      )
-        msg.addAction("continueModMesh",
-                      i18n_catalog.i18nc("@action",
-                                         "Continue"
-                                         ),
-                      "",   # Icon
-                      ""    # Description
-                      )
+    def askToRemoveModMesh(self):
+        msg = Message(
+            title="",
+            text="Modifier meshes will be removed for the validation.\nDo you want to Continue?",
+            lifetime=0
+        )
+        msg.addAction(
+            "cancel",
+            i18n_catalog.i18nc("@action", "Cancel"),
+            "", "",
+            button_style=Message.ActionButtonStyle.SECONDARY
+        )
+        msg.addAction(
+            "continue",
+            i18n_catalog.i18nc("@action", "Continue"),
+            "", ""
+        )
         msg.actionTriggered.connect(self.removeModMeshes)
         msg.show()
 
-    """
-      confirmRemoveModMesh()
-        This raises a prompt which tells the user that the current modifier mesh will
-         be removed if they would like to proceed with their most recent action.
-
-        * On Cancel: Cancels their most recent action and reverts any affected settings
-        * On Confirm: Removes the Modifier Mesh and proceeds with the desired action
-    """
-    def confirmRemoveModMesh(self):
-        self.connector.hideMessage()
-        index = len(self.connector._confirmDialog)
-        self.connector._confirmDialog.append(Message(title="",
-                                                     text="Continue and remove Smart Slice Modifier Mesh?",
-                                                     lifetime=0
-                                                     )
-                                            )
-        dialog = self.connector._confirmDialog[index]
-        dialog.addAction("cancelModMesh",       #  action_id
-                         i18n_catalog.i18nc("@action",
-                                             "Cancel"
-                                            ),
-                         "",
-                         "",
-                         button_style=Message.ActionButtonStyle.SECONDARY
-                         )
-        dialog.addAction("continueModMesh",       #  action_id
-                         i18n_catalog.i18nc("@action",
-                                            "Continue"
-                                            ),
-                         "",
-                         ""
-                         )
-        dialog.actionTriggered.connect(self.removeModMeshes)
-        if index == 0:
-            dialog.show()
-
-    """
-      removeModMeshes(msg, action)
-        Associated Action for 'confirmOptimizeModMesh()' and 'confirmRemoveModMesh()'
-    """
     def removeModMeshes(self, msg, action):
+        """ Associated Action for askToRemoveModMesh() """
         msg.hide()
-        if action == "continueModMesh":
-            self._cachedModMesh = None
-            self.hasModMesh = False
-            for node in self._sceneRoot.getAllChildren():
-                stack = node.callDecoration("getStack")
-                if stack is None:
-                    continue
-                if stack.getProperty("infill_mesh", "value"):
-                    op = GroupedOperation()
-                    op.addOperation(RemoveSceneNodeOperation(node))
-                    op.push()
-            #if self.connector.status is SmartSliceCloudStatus.Optimizable:
-            #    self.connector.doOptimization()
+        if action == "continue":
+            op = GroupedOperation()
+            for node in getModifierMeshes():
+                op.addOperation(RemoveSceneNodeOperation(node))
+            op.push()
             if self.connector.status is SmartSliceCloudStatus.ReadyToVerify:
                 self.connector.doVerfication()
             else:
                 self.connector.prepareValidation()
         else:
-            self.connector.onConfirmationCancelClicked()
+            pass
+            # TODO - I don't think this function exists. Anything to do here?
+            #self.connector.onConfirmationCancelClicked()
 
     def onMeshScaleChanged(self, unused):
         self.confirmPendingChanges( [self._scene] )
@@ -472,51 +421,8 @@ class SmartSlicePropertyHandler(QObject):
     def _onMaterialChanged(self):
         self.confirmPendingChanges( [self._selected_material] )
 
-    """
-        When the root scene is changed, this signal is used to ensure that all
-         settings regarding the model are cached and correct.
-
-        Affected Settings:
-          * Scale
-          * Rotation
-          * Modifier Meshes
-    """
     def _onSceneChanged(self, changed_node):
-        self.confirmPendingChanges( [self._scene] )
-
-        return
-
-        Logger.log("w", "TODO!"); return
-
-        i = 0
-        _root = self._sceneRoot
-        self.hasModMesh = False
-
-        #  Loaded Model immediately follows the node named "3d" in Root Scene
-        for node in _root.getAllChildren():
-            if node.getName() == "3d":
-                if (self._sceneNode is None) or (self._sceneNode.getName() != _root.getAllChildren()[i+1].getName()):
-                    self._sceneNode = _root.getAllChildren()[i+1]
-                    Logger.log ("d", "Model File Found:  " + self._sceneNode.getName())
-
-                    #  Set Initial Scale/Rotation
-                    self.meshScale    = self._sceneNode.getScale()
-                    self.meshRotation = self._sceneNode.getOrientation()
-                    i += 1
-            if node.getName() == "SmartSliceMeshModifier":
-                self._cachedModMesh = node
-                self._positionModMesh = self._cachedModMesh.getWorldPosition()
-                self.hasModMesh = True
-            i += 1
-
-        #  Check if Modifier Mesh has been Removed
-        if self._cachedModMesh:
-            if not self.hasModMesh:
-                self._propertiesChanged.append(SmartSlicePropertyEnum.ModifierMesh)
-                self._changedValues.append(self._cachedModMesh)
-                self._changedValues.append(self._positionModMesh)
-                self.confirmRemoveModMesh()
-
+        self.confirmPendingChanges( [self._scene, self._modifier_mesh] )
 
     def confirmPendingChanges(self, props = None): # TODO remove the default None after cleanup is finished
         if not props:
