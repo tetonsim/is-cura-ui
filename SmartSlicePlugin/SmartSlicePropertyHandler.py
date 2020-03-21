@@ -21,7 +21,7 @@ from UM.Operations.GroupedOperation import GroupedOperation
 from cura.CuraApplication import CuraApplication
 
 from .SmartSliceCloudProxy import SmartSliceCloudStatus
-from .SmartSliceProperty import SmartSlicePropertyEnum, SmartSliceContainerProperties
+from .SmartSliceProperty import SmartSlicePropertyEnum
 from .select_tool.SmartSliceSelectHandle import SelectionMode
 from .requirements_tool.SmartSliceRequirements import SmartSliceRequirements
 from .utils import getModifierMeshes
@@ -51,10 +51,6 @@ class SmartSlicePropertyHandler(QObject):
         #  General Purpose Cache Space
         self._propertiesChanged  = []
         self._changedValues      = []
-        self._global_cache = {}
-        self._extruder_cache = {}
-        #  General Purpose properties which affect Smart Slice
-        self._container_properties = SmartSliceContainerProperties()
 
         controller = Application.getInstance().getController()
 
@@ -83,14 +79,7 @@ class SmartSlicePropertyHandler(QObject):
 
         req_tool.toolPropertyChanged.connect(self._onRequirementToolPropertyChanged)
 
-        #  Mesh Properties
-        self.meshScale = None
-        self.meshRotation = None
-        #  Scene (for mesh/transform signals)
-        self._sceneNode = None
-        self._sceneRoot = controller.getScene().getRoot()
-
-        #  Selection Proeprties
+        #  Selection Properties
         self._selection_mode = 1 # Default to AnchorMode
         self._anchoredID = None
         self._anchoredNode = None
@@ -99,30 +88,21 @@ class SmartSlicePropertyHandler(QObject):
         self._loadedNode = None
         self._loadedTris = None
 
-        #  Cura Setup
         self._activeMachineManager = CuraApplication.getInstance().getMachineManager()
-        self._globalStack = self._activeMachineManager.activeMachine
-
-        self._globalStack.propertyChanged.connect(self._onGlobalPropertyChanged)
+        self._activeMachineManager.activeMachine.propertyChanged.connect(self._onGlobalPropertyChanged)
         self._activeMachineManager.activeMaterialChanged.connect(self._onMaterialChanged)
-        self._sceneRoot.childrenChanged.connect(self._onSceneChanged)
 
         #  Check that a printer has been set-up by the wizard.
         #  TODO:  Add a signal listener for when Machine is added
-        if self._globalStack is not None:
+        if self._activeMachineManager.activeMachine is not None:
             self._onMachineChanged()
 
-        #  Cancellation Variable
         self._cancelChanges = False
-
-        #  Temporary Cache
-        self._cachedModMesh = None
-        self._positionModMesh = None
         self._addProperties = True
-
         self._confirmDialog = None
 
-        #  Attune to Scale/Rotate Operations
+        #  Attune to scene changes and mesh changes
+        controller.getScene().getRoot().childrenChanged.connect(self._onSceneChanged)
         controller.getTool("ScaleTool").operationStopped.connect(self._onMeshScaleChanged)
         controller.getTool("RotateTool").operationStopped.connect(self._onMeshRotationChanged)
 
@@ -141,13 +121,7 @@ class SmartSlicePropertyHandler(QObject):
     def cacheSmartSlice(self):
         i = 0
         for prop in self._propertiesChanged:
-            if prop is SmartSlicePropertyEnum.MaxDisplacement:
-                self.proxy.reqsMaxDeflect = self.proxy._bufferDeflect
-                self.proxy.setMaximalDisplacement()
-            elif prop is SmartSlicePropertyEnum.FactorOfSafety:
-                self.proxy.reqsSafetyFactor = self.proxy._bufferSafety
-                self.proxy.setFactorOfSafety()
-            elif prop is SmartSlicePropertyEnum.LoadDirection:
+            if prop is SmartSlicePropertyEnum.LoadDirection:
                 self.proxy.reqsLoadDirection = self._changedValues[i]
                 self.proxy.setLoadDirection()
             elif prop is SmartSlicePropertyEnum.LoadMagnitude:
@@ -188,43 +162,6 @@ class SmartSlicePropertyHandler(QObject):
         self._addProperties = False
         self._activeMachineManager.forceUpdateAllSettings()
         self._addProperties = True
-
-        return
-
-        #  Restore/Clear SmartSlice Property Changes
-        _props = 0
-        for prop in self._propertiesChanged:
-            Logger.log ("d", "Property Found: " + str(prop))
-            _props += 1
-            if prop is SmartSlicePropertyEnum.MaxDisplacement:
-                self.proxy.setMaximalDisplacement()
-            elif prop is SmartSlicePropertyEnum.FactorOfSafety:
-                self.proxy.setFactorOfSafety()
-            elif prop is SmartSlicePropertyEnum.LoadDirection:
-                self.proxy.setLoadDirection()
-            elif prop is SmartSlicePropertyEnum.LoadMagnitude:
-                self.proxy.setLoadMagnitude()
-
-            #  Face Selection
-            elif prop is SmartSlicePropertyEnum.SelectedFace:
-                self.selectedFacesChanged.emit()
-
-            #  Material
-            elif prop is SmartSlicePropertyEnum.Material:
-                self._activeExtruder.material = self._material
-
-            #  Mesh Properties
-            elif prop is SmartSlicePropertyEnum.MeshScale:
-                self.setMeshScale()
-            elif prop is SmartSlicePropertyEnum.MeshRotation:
-                self.setMeshRotation()
-            elif prop is SmartSlicePropertyEnum.ModifierMesh:
-                self._cachedModMesh.setPosition(self._positionModMesh, SceneNode.TransformSpace.World)
-                self._sceneRoot.addChild(self._cachedModMesh)
-                self._changedValues.pop(_props)
-
-                Application.getInstance().getController().getScene().sceneChanged.emit(self._cachedModMesh)
-
 
     def getGlobalProperty(self, key):
         for p in self._global_properties:
@@ -418,14 +355,10 @@ class SmartSlicePropertyHandler(QObject):
             list(filter(lambda p: p.name == key, self._extruder_properties))
         )
 
-
-    #  Configure Extruder/Machine Settings for Smart Slice
     def _onMachineChanged(self):
-        self._activeExtruder = self._globalStack.extruderList[0]
-
-        self._material = self._activeMachineManager._global_container_stack.extruderList[0].material
-
+        self._activeExtruder = self._activeMachineManager.activeMachine.extruderList[0]
         self._activeExtruder.propertyChanged.connect(self._onExtruderPropertyChanged)
+        self._material = self._activeExtruder.material
 
     def _onMaterialChanged(self):
         self.confirmPendingChanges(self._selected_material)
