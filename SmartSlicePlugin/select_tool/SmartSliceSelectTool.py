@@ -84,8 +84,14 @@ class SmartSliceSelectTool(Tool):
 
     @loadMagnitude.setter
     def loadMagnitude(self, value : float):
-        self.force.magnitude = float(value)
+        fvalue = float(value)
+        if self.force.pull == fvalue:
+            return
+        self.force.magnitude = fvalue
+
         Logger.log("d", "Load magnitude changed, new force vector: {}".format(self.force.loadVector()))
+
+        self.propertyChanged.emit()
         self.toolPropertyChanged.emit("LoadMagnitude")
 
     @pyqtProperty(bool)
@@ -94,9 +100,14 @@ class SmartSliceSelectTool(Tool):
 
     @loadDirection.setter
     def loadDirection(self, value : bool):
+        if self.force.pull == value:
+            return
         self.force.pull = bool(value)
         self._handle.drawSelection()
+
         Logger.log("d", "Load direction changed, new force vector: {}".format(self.force.loadVector()))
+
+        self.propertyChanged.emit()
         self.toolPropertyChanged.emit("LoadDirection")
 
     # These additional getters/setters are necessary to work with setting properties
