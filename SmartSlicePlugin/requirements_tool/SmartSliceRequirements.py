@@ -37,12 +37,6 @@ class SmartSliceRequirements(Tool):
         self._targetSafetyFactor = float(value)
         self.toolPropertyChanged.emit("TargetSafetyFactor")
 
-    def getTargetSafetyFactor(self) -> float:
-        return self.targetSafetyFactor
-
-    def setTargetSafetyFactor(self, value : float):
-        self.targetSafetyFactor = value
-
     @pyqtProperty(float)
     def maxDisplacement(self):
         return self._maxDisplacement
@@ -51,6 +45,14 @@ class SmartSliceRequirements(Tool):
     def maxDisplacement(self, value : float):
         self._maxDisplacement = float(value)
         self.toolPropertyChanged.emit("MaxDisplacement")
+
+    # These additional getters/setters are necessary to work with setting properties
+    # from QML via the UM.ActiveToolProxy
+    def getTargetSafetyFactor(self) -> float:
+        return self.targetSafetyFactor
+
+    def setTargetSafetyFactor(self, value : float):
+        self.targetSafetyFactor = value
 
     def getMaxDisplacement(self) -> float:
         return self.maxDisplacement

@@ -51,6 +51,7 @@ from .SmartSliceProperty import SmartSlicePropertyEnum
 from .SmartSlicePropertyHandler import SmartSlicePropertyHandler
 
 from .requirements_tool.SmartSliceRequirements import SmartSliceRequirements
+from .select_tool.SmartSliceSelectTool import SmartSliceSelectTool
 
 from .utils import getPrintableNodes
 
@@ -465,29 +466,6 @@ class SmartSliceCloudOptimizeJob(SmartSliceCloudVerificationJob):
 
         self.job_type = pywim.smartslice.job.JobType.optimization
 
-
-
-class Force: # TODO - Move this or replace
-    def __init__(self, normal : Vector = None, magnitude : float = 0.0, pull : bool = True):
-        self.normal = normal if normal else Vector(1.0, 0.0, 0.0)
-        self.magnitude = magnitude
-        self.pull = pull
-
-    def loadVector(self, rotation : Matrix = None) -> Vector:
-        scale = self.magnitude if self.pull else -self.magnitude
-
-        v = Vector(
-            self.normal.x * scale,
-            self.normal.y * scale,
-            self.normal.z * scale,
-        )
-
-        if rotation:
-            vT = numpy.dot(rotation.getData(), v.getData())
-            return Vector(vT[0], vT[1], vT[2])
-
-        return v
-
 class SmartSliceCloudConnector(QObject):
     http_protocol_preference = "smartslice/http_protocol"
     http_hostname_preference = "smartslice/http_hostname"
@@ -520,9 +498,6 @@ class SmartSliceCloudConnector(QObject):
         self._proxy.sliceButtonClicked.connect(self.onSliceButtonClicked)
         self._proxy.secondaryButtonClicked.connect(self.onSecondaryButtonClicked)
 
-        self._proxy.loadMagnitudeChanged.connect(self._updateForce0Magnitude)
-        #self._proxy.loadDirectionChanged.connect(self._updateForce0Direction)
-
         # Application stuff
         self.app_preferences = Application.getInstance().getPreferences()
         self.app_preferences.addPreference(self.http_protocol_preference, "https")
@@ -549,7 +524,6 @@ class SmartSliceCloudConnector(QObject):
         self._poc_default_infill_direction = 45
         self.resetAnchor0FacesPoc()
         self.resetForce0FacesPoc()
-        self.resetForce0VectorPoc()
 
         Application.getInstance().engineCreatedSignal.connect(self._onEngineCreated)
 
@@ -993,7 +967,7 @@ class SmartSliceCloudConnector(QObject):
 
         applied_load_vec = self.getForce0VectorPoc(mesh_rotation)
 
-        Logger.log("d", "cloud_connector.getForce0VectorPoc(): {}".format(applied_load_vec))
+        Logger.log("d", "Applied Load Vector: {}".format(applied_load_vec))
 
         # Create an applied force
         force1 = pywim.chop.model.Force(name='force1')
@@ -1107,26 +1081,9 @@ class SmartSliceCloudConnector(QObject):
 
         return True
 
-    def _updateForce0Magnitude(self):
-        self._poc_force.magnitude = self._proxy.loadMagnitude
-        Logger.log("d", "Load magnitude changed, new force vector: {}".format(self._poc_force.loadVector()))
-
-    def _updateForce0Direction(self):
-        self._poc_force.pull = self._proxy.loadDirection
-        Logger.log("d", "Load direction changed, new force vector: {}".format(self._poc_force.loadVector()))
-
-    def updateForce0Vector(self, normal : Vector):
-        self._poc_force.normal = normal
-        Logger.log("d", "Load normal changed, new force vector: {}".format(self._poc_force.loadVector()))
-
-    def resetForce0VectorPoc(self):
-        self._poc_force = Force(
-            magnitude=self._proxy.reqsLoadMagnitude,
-            pull=self._proxy.reqsLoadDirection
-        )
-
     def getForce0VectorPoc(self, rotation : Matrix = None):
-        vec = self._poc_force.loadVector(rotation=rotation)
+        force = SmartSliceSelectTool.getInstance().force
+        vec = force.loadVector(rotation=rotation)
         return [
             float(vec.x),
             float(vec.y),

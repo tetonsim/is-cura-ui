@@ -1,9 +1,15 @@
-#  Ultimaker Imports
+import numpy
+
+from PyQt5.QtCore import pyqtProperty
+
 from UM.i18n import i18nCatalog
 
 from UM.Application import Application
 from UM.Version import Version
 from UM.Logger import Logger
+from UM.Math.Vector import Vector
+from UM.Math.Matrix import Matrix
+from UM.Signal import Signal
 from UM.Tool import Tool
 
 from UM.View.GL.OpenGL import OpenGL
@@ -12,25 +18,45 @@ from UM.Scene.SceneNode import SceneNode
 
 #  Local Imports
 from ..utils import makeInteractiveMesh
-from ..SmartSliceExtension import SmartSliceExtension
 from .SmartSliceSelectHandle import SelectionMode
 from .SmartSliceSelectHandle import SmartSliceSelectHandle
 
 i18n_catalog = i18nCatalog("smartslice")
 
-##  Provides the tool to rotate meshes and groups
-#
-#   The tool exposes a ToolHint to show the rotation angle of the current operation
+class Force:
+    def __init__(self, normal : Vector = None, magnitude : float = 0.0, pull : bool = True):
+        self.normal = normal if normal else Vector(1.0, 0.0, 0.0)
+        self.magnitude = magnitude
+        self.pull = pull
+
+    def loadVector(self, rotation : Matrix = None) -> Vector:
+        scale = self.magnitude if self.pull else -self.magnitude
+
+        v = Vector(
+            self.normal.x * scale,
+            self.normal.y * scale,
+            self.normal.z * scale,
+        )
+
+        if rotation:
+            vT = numpy.dot(rotation.getData(), v.getData())
+            return Vector(vT[0], vT[1], vT[2])
+
+        return v
+
 class SmartSliceSelectTool(Tool):
-    def __init__(self, extension : SmartSliceExtension):
+    def __init__(self, extension : 'SmartSliceExtension'):
         super().__init__()
         self.extension = extension
-        self._handle = SmartSliceSelectHandle(self.extension)
+        self._handle = SmartSliceSelectHandle(self.extension, self)
 
-        self.setExposedProperties("AnchorSelectionActive",
-                                  "LoadSelectionActive",
-                                  "SelectionMode",
-                                  )
+        self.setExposedProperties(
+            "AnchorSelectionActive",
+            "LoadSelectionActive",
+            "SelectionMode",
+            "LoadMagnitude",
+            "LoadDirection"
+        )
 
         Selection.selectedFaceChanged.connect(self._onSelectedFaceChanged)
 
@@ -40,7 +66,52 @@ class SmartSliceSelectTool(Tool):
         self._load_face = None
         self._anchor_face = None
 
+        self.force = Force(magnitude=10.)
+
         self._controller.activeToolChanged.connect(self._onActiveStateChanged)
+
+    toolPropertyChanged = Signal()
+
+    @staticmethod
+    def getInstance():
+        return Application.getInstance().getController().getTool(
+            "SmartSlicePlugin_SelectTool"
+        )
+
+    @pyqtProperty(float)
+    def loadMagnitude(self):
+        return self.force.magnitude
+
+    @loadMagnitude.setter
+    def loadMagnitude(self, value : float):
+        self.force.magnitude = float(value)
+        Logger.log("d", "Load magnitude changed, new force vector: {}".format(self.force.loadVector()))
+        self.toolPropertyChanged.emit("LoadMagnitude")
+
+    @pyqtProperty(bool)
+    def loadDirection(self):
+        return self.force.pull
+
+    @loadDirection.setter
+    def loadDirection(self, value : bool):
+        self.force.pull = bool(value)
+        self._handle.drawSelection()
+        Logger.log("d", "Load direction changed, new force vector: {}".format(self.force.loadVector()))
+        self.toolPropertyChanged.emit("LoadDirection")
+
+    # These additional getters/setters are necessary to work with setting properties
+    # from QML via the UM.ActiveToolProxy
+    def getLoadMagnitude(self) -> float:
+        return self.loadMagnitude
+
+    def setLoadMagnitude(self, value : float):
+        self.loadMagnitude = value
+
+    def getLoadDirection(self) -> bool:
+        return self.loadDirection
+
+    def setLoadDirection(self, value : bool):
+        self.loadDirection = value
 
     def _calculateMesh(self):
         scene = Application.getInstance().getController().getScene()
@@ -87,7 +158,14 @@ class SmartSliceSelectTool(Tool):
 
         self._handle._connector.propertyHandler.onSelectedFaceChanged(scene_node, face_id)
 
-        #self.setFaceVisible(scene_node, face_id)
+        loadedTris = self._handle._connector.propertyHandler._loadedTris
+        if self.getLoadSelectionActive() and loadedTris:
+            # Convert from a pywim.geom.Vector to UM.Math.Vector
+            self.force.normal = Vector(
+                loadedTris[0].normal.r,
+                loadedTris[0].normal.s,
+                loadedTris[0].normal.t
+            )
 
     def setFaceVisible(self, scene_node, face_id):
         ph = self._handle._connector.propertyHandler

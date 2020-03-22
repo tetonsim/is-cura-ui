@@ -22,6 +22,7 @@ from cura.CuraApplication import CuraApplication
 
 from .SmartSliceCloudProxy import SmartSliceCloudStatus
 from .SmartSliceProperty import SmartSlicePropertyEnum
+from .select_tool.SmartSliceSelectTool import SmartSliceSelectTool
 from .select_tool.SmartSliceSelectHandle import SelectionMode
 from .requirements_tool.SmartSliceRequirements import SmartSliceRequirements
 from .utils import getModifierMeshes
@@ -48,10 +49,6 @@ class SmartSlicePropertyHandler(QObject):
         self.connector = connector
         self.proxy = connector._proxy
 
-        #  General Purpose Cache Space
-        self._propertiesChanged  = []
-        self._changedValues      = []
-
         controller = Application.getInstance().getController()
 
         self._global_properties = SmartSliceProperty.GlobalProperty.CreateAll()
@@ -60,9 +57,16 @@ class SmartSlicePropertyHandler(QObject):
         self._scene = SmartSliceProperty.Scene()
         self._modifier_mesh = SmartSliceProperty.ModifierMesh()
 
+        sel_tool = SmartSliceSelectTool.getInstance()
+
+        self._sel_tool_properties = [
+            SmartSliceProperty.ToolProperty(sel_tool, "LoadMagnitude"),
+            SmartSliceProperty.ToolProperty(sel_tool, "LoadDirection")
+        ]
+
         req_tool = SmartSliceRequirements.getInstance()
 
-        self._tool_properties = [
+        self._req_tool_properties = [
             SmartSliceProperty.ToolProperty(req_tool, "TargetSafetyFactor"),
             SmartSliceProperty.ToolProperty(req_tool, "MaxDisplacement")
         ]
@@ -70,13 +74,15 @@ class SmartSlicePropertyHandler(QObject):
         self._properties = \
             self._global_properties + \
             self._extruder_properties + \
-            self._tool_properties + \
+            self._sel_tool_properties + \
+            self._req_tool_properties + \
             [
                 self._selected_material,
                 self._scene,
                 self._modifier_mesh
             ]
 
+        sel_tool.toolPropertyChanged.connect(self._onSelectToolPropertyChanged)
         req_tool.toolPropertyChanged.connect(self._onRequirementToolPropertyChanged)
 
         #  Selection Properties
@@ -114,22 +120,11 @@ class SmartSlicePropertyHandler(QObject):
         for p in self._properties:
             p.cache()
 
-    """
-      cacheSmartSlice()
-        Caches properties that are only used in SmartSlice Environment
-    """
     def cacheSmartSlice(self):
+        raise Exception("DELETE THIS STUPID FUNCTION AFTER CLEANUP")
         i = 0
         for prop in self._propertiesChanged:
-            if prop is SmartSlicePropertyEnum.LoadDirection:
-                self.proxy.reqsLoadDirection = self._changedValues[i]
-                self.proxy.setLoadDirection()
-            elif prop is SmartSlicePropertyEnum.LoadMagnitude:
-                self.proxy.reqsLoadMagnitude = self.proxy._bufferMagnitude
-                self.proxy.setLoadMagnitude()
-
-          #  Face Selection
-            elif prop is SmartSlicePropertyEnum.SelectedFace:
+            if prop is SmartSlicePropertyEnum.SelectedFace:
                 #  ANCHOR MODE
                 if self._selection_mode == SelectionMode.AnchorMode:
                     self._anchoredID = self._changedValues[i]
@@ -216,6 +211,11 @@ class SmartSlicePropertyHandler(QObject):
     def _onMeshRotationChanged(self, unused):
         self.confirmPendingChanges(self._scene)
 
+    def _onSelectToolPropertyChanged(self, property_name):
+        self.confirmPendingChanges(
+            list(filter(lambda p: p.name == property_name, self._sel_tool_properties))
+        )
+
     def _onRequirementToolPropertyChanged(self, property_name):
         # We handle changes in the requirements tool differently, depending on the current
         # status. We only need to ask for confirmation if the model has been optimized
@@ -223,7 +223,7 @@ class SmartSlicePropertyHandler(QObject):
             self.connector.prepareOptimization()
         else:
             self.confirmPendingChanges(
-                list(filter(lambda p: p.name == property_name, self._tool_properties)),
+                list(filter(lambda p: p.name == property_name, self._req_tool_properties)),
                 revalidationRequired=False
             )
 
@@ -241,7 +241,7 @@ class SmartSlicePropertyHandler(QObject):
     def onSelectedFaceChanged(self, scene_node, face_id):
         Logger.log("w", "TODO")#; return
 
-        select_tool = Application.getInstance().getController().getTool("SmartSlicePlugin_SelectTool")
+        select_tool = SmartSliceSelectTool.getInstance()
 
         selection_mode = select_tool.getSelectionMode()
 
@@ -293,7 +293,7 @@ class SmartSlicePropertyHandler(QObject):
         self.connector.resetAnchor0FacesPoc()
         self.connector.appendAnchor0FacesPoc(self._anchoredTris)
 
-        self._drawAnchor()
+        self._drawTriangles(self._anchoredTris)
         Logger.log ("d", "PropertyHandler Anchored Face ID:  " + str(self._anchoredID))
 
     """
@@ -309,31 +309,17 @@ class SmartSlicePropertyHandler(QObject):
 
         load_vector = self._loadedTris[0].normal
 
-        #  Set Load Normal Vector in Job
-        self.connector.resetForce0VectorPoc()
-        self.connector.updateForce0Vector(
-            Vector(load_vector.r, load_vector.s, load_vector.t)
-        )
-
         #  Set Load Force in Job
         self.connector.resetForce0FacesPoc()
         self.connector.appendForce0FacesPoc(self._loadedTris)
 
-        self._drawLoad()
+        self._drawTriangles(self._loadedTris)
         Logger.log ("d", "PropertyHandler Loaded Face ID:  " + str(self._loadedID))
 
-    def _drawLoad(self):
-        select_tool = Application.getInstance().getController().getTool("SmartSlicePlugin_SelectTool")
-        select_tool._handle.setFace(self._loadedTris)
+    def _drawTriangles(self, tris):
+        select_tool = SmartSliceSelectTool.getInstance()
+        select_tool._handle.setFace(tris)
         select_tool._handle.drawSelection()
-
-    def _drawAnchor(self):
-        select_tool = Application.getInstance().getController().getTool("SmartSlicePlugin_SelectTool")
-        select_tool._handle.setFace(self._anchoredTris)
-        select_tool._handle.drawSelection()
-
-    def continueChanges(self):
-        self.cacheChanges()
 
     def cancelChanges(self):
         Logger.log ("d", "Cancelling Change in Smart Slice Environment")
@@ -434,7 +420,7 @@ class SmartSlicePropertyHandler(QObject):
         elif action == "continue":
             self.connector.cancelCurrentJob()
             self.connector.prepareValidation() # TODO Added this - is it okay here?
-            self.continueChanges()
+            self.cacheChanges()
 
         msg.hide()
 
@@ -444,5 +430,5 @@ class SmartSlicePropertyHandler(QObject):
         elif action == "continue":
             self.connector.cancelCurrentJob()
             self.connector.prepareOptimization()
-            self.continueChanges()
+            self.cacheChanges()
         msg.hide()

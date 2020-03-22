@@ -72,7 +72,7 @@ Item {
             /*onTextChanged: {
             }*/
 
-            text: SmartSlice.Cloud.targetMaximalDisplacement
+            //text: SmartSlice.Cloud.targetMaximalDisplacement
             placeholderText: ""
             property string unit: "[mm]";
         }

@@ -67,19 +67,13 @@ class SmartSliceCloudProxy(QObject):
         self._targetMaximalDisplacement = 1.0
         self._loadsApplied = 0
         self._anchorsApplied = 0
-        self._loadMagnitude = 10.0
-        self._loadDirection = False
 
         #  QML-Python Buffer Variables
-        self._bufferMagnitude = self._loadMagnitude
-        self._bufferDeflect = self._targetMaximalDisplacement
         self._safetyFactorColor = "#000000"
         self._maxDisplaceColor = "#000000"
 
         #  Use-case & Requirements Cache
         self.reqsMaxDeflect  = self._targetMaximalDisplacement
-        self.reqsLoadMagnitude = self._loadMagnitude
-        self.reqsLoadDirection = self._loadDirection
 
         # Properties (mainly) for the sliceinfo widget
         self._resultSafetyFactor = 0.0 #copy.copy(self._targetFactorOfSafety)
@@ -365,66 +359,6 @@ class SmartSliceCloudProxy(QObject):
         if self._resultMaximalDisplacement != value:
             self._resultMaximalDisplacement = value
             self.resultMaximalDisplacementChanged.emit()
-
-
-    #   Load Direction/Magnitude
-    loadMagnitudeChanged = pyqtSignal()
-    loadDirectionChanged = pyqtSignal()
-
-    def setLoadMagnitude(self):
-        self._loadMagnitude = self.reqsLoadMagnitude
-        self.loadMagnitudeChanged.emit()
-
-    @pyqtProperty(float, notify=loadMagnitudeChanged)
-    def loadMagnitude(self):
-        return self._loadMagnitude
-
-    @loadMagnitude.setter
-    def loadMagnitude(self, value):
-        Logger.log("w", "TODO"); return
-        if value == self._loadMagnitude:
-            return
-        if self.connector.status in {SmartSliceCloudStatus.BusyValidating, SmartSliceCloudStatus.BusyOptimizing, SmartSliceCloudStatus.Optimized}:
-            self.connector.propertyHandler._propertiesChanged.append(SmartSlicePropertyEnum.LoadMagnitude)
-            self.connector.propertyHandler._changedValues.append(value)
-            self.connector.confirmPendingChanges()
-        else:
-            self.reqsLoadMagnitude = value
-            self.setLoadMagnitude()
-            self.connector.prepareValidation()
-
-    def setLoadDirection(self):
-        self._loadDirection = self.reqsLoadDirection
-        #self.loadDirectionChanged.emit()
-
-    @pyqtProperty(bool, notify=loadDirectionChanged)
-    def loadDirection(self):
-        Logger.log("d", "Load Direction has been set to " + str(self._loadDirection))
-        return self._loadDirection
-
-    @loadDirection.setter
-    def loadDirection(self, value):
-        Logger.log("w", "TODO"); return
-        if value == self.reqsLoadDirection:
-            return
-        if self.connector.status in {SmartSliceCloudStatus.BusyValidating, SmartSliceCloudStatus.BusyOptimizing, SmartSliceCloudStatus.Optimized}:
-            self.connector.propertyHandler._propertiesChanged.append(SmartSlicePropertyEnum.LoadDirection)
-            self.connector.propertyHandler._changedValues.append(value)
-            self.connector.confirmPendingChanges()
-        else:
-            self.reqsLoadDirection = value
-            self.setLoadDirection()
-
-            select_tool = Application.getInstance().getController().getTool("SmartSlicePlugin_SelectTool")
-            select_tool._handle.setFace(self.connector.propertyHandler._loadedTris)
-            select_tool._handle.drawSelection()
-
-            self.connector.propertyHandler.applyLoad()
-            self.connector.prepareValidation()
-
-    #  NOTE:  This should only be accessed by QML
-    def _applyLoad(self):
-        self.connector.propertyHandler.applyLoad()
 
     #
     #   SMART SLICE RESULTS

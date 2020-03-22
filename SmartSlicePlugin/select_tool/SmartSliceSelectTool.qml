@@ -1,16 +1,3 @@
-/*
-  dialogConstraints.qml
-  Teton Simulation
-  Authored on   October 5, 2019
-  Last Modified October 5, 2019
-*/
-
-/*
-  Contains structural definitions for Constraints UI Dialog
-*/
-
-
-//  API Imports
 import QtQuick 2.4
 import QtQuick.Controls 1.2
 import QtQuick.Layouts 1.1
@@ -21,9 +8,6 @@ import Cura 1.0 as Cura
 
 import SmartSlice 1.0  as SmartSlice
 
-/*
-  Constraints
-*/
 Item {
     id: constraintsTooltip
     //width: childrenRect.width
@@ -59,7 +43,6 @@ Item {
             selectAnchorButton.checked = true;
             selectLoadButton.checked = false;
         }
-        //checked: constraintsRoot.anchorActive
     }
 
     Button {
@@ -79,7 +62,6 @@ Item {
             selectAnchorButton.checked = false;
             selectLoadButton.checked = true;
         }
-        //checked: constraintsRoot.loadActive
     }
 
 
@@ -101,7 +83,6 @@ Item {
         border.color: UM.Theme.getColor("lining")
         radius: UM.Theme.getSize("default_radius").width
 
-        /* 'Type:' text */
         Label {
             id: labelLoadDialogType
 
@@ -136,10 +117,10 @@ Item {
             anchors.leftMargin: UM.Theme.getSize("default_margin").width
 
             text: "Flip Direction"
-            
+
             checked: SmartSlice.Cloud.loadDirection
             onCheckedChanged: {
-				SmartSlice.Cloud.loadDirection = checked;
+                UM.ActiveTool.setProperty("LoadDirection", checked);
 			}
         }
 
@@ -165,19 +146,24 @@ Item {
             anchors.left: parent.left
             anchors.leftMargin: UM.Theme.getSize("default_margin").width
 
-            onEditingFinished:
-            {
-                SmartSlice.Cloud.loadMagnitude = SmartSlice.Cloud.bufferMagnitude; // Will be converted from string to the target data type via SmartSliceVariables
-            }
-            onTextChanged:
-            { 
-                SmartSlice.Cloud.bufferMagnitude = text;
-                SmartSlice.Cloud.settingEdited = true;
+            onEditingFinished: {
+                UM.ActiveTool.setProperty("LoadMagnitude", text);
             }
 
-            text: SmartSlice.Cloud.loadMagnitude
             placeholderText: "Type in your load"
             property string unit: "[N]";
+        }
+
+        Binding {
+            target: checkboxLoadDialogFlipDirection
+            property: "checked"
+            value: UM.ActiveTool.properties.getValue("LoadDirection")
+        }
+
+        Binding {
+            target: textLoadDialogMagnitude
+            property: "text"
+            value: UM.ActiveTool.properties.getValue("LoadMagnitude")
         }
     }
 }

@@ -15,16 +15,16 @@ class SelectionMode:
     LoadMode = 2
 
 class SmartSliceSelectHandle(ToolHandle):
-#  CONSTRUCTORS
-    def __init__(self, extension, parent = None, tri = None):
-        super().__init__(parent)
+    def __init__(self, extension, tool):
+        super().__init__(parent=None)
 
         self._name = "SmartSliceSelectHandle"
+        self._tool = tool
         self._connector = extension.cloud # SmartSliceCloudConnector
         self._selected_color = Color(0, 0, 255, 255)
 
         #  Selected Face Properties
-        self._tri = tri
+        self._tri = None
 
         #   Arrow Mesh
         self._arrow = False
@@ -34,15 +34,8 @@ class SmartSliceSelectHandle(ToolHandle):
         self._arrow_head_width = 2.8
         self._arrow_tail_width = 0.8
 
-        #  Disable auto scale
+        #  Disable auto scale (see ToolHandle for details)
         self._auto_scale = False
-
-        self._connector.onSmartSlicePrepared.connect(self._onSmartSlicePrepared)
-
-    def _onSmartSlicePrepared(self):
-        #  Connect to UI 'Cancel Changes' Signal
-        self._connector.propertyHandler._selection_mode = SelectionMode.AnchorMode
-        self._connector._proxy.loadDirectionChanged.connect(self.drawSelection)
 
     # Override ToolHandle._onSelectionCenterChanged so that we can set the full transformation
     def _onSelectionCenterChanged(self) -> None:
@@ -51,21 +44,17 @@ class SmartSliceSelectHandle(ToolHandle):
             if obj:
                 self.setTransformation(obj.getLocalTransformation())
 
-#  ACCESSORS
     @property
     def face(self):
         return self._tri
 
-#  MUTATORS
     def setFace(self, f):
         self._tri = f
 
-    '''
-      drawSelection()
-
-        Uses UM's MeshBuilder to construct 3D Arrow mesh and translates/rotates as to be normal to the selected face
-    '''
     def drawSelection(self):
+        """
+        Use UM's MeshBuilder to construct 3D Arrow mesh and translates/rotates as to be normal to the selected face
+        """
         if self._tri is None:
             return
 
@@ -103,7 +92,7 @@ class SmartSliceSelectHandle(ToolHandle):
         #tri.generateNormalVector()
         n = tri.normal
         n = Vector(n.r, n.s, n.t) # pywim Vector to UM Vector
-        invert_arrow = self._connector._proxy.loadDirection
+        invert_arrow = self._tool.force.pull
         center = self.findFaceCenter(face_list)
 
         p_base0 = Vector(center.x + n.x * self._arrow_head_length,
