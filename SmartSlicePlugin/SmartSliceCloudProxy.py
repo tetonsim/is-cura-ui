@@ -61,8 +61,6 @@ class SmartSliceCloudProxy(QObject):
         # Proxy Values (DO NOT USE DIRECTLY)
         self._targetFactorOfSafety = 1.5
         self._targetMaximalDisplacement = 1.0
-        self._loadsApplied = 0
-        self._anchorsApplied = 0
 
         self._safetyFactorColor = "#000000"
         self._maxDisplaceColor = "#000000"

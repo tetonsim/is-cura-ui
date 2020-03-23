@@ -519,10 +519,7 @@ class SmartSliceCloudConnector(QObject):
         self._all_extruders_settings = None
         self.propertyHandler = None # SmartSlicePropertyHandler
 
-        # POC
         self._poc_default_infill_direction = 45
-        self.resetAnchor0FacesPoc()
-        self.resetForce0FacesPoc()
 
         Application.getInstance().engineCreatedSignal.connect(self._onEngineCreated)
 
@@ -731,15 +728,15 @@ class SmartSliceCloudConnector(QObject):
     def _onApplicationActivityChanged(self):
         printable_nodes_count = len(getPrintableNodes())
 
+        sel_tool = SmartSliceSelectTool.getInstance()
+
         #  If no model is reported...
         #   This needs to be reported *first*
         if printable_nodes_count != 1:
             self.status = SmartSliceCloudStatus.NoModel
 
         #  Check for Anchors and Loads
-        elif self._proxy._anchorsApplied == 0:
-            self.status = SmartSliceCloudStatus.NoConditions
-        elif self._proxy._loadsApplied == 0:
+        elif len(sel_tool.anchor_face.triangles) == 0 or len(sel_tool.load_face.triangles) == 0:
             self.status = SmartSliceCloudStatus.NoConditions
 
         #  If it is ready to Verify
@@ -939,10 +936,9 @@ class SmartSliceCloudConnector(QObject):
         # Create the fixed boundary conditions (anchor points)
         anchor1 = pywim.chop.model.FixedBoundaryCondition(name='anchor1')
 
-        # Add the face Ids from the STL mesh that the user selected for
-        # this anchor
+        # Add the face Ids from the STL mesh that the user selected for this anchor
         anchor1.face.extend(
-            self.getAnchor0FacesPoc()
+            SmartSliceSelectTool.getInstance().anchor_face.triangleIds()
         )
 
         step.boundary_conditions.append(anchor1)
@@ -975,7 +971,7 @@ class SmartSliceCloudConnector(QObject):
         # Add the face Ids from the STL mesh that the user selected for
         # this force
         force1.face.extend(
-            self.getForce0FacesPoc()
+            SmartSliceSelectTool.getInstance().load_face.triangleIds()
         )
 
         step.loads.append(force1)
@@ -1088,32 +1084,6 @@ class SmartSliceCloudConnector(QObject):
             float(vec.y),
             float(vec.z)
         ]
-
-    def appendForce0FacesPoc(self, face_ids):
-        for face_id in face_ids:
-            if not isinstance(face_id, int):
-                face_id = face_id.id
-            if face_id not in self._poc_force0_faces:
-                self._poc_force0_faces += (face_id, )
-
-    def resetForce0FacesPoc(self):
-        self._poc_force0_faces = ()
-
-    def getForce0FacesPoc(self):
-        return self._poc_force0_faces
-
-    def appendAnchor0FacesPoc(self, face_ids):
-        for face_id in face_ids:
-            if not isinstance(face_id, int):
-                face_id = face_id.id
-            if face_id not in self._poc_anchor0_faces:
-                self._poc_anchor0_faces += (face_id, )
-
-    def resetAnchor0FacesPoc(self):
-        self._poc_anchor0_faces = ()
-
-    def getAnchor0FacesPoc(self):
-        return self._poc_anchor0_faces
 
     ##  Check if a node has per object settings and ensure that they are set correctly in the message
     #   \param node Node to check.

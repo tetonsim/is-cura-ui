@@ -45,7 +45,6 @@ class SmartSlicePropertyHandler(QObject):
     def __init__(self, connector):
         super().__init__()
 
-        #  Callback
         self.connector = connector
         self.proxy = connector._proxy
 
@@ -64,6 +63,11 @@ class SmartSlicePropertyHandler(QObject):
             SmartSliceProperty.ToolProperty(sel_tool, "LoadDirection")
         ]
 
+        self._selected_face_properties = [
+            SmartSliceProperty.FaceSelectionProperty(sel_tool.anchor_face),
+            SmartSliceProperty.FaceSelectionProperty(sel_tool.load_face),
+        ]
+
         req_tool = SmartSliceRequirements.getInstance()
 
         self._req_tool_properties = [
@@ -76,23 +80,16 @@ class SmartSlicePropertyHandler(QObject):
             self._extruder_properties + \
             self._sel_tool_properties + \
             self._req_tool_properties + \
+            self._selected_face_properties + \
             [
                 self._selected_material,
                 self._scene,
                 self._modifier_mesh
             ]
 
+        sel_tool.selectedFaceChanged.connect(self._onSelectedFaceChanged)
         sel_tool.toolPropertyChanged.connect(self._onSelectToolPropertyChanged)
         req_tool.toolPropertyChanged.connect(self._onRequirementToolPropertyChanged)
-
-        #  Selection Properties
-        self._selection_mode = 1 # Default to AnchorMode
-        self._anchoredID = None
-        self._anchoredNode = None
-        self._anchoredTris = None
-        self._loadedID = None
-        self._loadedNode = None
-        self._loadedTris = None
 
         self._activeMachineManager = CuraApplication.getInstance().getMachineManager()
         self._activeMachineManager.activeMachine.propertyChanged.connect(self._onGlobalPropertyChanged)
@@ -109,48 +106,20 @@ class SmartSlicePropertyHandler(QObject):
 
         #  Attune to scene changes and mesh changes
         controller.getScene().getRoot().childrenChanged.connect(self._onSceneChanged)
-        controller.getTool("ScaleTool").operationStopped.connect(self._onMeshScaleChanged)
-        controller.getTool("RotateTool").operationStopped.connect(self._onMeshRotationChanged)
+        controller.getTool("ScaleTool").operationStopped.connect(self._onMeshTransformationChanged)
+        controller.getTool("RotateTool").operationStopped.connect(self._onMeshTransformationChanged)
 
     def hasModMesh(self) -> bool:
         return self._modifier_mesh.value() is not None
 
     def cacheChanges(self):
-        #self.cacheSmartSlice()
         for p in self._properties:
             p.cache()
 
-    def cacheSmartSlice(self):
-        raise Exception("DELETE THIS STUPID FUNCTION AFTER CLEANUP")
-        i = 0
-        for prop in self._propertiesChanged:
-            if prop is SmartSlicePropertyEnum.SelectedFace:
-                #  ANCHOR MODE
-                if self._selection_mode == SelectionMode.AnchorMode:
-                    self._anchoredID = self._changedValues[i]
-                    self._anchoredNode = self._changedValues[i+1]
-                    self._anchoredTris = self._changedValues[i+2]
-                    self.applyAnchor()
-                #  LOAD MODE
-                elif self._selection_mode == SelectionMode.LoadMode:
-                    self._loadedID = self._changedValues[i]
-                    self._loadedNode = self._changedValues[i+1]
-                    self._loadedTris = self._changedValues[i+2]
-                    self.applyLoad()
-
-                self._changedValues.pop(i+2)    # Adjust for Tris
-                self._changedValues.pop(i+1)    # Adjust for Node
-
-                self.selectedFacesChanged.emit()
-
-            i += 0
-        self.prepareCache()
-
-    """
-      restoreCache()
-        Restores all cached values for properties upon user cancellation
-    """
     def restoreCache(self):
+        """
+        Restores all cached values for properties upon user cancellation
+        """
         for p in self._properties:
             p.restore()
 
@@ -167,164 +136,6 @@ class SmartSlicePropertyHandler(QObject):
         for p in self._extruder_properties:
             if p.name == key:
                 return p.value()
-
-    def askToRemoveModMesh(self):
-        msg = Message(
-            title="",
-            text="Modifier meshes will be removed for the validation.\nDo you want to Continue?",
-            lifetime=0
-        )
-        msg.addAction(
-            "cancel",
-            i18n_catalog.i18nc("@action", "Cancel"),
-            "", "",
-            button_style=Message.ActionButtonStyle.SECONDARY
-        )
-        msg.addAction(
-            "continue",
-            i18n_catalog.i18nc("@action", "Continue"),
-            "", ""
-        )
-        msg.actionTriggered.connect(self.removeModMeshes)
-        msg.show()
-
-    def removeModMeshes(self, msg, action):
-        """ Associated Action for askToRemoveModMesh() """
-        msg.hide()
-        if action == "continue":
-            op = GroupedOperation()
-            for node in getModifierMeshes():
-                op.addOperation(RemoveSceneNodeOperation(node))
-            op.push()
-            if self.connector.status is SmartSliceCloudStatus.ReadyToVerify:
-                self.connector.doVerfication()
-            else:
-                self.connector.prepareValidation()
-
-    def _onMeshScaleChanged(self, unused):
-        self.confirmPendingChanges(self._scene)
-
-    def _onMeshRotationChanged(self, unused):
-        self.confirmPendingChanges(self._scene)
-
-    def _onSelectToolPropertyChanged(self, property_name):
-        self.confirmPendingChanges(
-            list(filter(lambda p: p.name == property_name, self._sel_tool_properties))
-        )
-
-    def _onRequirementToolPropertyChanged(self, property_name):
-        # We handle changes in the requirements tool differently, depending on the current
-        # status. We only need to ask for confirmation if the model has been optimized
-        if self.connector.status in { SmartSliceCloudStatus.BusyValidating, SmartSliceCloudStatus.Underdimensioned, SmartSliceCloudStatus.Overdimensioned }:
-            self.connector.prepareOptimization()
-        else:
-            self.confirmPendingChanges(
-                list(filter(lambda p: p.name == property_name, self._req_tool_properties)),
-                revalidationRequired=False
-            )
-
-        self.connector._proxy.targetSafetyFactorChanged.emit()
-        self.connector._proxy.targetMaximalDisplacementChanged.emit()
-
-    #  Signal for Interfacing with Face Selection
-    selectedFacesChanged = Signal()
-
-    """
-      onSelectedFaceChanged(node, id)
-        node:   The scene node for which the face belongs to
-        id:     Currently selected triangle's face ID
-    """
-    def onSelectedFaceChanged(self, scene_node, face_id):
-        Logger.log("w", "TODO")#; return
-
-        select_tool = SmartSliceSelectTool.getInstance()
-
-        selection_mode = select_tool.getSelectionMode()
-
-        #  Throw out "fake" selection changes
-        if Selection.getSelectedFace() is None:
-            return
-        if selection_mode is SelectionMode.AnchorMode:
-            if Selection.getSelectedFace()[1] == self._anchoredID:
-                return
-        elif selection_mode is SelectionMode.LoadMode:
-            if Selection.getSelectedFace()[1] == self._loadedID:
-                return
-
-        selected_triangles = list(select_tool._interactive_mesh.select_planar_face(face_id))
-
-        #  If busy, add it to 'pending changes' and ask user to confirm
-        if self.connector.status in {SmartSliceCloudStatus.BusyValidating, SmartSliceCloudStatus.BusyOptimizing, SmartSliceCloudStatus.Optimized}:
-            #self._propertiesChanged.append(SmartSlicePropertyEnum.SelectedFace)
-            #self._changedValues.append(face_id)
-            #self._changedValues.append(scene_node)
-            #self._changedValues.append(selected_triangles)
-            #self.confirmPendingChanges()
-            pass
-        else:
-            if selection_mode is SelectionMode.AnchorMode:
-                self._anchoredID = face_id
-                self._anchoredNode = scene_node
-                self._anchoredTris = selected_triangles
-                self.proxy._anchorsApplied = 1   #  TODO:  Change this when > 1 anchors in Use Case
-                self.applyAnchor()
-            elif selection_mode is SelectionMode.LoadMode:
-                self._loadedID = face_id
-                self._loadedNode = scene_node
-                self._loadedTris = selected_triangles
-                self.proxy._loadsApplied = 1     #  TODO:  Change this when > 1 loads in Use Case
-                self.applyLoad()
-            self.connector.prepareValidation()
-
-    """
-      applyAnchor()
-        * Sets the anchor data for the pending job
-        * Sets the face id/node for drawing face selection
-    """
-    def applyAnchor(self):
-        if self._anchoredTris is None:
-            return
-
-        #  Set Anchor in Job
-        self.connector.resetAnchor0FacesPoc()
-        self.connector.appendAnchor0FacesPoc(self._anchoredTris)
-
-        self._drawTriangles(self._anchoredTris)
-        Logger.log ("d", "PropertyHandler Anchored Face ID:  " + str(self._anchoredID))
-
-    """
-      applyLoad()
-        * Sets the load data for hte pending job
-          * Sets Load Vector
-          * Sets Load Force
-        * Sets the face id/node for drawing face selection
-    """
-    def applyLoad(self):
-        if self._loadedTris is None:
-            return
-
-        load_vector = self._loadedTris[0].normal
-
-        #  Set Load Force in Job
-        self.connector.resetForce0FacesPoc()
-        self.connector.appendForce0FacesPoc(self._loadedTris)
-
-        self._drawTriangles(self._loadedTris)
-        Logger.log ("d", "PropertyHandler Loaded Face ID:  " + str(self._loadedID))
-
-    def _drawTriangles(self, tris):
-        select_tool = SmartSliceSelectTool.getInstance()
-        select_tool._handle.drawSelection(select_tool.getSelectionMode(), tris)
-
-    def cancelChanges(self):
-        Logger.log ("d", "Cancelling Change in Smart Slice Environment")
-        self._cancelChanges = True
-        self.restoreCache()
-        self._cancelChanges = False
-        Logger.log ("d", "Cancelled Change in Smart Slice Environment")
-
-        if self._confirmDialog:
-            self._confirmDialog.hide()
 
     def _onGlobalPropertyChanged(self, key: str, property_name: str):
         self.confirmPendingChanges(
@@ -347,6 +158,31 @@ class SmartSlicePropertyHandler(QObject):
     def _onSceneChanged(self, changed_node):
         self.confirmPendingChanges( [self._scene, self._modifier_mesh] )
 
+    def _onMeshTransformationChanged(self, unused):
+        self.confirmPendingChanges(self._scene)
+
+    def _onSelectedFaceChanged(self):
+        self.confirmPendingChanges(self._selected_face_properties)
+
+    def _onSelectToolPropertyChanged(self, property_name):
+        self.confirmPendingChanges(
+            list(filter(lambda p: p.name == property_name, self._sel_tool_properties))
+        )
+
+    def _onRequirementToolPropertyChanged(self, property_name):
+        # We handle changes in the requirements tool differently, depending on the current
+        # status. We only need to ask for confirmation if the model has been optimized
+        if self.connector.status in { SmartSliceCloudStatus.BusyValidating, SmartSliceCloudStatus.Underdimensioned, SmartSliceCloudStatus.Overdimensioned }:
+            self.connector.prepareOptimization()
+        else:
+            self.confirmPendingChanges(
+                list(filter(lambda p: p.name == property_name, self._req_tool_properties)),
+                revalidationRequired=False
+            )
+
+        self.connector._proxy.targetSafetyFactorChanged.emit()
+        self.connector._proxy.targetMaximalDisplacementChanged.emit()
+
     def confirmPendingChanges(self, props, revalidationRequired=True):
         if not props:
             return
@@ -354,7 +190,9 @@ class SmartSlicePropertyHandler(QObject):
         if isinstance(props, SmartSliceProperty.TrackedProperty):
             props = [props]
 
-        if all(not p.changed() for p in props):
+        changes = [p.changed() for p in props]
+
+        if not any(changes):
             return
 
         if self.connector.status in {SmartSliceCloudStatus.BusyValidating, SmartSliceCloudStatus.BusyOptimizing, SmartSliceCloudStatus.Optimized}:
@@ -427,3 +265,48 @@ class SmartSlicePropertyHandler(QObject):
             self.connector.prepareOptimization()
             self.cacheChanges()
         msg.hide()
+
+    def cancelChanges(self):
+        Logger.log ("d", "Canceling Change in Smart Slice Environment")
+
+        self._cancelChanges = True
+        self.restoreCache()
+        self._cancelChanges = False
+
+        SmartSliceSelectTool.getInstance().redraw()
+
+        if self._confirmDialog:
+            self._confirmDialog.hide()
+
+    def askToRemoveModMesh(self):
+        msg = Message(
+            title="",
+            text="Modifier meshes will be removed for the validation.\nDo you want to Continue?",
+            lifetime=0
+        )
+        msg.addAction(
+            "cancel",
+            i18n_catalog.i18nc("@action", "Cancel"),
+            "", "",
+            button_style=Message.ActionButtonStyle.SECONDARY
+        )
+        msg.addAction(
+            "continue",
+            i18n_catalog.i18nc("@action", "Continue"),
+            "", ""
+        )
+        msg.actionTriggered.connect(self.removeModMeshes)
+        msg.show()
+
+    def removeModMeshes(self, msg, action):
+        """ Associated Action for askToRemoveModMesh() """
+        msg.hide()
+        if action == "continue":
+            op = GroupedOperation()
+            for node in getModifierMeshes():
+                op.addOperation(RemoveSceneNodeOperation(node))
+            op.push()
+            if self.connector.status is SmartSliceCloudStatus.ReadyToVerify:
+                self.connector.doVerfication()
+            else:
+                self.connector.prepareValidation()

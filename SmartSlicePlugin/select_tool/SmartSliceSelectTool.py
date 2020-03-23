@@ -44,6 +44,16 @@ class Force:
 
         return v
 
+class SmartSliceSelection:
+    def __init__(self):
+        self.triangles = [] # List[pywim.geom.tri.Triangle]
+
+    def reset(self):
+        self.triangles.clear()
+
+    def triangleIds(self):
+        return [t.id for t in self.triangles]
+
 class SmartSliceSelectTool(Tool):
     def __init__(self, extension : 'SmartSliceExtension'):
         super().__init__()
@@ -64,14 +74,16 @@ class SmartSliceSelectTool(Tool):
         self._scene = self.getController().getScene()
         self._scene_node_name = None
         self._interactive_mesh = None # pywim.geom.tri.Mesh
-        self._load_face = None
-        self._anchor_face = None
+
+        self.load_face = SmartSliceSelection()
+        self.anchor_face = SmartSliceSelection()
 
         self.force = Force(magnitude=10.)
 
         self._controller.activeToolChanged.connect(self._onActiveStateChanged)
 
     toolPropertyChanged = Signal()
+    selectedFaceChanged = Signal()
 
     @staticmethod
     def getInstance():
@@ -131,7 +143,6 @@ class SmartSliceSelectTool(Tool):
 
         if len(nodes) > 0:
             sn = nodes[0]
-            #self._handle._connector._proxy._activeExtruderStack = nodes[0].callDecoration("getExtruderStack")
 
             if self._scene_node_name is None or sn.getName() != self._scene_node_name:
 
@@ -142,12 +153,12 @@ class SmartSliceSelectTool(Tool):
 
                     self._scene_node_name = sn.getName()
                     self._interactive_mesh = makeInteractiveMesh(mesh_data)
-                    self._load_face = None
-                    self._anchor_face = None
+
+                    self.load_face.reset()
+                    self.anchor_face.reset()
 
                     self._handle.clearSelection()
-                    self._handle._connector._proxy._anchorsApplied = 0
-                    self._handle._connector._proxy._loadsApplied = 0
+
                     self.extension.cloud._onApplicationActivityChanged()
 
                     controller = Application.getInstance().getController()
@@ -168,32 +179,54 @@ class SmartSliceSelectTool(Tool):
 
         scene_node, face_id = curr_sf
 
-        self._handle._connector.propertyHandler.onSelectedFaceChanged(scene_node, face_id)
+        selected_triangles = list(self._interactive_mesh.select_planar_face(face_id))
 
-        loadedTris = self._handle._connector.propertyHandler._loadedTris
-        if self.getLoadSelectionActive() and loadedTris:
-            # Convert from a pywim.geom.Vector to UM.Math.Vector
-            self.force.normal = Vector(
-                loadedTris[0].normal.r,
-                loadedTris[0].normal.s,
-                loadedTris[0].normal.t
-            )
+        if self.getLoadSelectionActive():
+            self.load_face.triangles = selected_triangles
+
+            if len(self.load_face.triangles) > 0:
+                tri = self.load_face.triangles[0]
+
+                # Convert from a pywim.geom.Vector to UM.Math.Vector
+                self.force.normal = Vector(
+                    tri.normal.r,
+                    tri.normal.s,
+                    tri.normal.t
+                )
+        else:
+            self.anchor_face.triangles = selected_triangles
+
+        self._handle.drawSelection(self._selection_mode, selected_triangles)
+
+        self.selectedFaceChanged.emit()
+
+        #self.extension.cloud.prepareValidation()
+
+    def redraw(self):
+        if not self.getEnabled():
+            return
+
+        if self.getLoadSelectionActive():
+            self._handle.drawSelection(self._selection_mode, self.load_face.triangles)
+        else:
+            self._handle.drawSelection(self._selection_mode, self.anchor_face.triangles)
 
     def _onActiveStateChanged(self):
+        if not self.getEnabled():
+            return
+
         controller = Application.getInstance().getController()
-        active_tool = controller.getActiveTool()
+        stage = controller.getActiveStage()
+        controller.setFallbackTool(stage._our_toolset[0])
 
-        if active_tool == self:
-            stage = controller.getActiveStage()
-            controller.setFallbackTool(stage._our_toolset[0])
-            if Selection.hasSelection():
-                Selection.setFaceSelectMode(True)
-                Logger.log("d", "Enabled faceSelectMode!")
-            else:
-                Selection.setFaceSelectMode(False)
-                Logger.log("d", "Disabled faceSelectMode!")
+        if Selection.hasSelection():
+            Selection.setFaceSelectMode(True)
+            Logger.log("d", "Enabled faceSelectMode!")
+        else:
+            Selection.setFaceSelectMode(False)
+            Logger.log("d", "Disabled faceSelectMode!")
 
-            self._calculateMesh()
+        self._calculateMesh()
 
     ##  Get whether the select face feature is supported.
     #   \return True if it is supported, or False otherwise.
@@ -210,24 +243,28 @@ class SmartSliceSelectTool(Tool):
         return self._selection_mode
 
     def setAnchorSelection(self):
-        self._handle.clearSelection()
         self.setSelectionMode(SelectionMode.AnchorMode)
-        if self._handle._connector._proxy._anchorsApplied > 0:
+
+        self._handle.clearSelection()
+
+        if len(self.anchor_face.triangles) > 0:
             self._handle.drawSelection(
                 self._selection_mode,
-                self.extension.cloud.propertyHandler._anchoredTris
+                self.anchor_face.triangles
             )
 
     def getAnchorSelectionActive(self):
         return self._selection_mode is SelectionMode.AnchorMode
 
     def setLoadSelection(self):
-        self._handle.clearSelection()
         self.setSelectionMode(SelectionMode.LoadMode)
-        if self._handle._connector._proxy._loadsApplied > 0:
+
+        self._handle.clearSelection()
+
+        if len(self.load_face.triangles) > 0:
             self._handle.drawSelection(
                 self._selection_mode,
-                self.extension.cloud.propertyHandler._loadedTris
+                self.load_face.triangles
             )
 
     def getLoadSelectionActive(self):

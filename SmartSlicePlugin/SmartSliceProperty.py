@@ -1,4 +1,6 @@
 from typing import List, Optional
+
+import copy
 from enum import Enum
 
 from UM.Settings.SettingInstance import InstanceState
@@ -225,4 +227,22 @@ class ToolProperty(TrackedProperty):
         getattr(self._tool, 'set' + self._property)(self._cached_value)
 
     def changed(self) -> bool:
-        return not (self._cached_value == self.value())
+        return self._cached_value != self.value()
+
+class FaceSelectionProperty(TrackedProperty):
+    def __init__(self, selector):
+        self._selector = selector
+        self._cached_triangles = None
+
+    def value(self):
+        return self._selector.triangles
+
+    def cache(self):
+        self._cached_triangles = copy.copy(self.value())
+
+    def restore(self):
+        self._selector.triangles.clear()
+        self._selector.triangles.extend(self._cached_triangles)
+
+    def changed(self) -> bool:
+        return set(self._cached_triangles) != set(self.value())
