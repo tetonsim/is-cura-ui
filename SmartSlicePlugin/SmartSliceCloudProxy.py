@@ -58,17 +58,12 @@ class SmartSliceCloudProxy(QObject):
         self._secondaryButtonFillWidth = False
         self._secondaryButtonVisible = False
 
-        # Confirm Changes Dialog
-        self._confirmationWindowEnabled = False
-        self._confirmationText = ""
-
         # Proxy Values (DO NOT USE DIRECTLY)
         self._targetFactorOfSafety = 1.5
         self._targetMaximalDisplacement = 1.0
         self._loadsApplied = 0
         self._anchorsApplied = 0
 
-        #  QML-Python Buffer Variables
         self._safetyFactorColor = "#000000"
         self._maxDisplaceColor = "#000000"
 
@@ -236,35 +231,6 @@ class SmartSliceCloudProxy(QObject):
             self._secondaryButtonVisible = value
             self.secondaryButtonVisibleChanged.emit()
 
-    #
-    #   CONFIRMATION WINDOW
-    #
-
-    confirmationWindowEnabledChanged = pyqtSignal()
-    confirmationWindowTextChanged = pyqtSignal()
-    confirmationConfirmClicked = pyqtSignal()
-    confirmationCancelClicked = pyqtSignal()
-
-    @pyqtProperty(bool, notify=confirmationWindowEnabledChanged)
-    def confirmationWindowEnabled(self):
-        return self._confirmationWindowEnabled
-
-    @confirmationWindowEnabled.setter
-    def confirmationWindowEnabled(self, value):
-        if self._confirmationWindowEnabled is not value:
-            self._confirmationWindowEnabled = value
-            self.confirmationWindowEnabledChanged.emit()
-
-    @pyqtProperty(str, notify=confirmationWindowTextChanged)
-    def confirmationWindowText(self):
-        return self._confirmationText
-
-    @confirmationWindowText.setter
-    def confirmationWindowText(self, value):
-        if self._confirmationText is not value:
-            self._confirmationText = value
-            self.confirmationWindowTextChanged.emit()
-
     sliceIconImageChanged = pyqtSignal()
 
     @pyqtProperty(QUrl, notify=sliceIconImageChanged)
@@ -288,41 +254,6 @@ class SmartSliceCloudProxy(QObject):
         if self._sliceIconVisible is not value:
             self._sliceIconVisible = value
             self.sliceIconVisibleChanged.emit()
-
-
-    #  Used for detecting changes in UI during Sensitive Times, e.g. Validation/Optimization
-    settingEditedChanged = pyqtSignal()
-    bufferMagnitudeChanged = pyqtSignal()
-    bufferDisplacementChanged = pyqtSignal()
-
-    #  NOTE:  Never gets read.  Included to separate cache from buffer
-    @pyqtProperty(bool, notify=settingEditedChanged)
-    def settingEdited(self):
-        return True
-
-    """
-      settingEdited()
-        Throws a prompt which indicates that a buffered setting has been modified.
-    """
-    @settingEdited.setter
-    def settingEdited(self, value):
-        Logger.log("w", "TODO"); return
-        if value:
-            if self._loadMagnitude != self._bufferMagnitude:
-                self.connector.propertyHandler._propertiesChanged.append(SmartSlicePropertyEnum.LoadMagnitude)
-                self.connector.propertyHandler._changedValues.append(0) #  Keep '_propertiesChanged' index aligned with '_changedValues'
-                self.connector.confirmPendingChanges()
-            if self.connector.status in {SmartSliceCloudStatus.BusyOptimizing, SmartSliceCloudStatus.Optimized}:
-                if self._targetMaximalDisplacement != self._bufferDeflect:
-                    self.connector.propertyHandler._propertiesChanged.append(SmartSlicePropertyEnum.MaxDisplacement)
-                    self.connector.propertyHandler._changedValues.append(0) #  Keep '_propertiesChanged' index aligned with '_changedValues'
-                    self.connector.confirmPendingChanges()
-                if self._targetFactorOfSafety != self._bufferSafety:
-                    self.connector.propertyHandler._propertiesChanged.append(SmartSlicePropertyEnum.FactorOfSafety)
-                    self.connector.propertyHandler._changedValues.append(0) #  Keep '_propertiesChanged' index aligned with '_changedValues'
-                    self.connector.confirmPendingChanges()
-
-    # Safety Factor
 
     resultSafetyFactorChanged = pyqtSignal()
     targetSafetyFactorChanged = pyqtSignal()

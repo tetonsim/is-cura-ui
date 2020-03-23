@@ -51,18 +51,16 @@ class SmartSliceSelectHandle(ToolHandle):
     def setFace(self, f):
         self._tri = f
 
-    def drawSelection(self):
+    def drawSelection(self, mode, tri=None):
         """
         Use UM's MeshBuilder to construct 3D Arrow mesh and translates/rotates as to be normal to the selected face
         """
+        # If a tri was supplied reset the stored tri
+        if tri:
+            self._tri = tri
+
         if self._tri is None:
             return
-
-        ph = self._connector.propertyHandler
-        if ph._selection_mode is SelectionMode.AnchorMode:
-            self.setFace(ph._anchoredTris)
-        else:
-            self.setFace(ph._loadedTris)
 
         #  Construct Edges using MeshBuilder Cubes
         mb = MeshBuilder()
@@ -70,7 +68,7 @@ class SmartSliceSelectHandle(ToolHandle):
         for tri in self._tri:
             mb.addFace(tri.v1, tri.v2, tri.v3, color=self._selected_color)
 
-        if self._connector.propertyHandler._selection_mode == SelectionMode.LoadMode:
+        if mode == SelectionMode.LoadMode:
             self.paintArrow(self._tri, mb)
 
         #  Add to Cura Scene

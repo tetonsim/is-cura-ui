@@ -60,6 +60,7 @@ class SmartSliceSelectTool(Tool):
 
         Selection.selectedFaceChanged.connect(self._onSelectedFaceChanged)
 
+        self._selection_mode = SelectionMode.AnchorMode
         self._scene = self.getController().getScene()
         self._scene_node_name = None
         self._interactive_mesh = None # pywim.geom.tri.Mesh
@@ -103,7 +104,7 @@ class SmartSliceSelectTool(Tool):
         if self.force.pull == value:
             return
         self.force.pull = bool(value)
-        self._handle.drawSelection()
+        self._handle.drawSelection(self._selection_mode)
 
         Logger.log("d", "Load direction changed, new force vector: {}".format(self.force.loadVector()))
 
@@ -178,25 +179,9 @@ class SmartSliceSelectTool(Tool):
                 loadedTris[0].normal.t
             )
 
-    def setFaceVisible(self, scene_node, face_id):
-        ph = self._handle._connector.propertyHandler
-
-        if self.getAnchorSelectionActive():
-            self._handle._arrow = False
-            self._anchor_face = (ph._anchoredNode, ph._anchoredID)
-            self._handle.setFace(ph._anchoredTris)
-
-        else:
-            self._handle._arrow = True
-            self._load_face = (ph._loadedNode, ph._loadedID)
-            self._handle.setFace(ph._loadedTris)
-
-        Application.getInstance().activityChanged.emit()
-
     def _onActiveStateChanged(self):
         controller = Application.getInstance().getController()
         active_tool = controller.getActiveTool()
-        Logger.log("d", "Application.getInstance().getController().getActiveTool(): {}".format(active_tool))
 
         if active_tool == self:
             stage = controller.getActiveStage()
@@ -218,28 +203,32 @@ class SmartSliceSelectTool(Tool):
 
     def setSelectionMode(self, mode):
         Selection.clearFace()
-        self._handle._connector.propertyHandler._selection_mode = mode
+        self._selection_mode = mode
         Logger.log("d", "Changed selection mode to enum: {}".format(mode))
-        #self._handle._connector.propertyHandler.selectedFacesChanged.emit()
-        #self._onSelectedFaceChanged()
 
     def getSelectionMode(self):
-        return self._handle._connector.propertyHandler._selection_mode
+        return self._selection_mode
 
     def setAnchorSelection(self):
         self._handle.clearSelection()
         self.setSelectionMode(SelectionMode.AnchorMode)
         if self._handle._connector._proxy._anchorsApplied > 0:
-            self._handle.drawSelection()
+            self._handle.drawSelection(
+                self._selection_mode,
+                self.extension.cloud.propertyHandler._anchoredTris
+            )
 
     def getAnchorSelectionActive(self):
-        return self._handle._connector.propertyHandler._selection_mode is SelectionMode.AnchorMode
+        return self._selection_mode is SelectionMode.AnchorMode
 
     def setLoadSelection(self):
         self._handle.clearSelection()
         self.setSelectionMode(SelectionMode.LoadMode)
         if self._handle._connector._proxy._loadsApplied > 0:
-            self._handle.drawSelection()
+            self._handle.drawSelection(
+                self._selection_mode,
+                self.extension.cloud.propertyHandler._loadedTris
+            )
 
     def getLoadSelectionActive(self):
-        return self._handle._connector.propertyHandler._selection_mode is SelectionMode.LoadMode
+        return self._selection_mode is SelectionMode.LoadMode

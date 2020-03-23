@@ -200,10 +200,6 @@ class SmartSlicePropertyHandler(QObject):
                 self.connector.doVerfication()
             else:
                 self.connector.prepareValidation()
-        else:
-            pass
-            # TODO - I don't think this function exists. Anything to do here?
-            #self.connector.onConfirmationCancelClicked()
 
     def _onMeshScaleChanged(self, unused):
         self.confirmPendingChanges(self._scene)
@@ -318,8 +314,7 @@ class SmartSlicePropertyHandler(QObject):
 
     def _drawTriangles(self, tris):
         select_tool = SmartSliceSelectTool.getInstance()
-        select_tool._handle.setFace(tris)
-        select_tool._handle.drawSelection()
+        select_tool._handle.drawSelection(select_tool.getSelectionMode(), tris)
 
     def cancelChanges(self):
         Logger.log ("d", "Cancelling Change in Smart Slice Environment")

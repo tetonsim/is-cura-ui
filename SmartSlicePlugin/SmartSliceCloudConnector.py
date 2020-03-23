@@ -226,8 +226,7 @@ class SmartSliceCloudJob(Job):
             task = self._client.status.get(id=task.id)
 
         if not self.canceled:
-            if self.connector._proxy.confirmationWindowEnabled is False:
-                self.connector.propertyHandler._cancelChanges = False
+            self.connector.propertyHandler._cancelChanges = False
 
             if task.status == pywim.http.thor.TaskStatus.failed:
                 error_message = Message()
@@ -669,9 +668,9 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.secondaryButtonVisible = True
             self._proxy.secondaryButtonFillWidth = True
         else:
-            self._proxy.sliceStatus = "! INTERNAL ERRROR!"
-            self._proxy.sliceHint = "! UNKNOWN STATUS ENUM SET!"
-            self._proxy.sliceButtonText = "! FOOO !"
+            self._proxy.sliceStatus = "Unknown status"
+            self._proxy.sliceHint = "Sorry, something went wrong!"
+            self._proxy.sliceButtonText = "..."
             self._proxy.sliceButtonEnabled = False
             self._proxy.secondaryButtonVisible = False
             self._proxy.secondaryButtonFillWidth = False
