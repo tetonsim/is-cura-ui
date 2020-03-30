@@ -217,7 +217,9 @@ class SmartSliceSelectTool(Tool):
 
         controller = Application.getInstance().getController()
         stage = controller.getActiveStage()
-        controller.setFallbackTool(stage._our_toolset[0])
+
+        if stage.getPluginId() == self.getPluginId():
+            controller.setFallbackTool(stage._our_toolset[0])
 
         if Selection.hasSelection():
             Selection.setFaceSelectMode(True)
