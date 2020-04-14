@@ -1175,8 +1175,11 @@ class SmartSliceCloudConnector(QObject):
                 break
 
         if not material_found:
-            # TODO: Alternatively just raise an exception here
-            return False
+            mat_name = machine_extruder.material.getName()
+            Logger.log("e", "Unable to find supported SmartSlice material profile for %s (%s)", mat_name, guid)
+            raise SmartSliceCloudJob.JobException(
+                "Unable to find supported SmartSlice material profile for %s" % mat_name
+            )
 
         job = pywim.smartslice.job.Job()
 
