@@ -591,6 +591,8 @@ class SmartSliceCloudConnector(QObject):
         self.propertyHandler.cacheChanges() # Setup Cache
         self.status = SmartSliceCloudStatus.NoModel
 
+        Application.getInstance().getMachineManager().printerConnectedStatusChanged.connect(self._refreshMachine)
+
         if self.app_preferences.getValue(self.debug_save_smartslice_package_preference):
             self.debug_save_smartslice_package_message = Message(title="[DEBUG] SmartSlicePlugin",
                                                                  text= "Click on the button below to generate a debug package, which contains all data as sent to the cloud. Make sure you provide all input as confirmed by an active button in the action menu in the SmartSlice tab.\nThanks!",
@@ -605,6 +607,9 @@ class SmartSliceCloudConnector(QObject):
                                                                  )
             self.debug_save_smartslice_package_message.actionTriggered.connect(self._onSaveDebugPackage)
             self.debug_save_smartslice_package_message.show()
+
+    def _refreshMachine(self):
+        self.active_machine = Application.getInstance().getMachineManager().activeMachine
 
     def updateSliceWidget(self):
         if self.status is SmartSliceCloudStatus.NoModel:
