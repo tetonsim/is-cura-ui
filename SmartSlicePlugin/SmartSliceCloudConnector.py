@@ -905,8 +905,10 @@ class SmartSliceCloudConnector(QObject):
                 break
 
         if not material_found:
-            # TODO: Alternatively just raise an exception here
-            return False
+            raise SmartSliceCloudJob.JobException(
+                "Material <i>{}</i> is not currently characterized for Smart Slice."
+                " Please select a characterized material.".format(machine_extruder.material.name)
+            )
 
         job = pywim.smartslice.job.Job()
 
