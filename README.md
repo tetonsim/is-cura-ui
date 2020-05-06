@@ -28,7 +28,8 @@ Semantic versioning is employed with the following format:
 *  `B` represents the BUILD version
 
 ## Dev Environment Configuration
-[See this page](https://github.com/tetonsim/is-cura-ui/wiki/Setup-Dev-Machine)
+[Linux](https://github.com/tetonsim/is-cura-ui/wiki/Setup-Dev-Machine-Ubuntu)
+[Windows](https://github.com/tetonsim/is-cura-ui/wiki/Setup-Dev-Machine-Windows)
 
 ##  Project Features
 *  Basic Interface Features
