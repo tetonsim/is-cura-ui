@@ -398,18 +398,9 @@ class SmartSliceCloudJob(Job):
                             )
             op.push()
 
-            # TODO: Not needed during POC. Decision needed whether this is superfluous or not.
-            #modifier_mesh_transform_matrix = Matrix(modifier_mesh.transform)
-            #modifier_mesh_node.setTransformation(modifier_mesh_transform_matrix)
-
-            our_only_node_position = our_only_node.getWorldPosition()
-            modifier_mesh_node.setOrientation(self.connector.propertyHandler.meshRotation)
-            modifier_mesh_node.setScale(self.connector.propertyHandler.meshScale)
-            modifier_mesh_node.setPosition(our_only_node_position,
-                                            SceneNode.TransformSpace.World)
-            Logger.log("d", "Moved modifiers to the global location: {}".format(our_only_node_position))
-
-            #modifier_mesh_node.meshDataChanged.connect(self.connector.showConfirmDialog)
+            # Use the data from the SmartSlice engine to translate / rotate / scale the mod mesh
+            modifier_mesh_transform_matrix = Matrix(modifier_mesh.transform)
+            modifier_mesh_node.setTransformation(modifier_mesh_transform_matrix)
 
             Application.getInstance().getController().getScene().sceneChanged.emit(modifier_mesh_node)
 
