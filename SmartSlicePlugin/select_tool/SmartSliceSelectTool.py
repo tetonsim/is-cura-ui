@@ -5,14 +5,11 @@ from PyQt5.QtCore import pyqtProperty
 from UM.i18n import i18nCatalog
 
 from UM.Application import Application
-from UM.Version import Version
 from UM.Logger import Logger
 from UM.Math.Vector import Vector
 from UM.Math.Matrix import Matrix
 from UM.Signal import Signal
 from UM.Tool import Tool
-
-from UM.View.GL.OpenGL import OpenGL
 from UM.Scene.Selection import Selection
 from UM.Scene.SceneNode import SceneNode
 
@@ -229,12 +226,6 @@ class SmartSliceSelectTool(Tool):
             Logger.log("d", "Disabled faceSelectMode!")
 
         self._calculateMesh()
-
-    ##  Get whether the select face feature is supported.
-    #   \return True if it is supported, or False otherwise.
-    def getSelectFaceSupported(self) -> bool:
-        # Use a dummy postfix, since an equal version with a postfix is considered smaller normally.
-        return Version(OpenGL.getInstance().getOpenGLVersion()) >= Version("4.1 dummy-postfix")
 
     def setSelectionMode(self, mode):
         Selection.clearFace()

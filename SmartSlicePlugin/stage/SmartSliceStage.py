@@ -18,13 +18,16 @@ from UM.Application import Application
 from UM.PluginRegistry import PluginRegistry
 from UM.Message import Message
 from UM.Scene.Selection import Selection
+from UM.Version import Version
+from UM.View.GL.OpenGL import OpenGL
 
 from cura.Stages.CuraStage import CuraStage
 from cura.CuraApplication import CuraApplication
 
-from .. utils import getPrintableNodes
+from ..utils import getPrintableNodes
 
 i18n_catalog = i18nCatalog("smartslice")
+
 
 #
 #   Stage Class Definition
@@ -84,6 +87,14 @@ class SmartSliceStage(CuraStage):
     #       This transitions the userspace/working environment from
     #       current stage into the Smart Slice User Environment.
     def onStageSelected(self):
+        if not SmartSliceStage.getSelectFaceSupported():
+            error_message = Message(
+                title="Smart Slice: OpenGL error",
+                text="You are running an outdated version of OpenGL which may not"
+                     " support selecting faces in Smart Slice. Please update OpenGL to at least version 4.1"
+            )
+            error_message.show()
+
         application = CuraApplication.getInstance()
         controller = application.getController()
 
@@ -116,8 +127,6 @@ class SmartSliceStage(CuraStage):
 
         self._connector.updateSliceWidget()
 
-
-
     #   onStageDeselected:
     #       Sets attributes that allow the Smart Slice Stage to properly deactivate
     #       This occurs before the next Cura Stage is activated
@@ -148,9 +157,8 @@ class SmartSliceStage(CuraStage):
             if visible:
                 visible_tools.append(name)
 
-            Logger.log("d", "Visibility of <{}>: {}".format(name,
-                                                            visible,
-                                                            )
+            Logger.log(
+                "d", "Visibility of <{}>: {}".format(name, visible)
             )
 
         return visible_tools
@@ -166,9 +174,8 @@ class SmartSliceStage(CuraStage):
             elif name in self._default_toolset:
                 tool_meta_data["visible"] = not our_tools_visible
 
-            Logger.log("d", "Visibility of <{}>: {}".format(name,
-                                                            tool_meta_data["visible"],
-                                                            )
+            Logger.log(
+                "d", "Visibility of <{}>: {}".format(name, tool_meta_data["visible"])
             )
 
         CuraApplication.getInstance().getController().toolsChanged.emit()
@@ -203,7 +210,6 @@ class SmartSliceStage(CuraStage):
         component_path = os.path.join(base_path, "stage", "ui", "SmartSliceMain.qml")
         self.addDisplayComponent("main", component_path)
 
-
         # Top menu bar of stage
         component_path = os.path.join(base_path, "stage", "ui", "SmartSliceMenu.qml")
         self.addDisplayComponent("menu", component_path)
@@ -224,3 +230,10 @@ class SmartSliceStage(CuraStage):
 
         if active_stage and active_stage.getPluginId() == "SmartSlicePlugin":
             self._exit_stage_if_scene_is_invalid()
+
+    ##  Get whether the select face feature is supported.
+    #   \return True if it is supported, or False otherwise.
+    @staticmethod
+    def getSelectFaceSupported() -> bool:
+        # Use a dummy postfix, since an equal version with a postfix is considered smaller normally.
+        return Version(OpenGL.getInstance().getOpenGLVersion()) >= Version("4.1 dummy-postfix")
