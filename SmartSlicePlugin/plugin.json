@@ -2,7 +2,7 @@
     "name": "Smart Slice Plugin",
     "id" : "SmartSlicePlugin",
     "author": "Teton Simulation, Inc.",
-    "version": "20.1.4.0",
+    "version": "20.1.5.0",
     "description": "Optimizes your model and slicing properties based on physical boundary conditions set by the user.",
     "supported_sdk_versions": ["7.0.0", "6.3.0"],
     "i18n-catalog": "smartslice"

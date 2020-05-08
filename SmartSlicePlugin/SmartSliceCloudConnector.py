@@ -406,7 +406,7 @@ class SmartSliceCloudJob(Job):
 
         self.connector._proxy.resultSafetyFactor = analysis.structural.min_safety_factor
         self.connector._proxy.resultMaximalDisplacement = analysis.structural.max_displacement
-
+        
         qprint_time = QTime(0, 0, 0, 0)
         qprint_time = qprint_time.addSecs(analysis.print_time)
         self.connector._proxy.resultTimeTotal = qprint_time
@@ -610,6 +610,7 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.sliceButtonEnabled = False
             self._proxy.sliceButtonFillWidth = True
             self._proxy.secondaryButtonVisible = False
+            self._proxy.sliceInfoOpen = False
         elif self.status is SmartSliceCloudStatus.NoConditions:
             self._proxy.sliceStatus = "Need boundary conditions"
             self._proxy.sliceHint = "Both a load and anchor must be applied"
@@ -617,6 +618,7 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.sliceButtonEnabled = False
             self._proxy.sliceButtonFillWidth = True
             self._proxy.secondaryButtonVisible = False
+            self._proxy.sliceInfoOpen = False
         elif self.status is SmartSliceCloudStatus.ReadyToVerify:
             self._proxy.sliceStatus = "Ready to validate"
             self._proxy.sliceHint = "Press on the button below to validate your part."
@@ -624,12 +626,14 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.sliceButtonEnabled = True
             self._proxy.sliceButtonFillWidth = True
             self._proxy.secondaryButtonVisible = False
+            self._proxy.sliceInfoOpen = False
         elif self.status is SmartSliceCloudStatus.BusyValidating:
             self._proxy.sliceStatus = "Validating requirements..."
             self._proxy.sliceHint = ""
             self._proxy.secondaryButtonText = "Cancel"
             self._proxy.secondaryButtonVisible = True
             self._proxy.secondaryButtonFillWidth = True
+            self._proxy.sliceInfoOpen = False
         elif self.status is SmartSliceCloudStatus.Underdimensioned:
             self._proxy.sliceStatus = "Requirements not met!"
             self._proxy.sliceHint = "Optimize to meet requirements?"
@@ -639,6 +643,7 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.sliceButtonFillWidth = False
             self._proxy.secondaryButtonVisible = True
             self._proxy.secondaryButtonFillWidth = False
+            self._proxy.sliceInfoOpen = True
         elif self.status is SmartSliceCloudStatus.Overdimensioned:
             self._proxy.sliceStatus = "Part appears overdesigned"
             self._proxy.sliceHint = "Optimize to reduce material?"
@@ -648,18 +653,21 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.sliceButtonFillWidth = False
             self._proxy.secondaryButtonVisible = True
             self._proxy.secondaryButtonFillWidth = False
+            self._proxy.sliceInfoOpen = True
         elif self.status is SmartSliceCloudStatus.BusyOptimizing:
             self._proxy.sliceStatus = "Optimizing..."
             self._proxy.sliceHint = ""
             self._proxy.secondaryButtonText = "Cancel"
             self._proxy.secondaryButtonVisible = True
             self._proxy.secondaryButtonFillWidth = True
+            self._proxy.sliceInfoOpen = False
         elif self.status is SmartSliceCloudStatus.Optimized:
             self._proxy.sliceStatus = "Part optimized"
             self._proxy.sliceHint = "Well done! You can review the results!"
             self._proxy.secondaryButtonText = "Preview"
             self._proxy.secondaryButtonVisible = True
             self._proxy.secondaryButtonFillWidth = True
+            self._proxy.sliceInfoOpen = True
         else:
             self._proxy.sliceStatus = "Unknown status"
             self._proxy.sliceHint = "Sorry, something went wrong!"
@@ -667,6 +675,7 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.sliceButtonEnabled = False
             self._proxy.secondaryButtonVisible = False
             self._proxy.secondaryButtonFillWidth = False
+            self._proxy.sliceInfoOpen = False
 
         # Setting icon path
         stage_path = PluginRegistry.getInstance().getPluginPath("SmartSlicePlugin")
