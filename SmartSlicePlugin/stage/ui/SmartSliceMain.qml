@@ -127,6 +127,11 @@ Item {
                         onSliceIconVisibleChanged: {
                             smartSliceInfoIcon.visible = SmartSlice.Cloud.sliceIconVisible
                         }
+                        onSliceInfoOpenChanged: {
+                            if (SmartSlice.Cloud.sliceInfoOpen) {
+                                smartSlicePopup.open()
+                            }
+                        }
                     }
 
                     MouseArea

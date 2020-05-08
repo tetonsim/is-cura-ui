@@ -52,6 +52,7 @@ class SmartSliceCloudProxy(QObject):
         self._sliceButtonFillWidth = True
         self._sliceIconImage = ""
         self._sliceIconVisible = False
+        self._sliceInfoOpen = False
 
         # Secondary Button (Preview/Cancel)
         self._secondaryButtonText = "_SecondaryText"
@@ -124,6 +125,7 @@ class SmartSliceCloudProxy(QObject):
     sliceButtonVisibleChanged = pyqtSignal()
     sliceButtonEnabledChanged = pyqtSignal()
     sliceButtonTextChanged = pyqtSignal()
+    sliceInfoOpenChanged = pyqtSignal()
 
     secondaryButtonTextChanged = pyqtSignal()
     secondaryButtonVisibleChanged = pyqtSignal()
@@ -168,6 +170,16 @@ class SmartSliceCloudProxy(QObject):
         if self._sliceButtonText is not value:
             self._sliceButtonText = value
             self.sliceButtonTextChanged.emit()
+
+    @pyqtProperty(bool, notify=sliceInfoOpenChanged)
+    def sliceInfoOpen(self):
+        return self._sliceInfoOpen
+
+    @sliceInfoOpen.setter
+    def sliceInfoOpen(self, value):
+        if self._sliceInfoOpen is not value:
+            self._sliceInfoOpen = value
+            self.sliceInfoOpenChanged.emit()
 
     @pyqtProperty(str, notify=secondaryButtonTextChanged)
     def secondaryButtonText(self):
