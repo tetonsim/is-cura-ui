@@ -54,6 +54,7 @@ from .requirements_tool.SmartSliceRequirements import SmartSliceRequirements
 from .select_tool.SmartSliceSelectTool import SmartSliceSelectTool
 
 from .utils import getPrintableNodes
+from .utils import getNodeActiveExtruder
 
 i18n_catalog = i18nCatalog("smartslice")
 
@@ -321,7 +322,7 @@ class SmartSliceCloudJob(Job):
         # TODO: We need a per node solution here as soon as we want to analysis multiple models.
         our_only_node =  getPrintableNodes()[0]
 
-        active_extruder = self.connector.getNodeActiveExtruder(our_only_node)
+        active_extruder = getNodeActiveExtruder(our_only_node)
 
         if optimized and active_extruder:
             # TODO - Move this into a common class or function to apply an am.Config to GlobalStack/ExtruderStack
@@ -546,26 +547,6 @@ class SmartSliceCloudConnector(QObject):
 
     def getProxy(self, engine, script_engine):
         return self._proxy
-
-    def getNodeActiveExtruder(self, node : SceneNode) -> ExtruderStack:
-        active_extruder_position = node.callDecoration("getActiveExtruderPosition")
-        if active_extruder_position is None:
-            active_extruder_position = 0
-        else:
-            active_extruder_position = int(active_extruder_position)
-
-        # Only use the extruder that is active on our mesh_node
-        # The back end only supports a single extruder, currently.
-        # Ignore any extruder that is not the active extruder.
-        machine_extruders = list(filter(
-            lambda extruder: extruder.position == active_extruder_position,
-            self.active_machine.extruderList
-        ))
-
-        if len(machine_extruders) > 0:
-            return machine_extruders[0]
-
-        return None
 
     def _onEngineCreated(self):
         qmlRegisterSingletonType(
@@ -887,7 +868,7 @@ class SmartSliceCloudConnector(QObject):
         # Only use the extruder that is active on our mesh_node
         # The back end only supports a single extruder, currently.
         # Ignore any extruder that is not the active extruder.
-        machine_extruder = self.getNodeActiveExtruder(mesh_node)
+        machine_extruder = getNodeActiveExtruder(mesh_node)
 
         # TODO: Needs to be determined from the used model
         guid = machine_extruder.material.getMetaData().get("GUID", "")

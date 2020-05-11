@@ -24,7 +24,8 @@ from UM.View.GL.OpenGL import OpenGL
 from cura.Stages.CuraStage import CuraStage
 from cura.CuraApplication import CuraApplication
 
-from ..utils import getPrintableNodes
+from .. utils import getPrintableNodes
+from .. utils import getNodeActiveExtruder
 
 i18n_catalog = i18nCatalog("smartslice")
 
@@ -33,6 +34,13 @@ i18n_catalog = i18nCatalog("smartslice")
 #   Stage Class Definition
 #
 class SmartSliceStage(CuraStage):
+    EXTRUDER_KEYS = [
+        "wall_extruder_nr",         # Both wall extruder drop down
+        "wall_0_extruder_nr",       # Outer wall extruder
+        "wall_x_extruder_nr",       # Inner wall extruder
+        "infill_extruder_nr"        # Infill extruder
+    ]
+
     def __init__(self, extension, parent=None):
         super().__init__(parent)
 
@@ -46,6 +54,8 @@ class SmartSliceStage(CuraStage):
 
         self._previous_view = None
         self._previous_tool = None
+
+        self._extruderDialog = None
 
         #   Set Default Attributes
         self._default_toolset = None
@@ -97,6 +107,9 @@ class SmartSliceStage(CuraStage):
 
         application = CuraApplication.getInstance()
         controller = application.getController()
+        extruderManager = application.getExtruderManager()
+        extruderManager.activeExtruderChanged.connect(self.showExtruderDialog)
+        application.getMachineManager().activeMachine.propertyChanged.connect(self.extruderPropertyChanged)
 
         Selection.clear()
 
@@ -112,6 +125,13 @@ class SmartSliceStage(CuraStage):
         # plugin name.
         controller.setActiveView('SmartSlicePlugin')
 
+        # We currently only support using the first extruder on a given machine, so this
+        # limits the print to only use the first extruder while the user is in the
+        # SmartSlice tab.
+        printable_node.callDecoration("getActiveExtruderChangedSignal").connect(self.showExtruderDialog)
+
+        self.showExtruderDialog()
+
         if not Selection.hasSelection():
             Selection.add(printable_node)
 
@@ -126,6 +146,61 @@ class SmartSliceStage(CuraStage):
         self._connector.propertyHandler.cacheChanges()
 
         self._connector.updateSliceWidget()
+
+    def extruderPropertyChanged(self, key: str, property_name: str):
+        if key in self.EXTRUDER_KEYS:
+            self.showExtruderDialog()
+
+    # This creates the popup dialog that informs the user that only the
+    # first extruder on a machine is currently supported.
+    def showExtruderDialog(self):
+        current_printing_node = getPrintableNodes()[0]
+        active_extruder = getNodeActiveExtruder(current_printing_node)
+        extruderManager = CuraApplication.getInstance().getExtruderManager()
+        emActive = extruderManager._active_extruder_index
+
+        # If both extruders are extruder one we can skip creating the dialog.
+        if (int(active_extruder.getMetaDataEntry("position")) == 0 and
+        int(emActive) == 0 and
+        all(map(lambda k : (int(active_extruder.getProperty(k, "value")) <= 0), self.EXTRUDER_KEYS))):
+            return
+
+        # If we are not on the SmartSlice tab, we don't want to limit the user to Extruder 1
+        if CuraApplication.getInstance().getController().getActiveView().name != "SmartSlicePlugin":
+            return
+
+        # Otherwise, if the dialog is already visible, or if the user is no longer on the
+        # SmartSlice tab, we can stop adjusting the extruders or showing the message.
+        if self._extruderDialog and self._extruderDialog.visible:
+            self.resetExtruders(current_printing_node, extruderManager, emActive, active_extruder, 0)
+            return
+
+        # Create an Extruder Dialog Component
+        self._extruderDialog = Message(
+            title="Only Extruder 1 Supported",
+            text="Smart Slice currently only supports Extruder 1.",
+            lifetime=0
+        )
+
+        # Here we show the popup if it needs displayed and set the extruder 1
+        self.resetExtruders(current_printing_node, extruderManager, emActive, active_extruder, 0)
+        self._extruderDialog.show()
+
+    # This resets both the side bar buttons for the extruder, as well as the drop down
+    # menus that change the extruder.
+    def resetExtruders(self, node, extruderManager, extruderManagerActiveIndex, activeExtruder, extruder_nr : int):
+        machine = CuraApplication.getInstance().getMachineManager().activeMachine
+        extruder_list = CuraApplication.getInstance().getGlobalContainerStack().extruderList
+
+        if int(activeExtruder.getMetaDataEntry("position")) != extruder_nr:
+            node.callDecoration("setActiveExtruder", extruder_list[extruder_nr].id)
+
+        if extruderManagerActiveIndex != extruder_nr:
+            extruderManager.setActiveExtruderIndex(extruder_nr)
+
+        for key in self.EXTRUDER_KEYS:
+            if int(machine.getProperty(key, "value")) not in (extruder_nr, -1):
+                machine.setProperty(key, "value", extruder_nr)
 
     #   onStageDeselected:
     #       Sets attributes that allow the Smart Slice Stage to properly deactivate
