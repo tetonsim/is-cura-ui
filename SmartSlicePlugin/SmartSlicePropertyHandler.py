@@ -87,18 +87,13 @@ class SmartSlicePropertyHandler(QObject):
                 self._modifier_mesh
             ]
 
+        self._activeMachineManager = CuraApplication.getInstance().getMachineManager()
+        self._activeMachineManager.printerConnectedStatusChanged.connect(self.printerCheck)
+        self.printerCheck()
+
         sel_tool.selectedFaceChanged.connect(self._onSelectedFaceChanged)
         sel_tool.toolPropertyChanged.connect(self._onSelectToolPropertyChanged)
         req_tool.toolPropertyChanged.connect(self._onRequirementToolPropertyChanged)
-
-        self._activeMachineManager = CuraApplication.getInstance().getMachineManager()
-        self._activeMachineManager.activeMachine.propertyChanged.connect(self._onGlobalPropertyChanged)
-        self._activeMachineManager.activeMaterialChanged.connect(self._onMaterialChanged)
-
-        #  Check that a printer has been set-up by the wizard.
-        #  TODO:  Add a signal listener for when Machine is added
-        if self._activeMachineManager.activeMachine is not None:
-            self._onMachineChanged()
 
         self._cancelChanges = False
         self._addProperties = True
@@ -108,6 +103,13 @@ class SmartSlicePropertyHandler(QObject):
         controller.getScene().getRoot().childrenChanged.connect(self._onSceneChanged)
         controller.getTool("ScaleTool").operationStopped.connect(self._onMeshTransformationChanged)
         controller.getTool("RotateTool").operationStopped.connect(self._onMeshTransformationChanged)
+
+    #  Check that a printer has been set-up by the wizard.
+    def printerCheck(self):
+        if self._activeMachineManager.activeMachine is not None:
+            self._onMachineChanged()
+            self._activeMachineManager.activeMachine.propertyChanged.connect(self._onGlobalPropertyChanged)
+            self._activeMachineManager.activeMaterialChanged.connect(self._onMaterialChanged)
 
     def hasModMesh(self) -> bool:
         return self._modifier_mesh.value() is not None
