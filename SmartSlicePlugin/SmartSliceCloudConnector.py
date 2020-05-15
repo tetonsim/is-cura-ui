@@ -298,7 +298,7 @@ class SmartSliceCloudJob(Job):
         # self.job_type == pywim.smartslice.job.JobType.optimization
         if task and task.result and len(task.result.analyses) > 0:
             analysis = task.result.analyses[0]
-            optimized = previous_connector_status in SmartSliceCloudStatus.Optimizable
+            optimized = previous_connector_status in SmartSliceCloudStatus.optimizable()
             self._process_analysis_result(analysis, optimized)
 
             # Overriding if our result is going to be optimized...
@@ -532,7 +532,7 @@ class SmartSliceCloudConnector(QObject):
         dummy_job = SmartSliceCloudVerificationJob(self)
         if self.status == SmartSliceCloudStatus.ReadyToVerify:
             dummy_job.job_type = pywim.smartslice.job.JobType.validation
-        elif self.status in SmartSliceCloudStatus.Optimizable:
+        elif self.status in SmartSliceCloudStatus.optimizable():
             dummy_job.job_type = pywim.smartslice.job.JobType.optimization
         else:
             Logger.log("e", "DEBUG: This is not a defined state. Provide all input to create the debug package.")
@@ -589,22 +589,25 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.sliceHint = "Make sure only one model is loaded!"
             self._proxy.sliceButtonText = "Waiting for model"
             self._proxy.sliceButtonEnabled = False
+            self._proxy.sliceButtonVisible = True
             self._proxy.sliceButtonFillWidth = True
             self._proxy.secondaryButtonVisible = False
             self._proxy.sliceInfoOpen = False
         elif self.status is SmartSliceCloudStatus.NoConditions:
-            self._proxy.sliceStatus = "Need boundary conditions"
-            self._proxy.sliceHint = "Both a load and anchor must be applied"
+            self._proxy.sliceStatus = ""
+            self._proxy.sliceHint = ""
             self._proxy.sliceButtonText = "Need boundary conditions"
             self._proxy.sliceButtonEnabled = False
+            self._proxy.sliceButtonVisible = True
             self._proxy.sliceButtonFillWidth = True
             self._proxy.secondaryButtonVisible = False
             self._proxy.sliceInfoOpen = False
         elif self.status is SmartSliceCloudStatus.ReadyToVerify:
-            self._proxy.sliceStatus = "Ready to validate"
-            self._proxy.sliceHint = "Press on the button below to validate your part."
+            self._proxy.sliceStatus = ""
+            self._proxy.sliceHint = ""
             self._proxy.sliceButtonText = "Validate"
             self._proxy.sliceButtonEnabled = True
+            self._proxy.sliceButtonVisible = True
             self._proxy.sliceButtonFillWidth = True
             self._proxy.secondaryButtonVisible = False
             self._proxy.sliceInfoOpen = False
@@ -612,6 +615,7 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.sliceStatus = "Validating requirements..."
             self._proxy.sliceHint = ""
             self._proxy.secondaryButtonText = "Cancel"
+            self._proxy.sliceButtonVisible = False
             self._proxy.secondaryButtonVisible = True
             self._proxy.secondaryButtonFillWidth = True
             self._proxy.sliceInfoOpen = False
@@ -621,6 +625,7 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.sliceButtonText = "Optimize"
             self._proxy.secondaryButtonText = "Preview"
             self._proxy.sliceButtonEnabled = True
+            self._proxy.sliceButtonVisible = True
             self._proxy.sliceButtonFillWidth = False
             self._proxy.secondaryButtonVisible = True
             self._proxy.secondaryButtonFillWidth = False
@@ -631,6 +636,7 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.sliceButtonText = "Optimize"
             self._proxy.secondaryButtonText = "Preview"
             self._proxy.sliceButtonEnabled = True
+            self._proxy.sliceButtonVisible = True
             self._proxy.sliceButtonFillWidth = False
             self._proxy.secondaryButtonVisible = True
             self._proxy.secondaryButtonFillWidth = False
@@ -639,13 +645,15 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.sliceStatus = "Optimizing..."
             self._proxy.sliceHint = ""
             self._proxy.secondaryButtonText = "Cancel"
+            self._proxy.sliceButtonVisible = False
             self._proxy.secondaryButtonVisible = True
             self._proxy.secondaryButtonFillWidth = True
             self._proxy.sliceInfoOpen = False
         elif self.status is SmartSliceCloudStatus.Optimized:
-            self._proxy.sliceStatus = "Part optimized"
-            self._proxy.sliceHint = "Well done! You can review the results!"
+            self._proxy.sliceStatus = ""
+            self._proxy.sliceHint = ""
             self._proxy.secondaryButtonText = "Preview"
+            self._proxy.sliceButtonVisible = False
             self._proxy.secondaryButtonVisible = True
             self._proxy.secondaryButtonFillWidth = True
             self._proxy.sliceInfoOpen = True
@@ -654,6 +662,7 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.sliceHint = "Sorry, something went wrong!"
             self._proxy.sliceButtonText = "..."
             self._proxy.sliceButtonEnabled = False
+            self._proxy.sliceButtonVisible = True
             self._proxy.secondaryButtonVisible = False
             self._proxy.secondaryButtonFillWidth = False
             self._proxy.sliceInfoOpen = False
@@ -673,7 +682,7 @@ class SmartSliceCloudConnector(QObject):
         self._proxy.sliceIconImage = current_icon
 
         # Setting icon visibiltiy
-        if self.status in (SmartSliceCloudStatus.Optimized,) + SmartSliceCloudStatus.Optimizable:
+        if self.status in (SmartSliceCloudStatus.Optimized,) + SmartSliceCloudStatus.optimizable():
             self._proxy.sliceIconVisible = True
         else:
             self._proxy.sliceIconVisible = False
@@ -806,7 +815,7 @@ class SmartSliceCloudConnector(QObject):
         if not self._jobs[self._current_job]:
             if self.status is SmartSliceCloudStatus.ReadyToVerify:
                 self.doVerfication()
-            elif self.status in SmartSliceCloudStatus.Optimizable:
+            elif self.status in SmartSliceCloudStatus.optimizable():
                 self.doOptimization()
             elif self.status is SmartSliceCloudStatus.Optimized:
                 Application.getInstance().getController().setActiveStage("PreviewStage")

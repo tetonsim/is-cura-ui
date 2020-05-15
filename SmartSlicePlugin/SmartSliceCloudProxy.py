@@ -14,7 +14,7 @@ from .requirements_tool.SmartSliceRequirements import SmartSliceRequirements
 
 i18n_catalog = i18nCatalog("smartslice")
 
-class SmartSliceCloudStatus():
+class SmartSliceCloudStatus(Enum):
     NoConnection = 1
     BadLogin = 2
     NoModel = 3
@@ -26,15 +26,12 @@ class SmartSliceCloudStatus():
     BusyOptimizing = 9
     Optimized = 10
 
-    Busy = (
-        BusyValidating,
-        BusyOptimizing
-    )
+    @staticmethod
+    def optimizable():
+        return (SmartSliceCloudStatus.Underdimensioned, SmartSliceCloudStatus.Overdimensioned)
 
-    Optimizable = (
-        Underdimensioned,
-        Overdimensioned
-    )
+# def Busy(status)
+#     return status == BusyValidating or status == BusyOptimizing
 
 class SmartSliceCloudProxy(QObject):
     def __init__(self, connector) -> None:
@@ -130,6 +127,14 @@ class SmartSliceCloudProxy(QObject):
     secondaryButtonTextChanged = pyqtSignal()
     secondaryButtonVisibleChanged = pyqtSignal()
     secondaryButtonFillWidthChanged = pyqtSignal()
+
+    @pyqtProperty(bool, notify=sliceStatusEnumChanged)
+    def isValidated(self):
+        return self._sliceStatusEnum in SmartSliceCloudStatus.optimizable()
+
+    @pyqtProperty(bool, notify=sliceStatusEnumChanged)
+    def isOptimized(self):
+        return self._sliceStatusEnum is SmartSliceCloudStatus.Optimized
 
     @pyqtProperty(int, notify=sliceStatusEnumChanged)
     def sliceStatusEnum(self):

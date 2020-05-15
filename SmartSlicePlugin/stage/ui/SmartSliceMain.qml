@@ -45,12 +45,13 @@ Item {
         mipmap: true
     }
 
-    //  2.) Smart Slice Window
+    //  2.) Smart Slice window which holds all of the controls for validate / optimize, and results viewing
+    //      This is basically the same thing as ActionPanelWidget in Cura
     Rectangle {
         id: smartSliceWindow //    TODO: Change to Widget when everything works
 
         width: UM.Theme.getSize("action_panel_widget").width
-        height: myColumn.height + 2 * UM.Theme.getSize("thick_margin").width
+        height: mainColumn.height + 2 * UM.Theme.getSize("thick_margin").height
 
         anchors.right: parent.right
         anchors.bottom: parent.bottom
@@ -62,33 +63,41 @@ Item {
         border.color: UM.Theme.getColor("lining")
         radius: UM.Theme.getSize("default_radius").width
 
+        // A single column to hold all of our objects
+        Column {
+            id: mainColumn
 
-        ColumnLayout {
-            id: myColumn
+            width: parent.width
+            spacing: UM.Theme.getSize("thin_margin").height
 
             anchors {
                 left: parent.left
                 right: parent.right
                 bottom: parent.bottom
-                margins: UM.Theme.getSize("thick_margin").width
+                rightMargin: UM.Theme.getSize("thick_margin").width
+                leftMargin: UM.Theme.getSize("thick_margin").width
+                bottomMargin: UM.Theme.getSize("thick_margin").height
+                topMargin: UM.Theme.getSize("thick_margin").height
             }
 
+            // The first row of the column, which holds the status messages and info icons
             RowLayout {
-                Layout.fillHeight: true
-                Layout.fillWidth: true
+                width: parent.width
 
-                ColumnLayout {
+                // First column of the row holding the status messages
+                Column {
                     Layout.fillWidth: true
+
+                    spacing: UM.Theme.getSize("thin_margin").height
+
                     // Main status message
                     Label {
-
                         Layout.fillHeight: true
                         Layout.fillWidth: true
-                        font: UM.Theme.getFont("default");
+                        font: SmartSlice.Cloud.isValidated ? UM.Theme.getFont("medium_bold") : UM.Theme.getFont("default")
                         renderType: Text.NativeRendering
 
                         text: SmartSlice.Cloud.sliceStatus
-
                     }
 
                     // Secondary status message with hint
@@ -99,544 +108,693 @@ Item {
                         renderType: Text.NativeRendering
 
                         text: SmartSlice.Cloud.sliceHint
+                    }
 
+                    // Optimized message
+                    Cura.IconWithText {
+                        id: estimatedTime
+                        width: parent.width
+
+                        text: Qt.formatTime(SmartSlice.Cloud.resultTimeTotal, "h") + " hours " + Qt.formatTime(SmartSlice.Cloud.resultTimeTotal, "m") + " minutes"
+                        source: UM.Theme.getIcon("clock")
+                        font: UM.Theme.getFont("medium_bold")
+
+                        visible: SmartSlice.Cloud.isOptimized
+                    }
+
+                    Cura.IconWithText {
+                        id: estimatedCosts
+                        width: parent.width
+
+                        text: {
+                            var totalLengths = 0
+                            var totalWeights = 0
+                            var totalCosts = 0.0
+                            if (SmartSlice.Cloud.materialLength > 0) {
+                                totalLengths = SmartSlice.Cloud.materialLength
+                                totalWeights = SmartSlice.Cloud.materialWeight.toFixed(2)
+                                totalCosts = SmartSlice.Cloud.materialCost.toFixed(2)
+                            }
+                            if(totalCosts > 0)
+                            {
+                                var costString = "%1 %2".arg(UM.Preferences.getValue("cura/currency")).arg(totalCosts)
+                                return totalWeights + "g · " + totalLengths.toFixed(2) + "m · " + costString
+                            }
+                            return totalWeights + "g · " + totalLengths.toFixed(2) + "m"
+                        }
+                        source: UM.Theme.getIcon("spool")
+                        font: UM.Theme.getFont("default")
+
+                        visible: SmartSlice.Cloud.isOptimized
                     }
                 }
 
-                // Status indicator
-                Row{
-                Layout.alignment: Qt.AlignTop
+                // Second column in the top row, holding the status indicator
+                Column {
+                    Layout.alignment: Qt.AlignTop
 
-                Image {
-                    id: smartSliceInfoIcon
+                    // Status indicator (info image) which has the popup
+                    Image {
+                        id: smartSliceInfoIcon
 
-                    width: UM.Theme.getSize("section_icon").width
-                    height: UM.Theme.getSize("section_icon").height
+                        width: UM.Theme.getSize("section_icon").width
+                        height: UM.Theme.getSize("section_icon").height
 
-                    fillMode: Image.PreserveAspectFit
-                    mipmap: true
+                        anchors.right: parent.right
 
-                    source: SmartSlice.Cloud.sliceIconImage
-                    visible: SmartSlice.Cloud.sliceIconVisible
+                        fillMode: Image.PreserveAspectFit
+                        mipmap: true
+
+                        source: SmartSlice.Cloud.sliceIconImage
+                        visible: SmartSlice.Cloud.sliceIconVisible
+
+                        Connections {
+                            target: SmartSlice.Cloud
+                            onSliceIconImageChanged: {
+                                smartSliceInfoIcon.source = SmartSlice.Cloud.sliceIconImage
+                            }
+                            onSliceIconVisibleChanged: {
+                                smartSliceInfoIcon.visible = SmartSlice.Cloud.sliceIconVisible
+                            }
+                            onSliceInfoOpenChanged: {
+                                if (SmartSlice.Cloud.sliceInfoOpen) {
+                                    smartSlicePopup.open()
+                                }
+                            }
+                        }
+
+                        MouseArea
+                        {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onEntered: {
+                                if (visible) {
+                                    smartSlicePopup.open();
+                                }
+                            }
+                            onExited: smartSlicePopup.close()
+                        }
+
+                        // Popup message with slice results
+                        Popup {
+                            id: smartSlicePopup
+
+                            y: -(height + UM.Theme.getSize("default_arrow").height + UM.Theme.getSize("thin_margin").height)
+                            x: parent.width - width + UM.Theme.getSize("thin_margin").width
+
+                            contentWidth: UM.Theme.getSize("action_panel_information_widget").width
+                            contentHeight: smartSlicePopupContents.height
+
+                            closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
+
+                            opacity: opened ? 1 : 0
+                            Behavior on opacity { NumberAnimation { duration: 100 } }
+
+                            Column {
+                                id: smartSlicePopupContents
+
+                                width: parent.width
+
+                                spacing: UM.Theme.getSize("default_margin").width
+
+                                property var header_font: UM.Theme.getFont("default_bold")
+                                property var header_color: UM.Theme.getColor("primary")
+                                property var subheader_font: UM.Theme.getFont("default")
+                                property var subheader_color: "#A9A9A9"
+                                property var description_font: UM.Theme.getFont("default")
+                                property var description_color: UM.Theme.getColor("text")
+                                property var value_font: UM.Theme.getFont("default")
+                                property var value_color: UM.Theme.getColor("text")
+
+                                property color warningColor: "#F3BA1A"
+                                property color errorColor: "#F15F63"
+                                property color successColor: "#5DBA47"
+
+                                property var col1_width: 0.45
+                                property var col2_width: 0.3
+                                property var col3_width: 0.25
+
+                                Column {
+                                    id: requirements
+
+                                    width: parent.width
+                                    topPadding: UM.Theme.getSize("default_margin").height
+                                    leftPadding: UM.Theme.getSize("default_margin").width
+                                    rightPadding: UM.Theme.getSize("default_margin").width
+
+                                    /* REQUIREMENTS HEADER */
+                                    Label {
+                                        font: smartSlicePopupContents.header_font
+                                        color: smartSlicePopupContents.header_color
+                                        renderType: Text.NativeRendering
+
+                                        text: "REQUIREMENTS"
+                                    }
+
+                                    Row {
+                                        id: layoutRequirements
+                                        width: parent.width
+
+                                        Column {
+                                            width: smartSlicePopupContents.col1_width * (parent.width - 2 * UM.Theme.getSize("default_margin").width)
+
+                                            Label {
+                                                width: parent.width
+                                                bottomPadding: UM.Theme.getSize("thin_margin").height
+
+                                                font: smartSlicePopupContents.subheader_font
+                                                color: smartSlicePopupContents.subheader_color
+
+                                                text: "Objective"
+                                            }
+                                            Label {
+                                                id: labelDescriptionSafetyFactor
+
+                                                width: parent.width
+                                                
+                                                font: smartSlicePopupContents.description_font
+                                                color: SmartSlice.Cloud.safetyFactorColor
+                                                renderType: Text.NativeRendering
+                                                textFormat: Text.RichText
+
+                                                text: "Factor of Safety:"
+                                            }
+                                            Label {
+                                                id: labelDescriptionMaximumDisplacement
+
+                                                width: parent.width
+                                                
+                                                font: smartSlicePopupContents.description_font
+                                                color: SmartSlice.Cloud.maxDisplaceColor
+                                                renderType: Text.NativeRendering
+                                                textFormat: Text.RichText
+
+                                                text: "Max Displacement:"
+                                            }
+                                        }
+                                        Column {
+                                            id: secondColumnPopup
+                                            width: smartSlicePopupContents.col2_width * (parent.width - 2 * UM.Theme.getSize("default_margin").width)
+
+                                            Label {
+                                                width: parent.width
+                                                bottomPadding: UM.Theme.getSize("thin_margin").height
+
+                                                horizontalAlignment: Text.AlignHCenter
+                                                font: smartSlicePopupContents.subheader_font
+                                                color: smartSlicePopupContents.subheader_color
+
+                                                text: "Computed"
+                                            }
+                                            Label {
+                                                id: labelResultSafetyFactor
+                                                width: parent.width
+
+                                                horizontalAlignment: Text.AlignHCenter
+                                                font: smartSlicePopupContents.value_font
+                                                color: SmartSlice.Cloud.safetyFactorColor
+                                                renderType: Text.NativeRendering
+                                                textFormat: Text.RichText
+
+                                                Connections {
+                                                    target: SmartSlice.Cloud
+                                                    onResultSafetyFactorChanged: {
+                                                        labelResultSafetyFactor.text = parseFloat(Math.round(SmartSlice.Cloud.resultSafetyFactor * 1000) / 1000).toFixed(1)
+                                                    }
+                                                }
+
+                                                text: parseFloat(Math.round(SmartSlice.Cloud.resultSafetyFactor * 1000) / 1000).toFixed(1)
+                                            }
+                                            Label {
+                                                id: labelResultMaximalDisplacement
+
+                                                width: parent.width
+
+                                                horizontalAlignment: Text.AlignHCenter
+                                                font: smartSlicePopupContents.value_font
+                                                color: SmartSlice.Cloud.maxDisplaceColor
+                                                renderType: Text.NativeRendering
+                                                textFormat: Text.RichText
+
+                                                Connections {
+                                                    target: SmartSlice.Cloud
+                                                    onResultMaximalDisplacementChanged: {
+                                                        labelResultMaximalDisplacement.text = parseFloat(Math.round(SmartSlice.Cloud.resultMaximalDisplacement * 1000) / 1000).toFixed(2)
+                                                    }
+                                                }
+
+                                                text: parseFloat(Math.round(SmartSlice.Cloud.resultMaximalDisplacement * 1000) / 1000).toFixed(2)
+                                            }
+                                        }
+                                        Column {
+                                            id: thirdColumnPopup
+                                            width: smartSlicePopupContents.col3_width * (parent.width - 2 * UM.Theme.getSize("default_margin").width)
+
+                                            Label {
+                                                width: parent.width
+                                                bottomPadding: UM.Theme.getSize("thin_margin").height
+
+                                                horizontalAlignment: Text.AlignRight
+                                                font: smartSlicePopupContents.subheader_font
+                                                color: smartSlicePopupContents.subheader_color
+
+                                                text: "Target"
+                                            }
+                                            Label {
+                                                id: labelTargetSafetyFactor
+
+                                                width: parent.width
+
+                                                horizontalAlignment: Text.AlignRight
+                                                font: smartSlicePopupContents.value_font
+                                                color: SmartSlice.Cloud.safetyFactorColor
+                                                renderType: Text.NativeRendering
+                                                textFormat: Text.RichText
+
+                                                Connections {
+                                                    target: SmartSlice.Cloud
+                                                    onTargetSafetyFactorChanged: {
+                                                        labelTargetSafetyFactor.text = parseFloat(Math.round(SmartSlice.Cloud.targetSafetyFactor * 1000) / 1000).toFixed(1)
+                                                    }
+                                                }
+
+                                                text: parseFloat(Math.round(SmartSlice.Cloud.targetSafetyFactor * 1000) / 1000).toFixed(1)
+                                            }
+                                            Label {
+                                                id: labelTargetMaximalDisplacement
+
+                                                width: parent.width
+
+                                                horizontalAlignment: Text.AlignRight
+                                                font: smartSlicePopupContents.value_font
+                                                color: SmartSlice.Cloud.maxDisplaceColor
+                                                renderType: Text.NativeRendering
+                                                textFormat: Text.RichText
+
+                                                Connections {
+                                                    target: SmartSlice.Cloud
+                                                    onTargetMaximalDisplacementChanged: {
+                                                        labelTargetMaximalDisplacement.text = parseFloat(Math.round(SmartSlice.Cloud.targetMaximalDisplacement * 1000) / 1000).toFixed(2)
+                                                    }
+                                                }
+
+                                                text: parseFloat(Math.round(SmartSlice.Cloud.targetMaximalDisplacement * 1000) / 1000).toFixed(2)
+                                            }
+                                        }
+                                    }
+                                }
+
+
+                                /* TIME ESTIMATION HEADER */
+                                Column {
+                                    id: timeEstimation
+
+                                    width: parent.width
+                                    leftPadding: UM.Theme.getSize("default_margin").width
+                                    rightPadding: UM.Theme.getSize("default_margin").width
+
+                                    Label {
+                                        font: smartSlicePopupContents.header_font
+                                        color: smartSlicePopupContents.header_color
+
+                                        text: "TIME ESTIMATION"
+                                    }
+
+                                    Row {
+                                        width: parent.width
+
+                                        Column {
+                                            width: smartSlicePopupContents.col1_width * (parent.width - 2 * UM.Theme.getSize("default_margin").width)
+
+                                            Label {
+                                                text: "Print time:"
+
+                                                width: parent.width
+
+                                                Layout.alignment: Qt.AlignRight
+                                                font: smartSlicePopupContents.description_font
+                                                color: smartSlicePopupContents.description_color
+                                                renderType: Text.NativeRendering
+                                                textFormat: Text.RichText
+                                            }
+                                            /*
+                                            Label {
+                                                Layout.fillWidth: true
+
+                                                text: "Infill:"
+
+                                                font: smartSlicePopupContents.description_font
+                                                color: smartSlicePopupContents.description_color
+                                            }
+                                            Label {
+                                                text: "Inner Walls:"
+
+                                                font: smartSlicePopupContents.description_font
+                                                color: smartSlicePopupContents.description_color
+                                            }
+                                            Label {
+                                                text: "Outer Walls:"
+
+                                                font: smartSlicePopupContents.description_font
+                                                color: smartSlicePopupContents.description_color
+                                            }
+                                            Label {
+                                                text: "Retractions:"
+
+                                                font: smartSlicePopupContents.description_font
+                                                color: smartSlicePopupContents.description_color
+                                            }
+                                            Label {
+                                                font: smartSlicePopupContents.description_font
+                                                color: smartSlicePopupContents.description_color
+
+                                                text: "Skin:"
+                                            }
+                                            Label {
+                                                font: smartSlicePopupContents.description_font
+                                                color: smartSlicePopupContents.description_color
+
+                                                text: "Skirt:"
+                                            }
+                                            Label {
+                                                font: smartSlicePopupContents.description_font
+                                                color: smartSlicePopupContents.description_color
+
+                                                text: "Travel:"
+                                            }
+                                            */
+                                        }
+
+                                        Column {
+                                            width: smartSlicePopupContents.col2_width * (parent.width - 2 * UM.Theme.getSize("default_margin").width)
+
+                                            Label {
+
+                                                width: parent.width
+
+                                                horizontalAlignment: Text.AlignHCenter
+                                                font: smartSlicePopupContents.value_font
+                                                color: smartSlicePopupContents.value_color
+                                                renderType: Text.NativeRendering
+                                                textFormat: Text.RichText
+
+                                                text: Qt.formatTime(SmartSlice.Cloud.resultTimeTotal, "hh:mm")
+                                            }
+                                            /*
+                                            Label {
+                                                Layout.alignment: Qt.AlignRight
+                                                font: smartSlicePopupContents.value_font
+                                                color: smartSlicePopupContents.value_color
+
+                                                text: Qt.formatTime(SmartSlice.Cloud.resultTimeInfill, "hh:mm")
+                                            }
+                                            Label {
+                                                Layout.alignment: Qt.AlignRight
+                                                font: smartSlicePopupContents.value_font
+                                                color: smartSlicePopupContents.value_color
+
+                                                text: Qt.formatTime(SmartSlice.Cloud.resultTimeInnerWalls, "hh:mm")
+                                            }
+                                            Label {
+                                                Layout.alignment: Qt.AlignRight
+                                                font: smartSlicePopupContents.value_font
+                                                color: smartSlicePopupContents.value_color
+
+                                                text: Qt.formatTime(SmartSlice.Cloud.resultTimeOuterWalls, "hh:mm")
+                                            }
+                                            Label {
+                                                Layout.alignment: Qt.AlignRight
+                                                font: smartSlicePopupContents.value_font
+                                                color: smartSlicePopupContents.value_color
+
+                                                text: Qt.formatTime(SmartSlice.Cloud.resultTimeRetractions, "hh:mm")
+                                            }
+                                            Label {
+                                                Layout.alignment: Qt.AlignRight
+                                                font: smartSlicePopupContents.value_font
+                                                color: smartSlicePopupContents.value_color
+
+                                                text: Qt.formatTime(SmartSlice.Cloud.resultTimeSkin, "hh:mm")
+                                            }
+                                            Label {
+                                                Layout.alignment: Qt.AlignRight
+                                                font: smartSlicePopupContents.value_font
+                                                color: smartSlicePopupContents.value_color
+
+                                                text: Qt.formatTime(SmartSlice.Cloud.resultTimeSkirt, "hh:mm")
+                                            }
+                                            Label {
+                                                Layout.alignment: Qt.AlignRight
+                                                font: smartSlicePopupContents.value_font
+                                                color: smartSlicePopupContents.value_color
+
+                                                text: Qt.formatTime(SmartSlice.Cloud.resultTimeTravel, "hh:mm")
+                                            }
+                                            */
+                                        }
+
+                                        Column {
+                                            width: smartSlicePopupContents.col3_width * (parent.width - 2 * UM.Theme.getSize("default_margin").width)
+
+                                            Label {
+
+                                                width: parent.width
+
+                                                horizontalAlignment: Text.AlignRight
+                                                font: smartSlicePopupContents.value_font
+                                                color: smartSlicePopupContents.value_color
+                                                renderType: Text.NativeRendering
+                                                textFormat: Text.RichText
+
+                                                text: "100 %"
+                                            }
+                                            /*
+                                            Label {
+                                                Layout.alignment: Qt.AlignRight
+                                                font: smartSlicePopupContents.value_font
+                                                color: smartSlicePopupContents.value_color
+
+                                                text: SmartSlice.Cloud.percentageTimeInfill.toFixed(2) + " %"
+                                            }
+                                            Label {
+                                                Layout.alignment: Qt.AlignRight
+                                                font: smartSlicePopupContents.value_font
+                                                color: smartSlicePopupContents.value_color
+
+                                                text: SmartSlice.Cloud.percentageTimeInnerWalls.toFixed(2) + " %"
+                                            }
+                                            Label {
+                                                Layout.alignment: Qt.AlignRight
+                                                font: smartSlicePopupContents.value_font
+                                                color: smartSlicePopupContents.value_color
+
+                                                text: SmartSlice.Cloud.percentageTimeOuterWalls.toFixed(2) + " %"
+                                            }
+                                            Label {
+                                                Layout.alignment: Qt.AlignRight
+                                                font: smartSlicePopupContents.value_font
+                                                color: smartSlicePopupContents.value_color
+
+                                                text: SmartSlice.Cloud.percentageTimeRetractions.toFixed(2) + " %"
+                                            }
+                                            Label {
+                                                Layout.alignment: Qt.AlignRight
+                                                font: smartSlicePopupContents.value_font
+                                                color: smartSlicePopupContents.value_color
+
+                                                text: SmartSlice.Cloud.percentageTimeSkin.toFixed(2) + " %"
+                                            }
+                                            Label {
+                                                Layout.alignment: Qt.AlignRight
+                                                font: smartSlicePopupContents.value_font
+                                                color: smartSlicePopupContents.value_color
+
+                                                text: SmartSlice.Cloud.percentageTimeSkirt.toFixed(2) + " %"
+                                            }
+                                            Label {
+                                                Layout.alignment: Qt.AlignRight
+                                                font: smartSlicePopupContents.value_font
+                                                color: smartSlicePopupContents.value_color
+
+                                                text: SmartSlice.Cloud.percentageTimeTravel.toFixed(2) + " %"
+                                            }
+                                            */
+                                        }
+                                    }
+                                }
+
+                                Column {
+                                    id: materialEstimate
+                                    width: parent.width
+
+                                    leftPadding: UM.Theme.getSize("default_margin").width
+                                    rightPadding: UM.Theme.getSize("default_margin").width
+                                    bottomPadding: UM.Theme.getSize("default_margin").height
+
+                                    /* Material ESTIMATION HEADER */
+                                    Label {
+                                        font: smartSlicePopupContents.header_font
+                                        color: smartSlicePopupContents.header_color
+
+                                        text: "MATERIAL ESTIMATION"
+                                    }
+
+                                    Row {
+                                        width: parent.width
+
+                                        Column {
+                                            width: 0.4 * (parent.width - 2 * UM.Theme.getSize("default_margin").width)
+
+                                            Label {
+                                                width: parent.width
+
+                                                font: smartSlicePopupContents.value_font
+                                                renderType: Text.NativeRendering
+                                                textFormat: Text.RichText
+
+                                                text: SmartSlice.Cloud.materialName
+                                            }
+                                        }
+
+                                        Column {
+                                            width: 0.2 * (parent.width - 2 * UM.Theme.getSize("default_margin").width)
+
+                                            Label {
+                                                width: parent.width
+
+                                                horizontalAlignment: Text.AlignHCenter
+                                                font: smartSlicePopupContents.value_font
+                                                color: smartSlicePopupContents.value_color
+                                                renderType: Text.NativeRendering
+                                                textFormat: Text.RichText
+
+                                                text: SmartSlice.Cloud.materialLength + " m"
+                                            }
+                                        }
+
+                                        Column {
+                                            width: 0.2 * (parent.width - 2 * UM.Theme.getSize("default_margin").width)
+
+                                            Label {
+                                                width: parent.width
+
+                                                horizontalAlignment: Text.AlignHCenter
+                                                
+                                                font: smartSlicePopupContents.value_font
+                                                color: smartSlicePopupContents.value_color
+                                                renderType: Text.NativeRendering
+                                                textFormat: Text.RichText
+
+                                                text: SmartSlice.Cloud.materialWeight.toFixed(2) + " g"
+                                            }
+                                        }
+
+                                        Column {
+                                            width: 0.2 * (parent.width - 2 * UM.Theme.getSize("default_margin").width)
+
+                                            Label {
+                                                width: parent.width
+
+                                                Layout.alignment: Qt.AlignRight
+                                                horizontalAlignment: Text.AlignRight
+                                                
+                                                font: smartSlicePopupContents.value_font
+                                                color: smartSlicePopupContents.value_color
+                                                renderType: Text.NativeRendering
+                                                textFormat: Text.RichText
+
+                                                text: SmartSlice.Cloud.materialCost.toFixed(2) + " €"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+
+                            background: UM.PointingRectangle
+                            {
+                                color: UM.Theme.getColor("tool_panel_background")
+                                borderColor: UM.Theme.getColor("lining")
+                                borderWidth: UM.Theme.getSize("default_lining").width
+
+                                target: Qt.point(width - (smartSliceInfoIcon.width / 2) - UM.Theme.getSize("thin_margin").width,
+                                                height + UM.Theme.getSize("default_arrow").height - UM.Theme.getSize("thin_margin").height)
+
+                                arrowSize: UM.Theme.getSize("default_arrow").width
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Holds all of the buttons and sets the height
+            Item {
+                id: buttons
+
+                width: parent.width
+                height: UM.Theme.getSize("action_button").height
+
+                anchors.bottom: smartSliceWindow.bottom
+            
+                Cura.PrimaryButton {
+                    id: smartSliceButton
+
+                    height: parent.height
+                    width: smartSliceSecondaryButton.visible ? 2 / 3 * parent.width - 1 / 2 * UM.Theme.getSize("default_margin").width : parent.width
+                    fixedWidthMode: true
+
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+
+                    text: SmartSlice.Cloud.sliceButtonText
+
+                    enabled: SmartSlice.Cloud.sliceButtonEnabled
+                    visible: SmartSlice.Cloud.sliceButtonVisible
 
                     Connections {
                         target: SmartSlice.Cloud
-                        onSliceIconImageChanged: {
-                            smartSliceInfoIcon.source = SmartSlice.Cloud.sliceIconImage
-                        }
-                        onSliceIconVisibleChanged: {
-                            smartSliceInfoIcon.visible = SmartSlice.Cloud.sliceIconVisible
-                        }
-                        onSliceInfoOpenChanged: {
-                            if (SmartSlice.Cloud.sliceInfoOpen) {
-                                smartSlicePopup.open()
-                            }
-                        }
+                        onSliceButtonEnabledChanged: { smartSliceButton.enabled = SmartSlice.Cloud.sliceButtonEnabled }
+                        onSliceButtonFillWidthChanged: { smartSliceButton.Layout.fillWidth = SmartSlice.Cloud.sliceButtonFillWidth }
                     }
 
-                    MouseArea
-                    {
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        onEntered: {
-                            if (visible) {
-                                smartSlicePopup.open();
-                            }
-                        }
-                        onExited: smartSlicePopup.close()
-                    }
-
-                    // Popup message with slice results
-                    Popup {
-                        id: smartSlicePopup
-
-                        y: -(height + UM.Theme.getSize("default_arrow").height + UM.Theme.getSize("thin_margin").height)
-                        x: parent.width - width + UM.Theme.getSize("thin_margin").width
-
-                        contentWidth: UM.Theme.getSize("action_panel_widget").width
-                        contentHeight: smartSlicePopupContents.height
-
-                        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
-
-                        opacity: opened ? 1 : 0
-                        Behavior on opacity { NumberAnimation { duration: 100 } }
-
-                        ColumnLayout {
-                            id: smartSlicePopupContents
-
-                            spacing: UM.Theme.getSize("default_margin").height
-
-                            width: UM.Theme.getSize("action_panel_widget").width
-
-                            property var header_font: UM.Theme.getFont("medium")
-                            property var header_color: UM.Theme.getColor("text_subtext")
-                            property var subheader_font: UM.Theme.getFont("default")
-                            property var subheader_color: "#A9A9A9"
-                            property var description_font: UM.Theme.getFont("default")
-                            property var description_color: UM.Theme.getColor("text")
-                            property var value_font: UM.Theme.getFont("default")
-                            property var value_color: UM.Theme.getColor("text")
-
-                            property color warningColor: "#F3BA1A"
-                            property color errorColor: "#F15F63"
-                            property color successColor: "#5DBA47"
-
-                            /* REQUIREMENTS HEADER */
-                            Label {
-                                font: smartSlicePopupContents.header_font
-                                color: smartSlicePopupContents.header_color
-
-                                text: "REQUIREMENTS"
-                            }
-
-                            RowLayout {
-                                id: layoutRequirements
-                                Layout.fillWidth: true
-                                spacing: UM.Theme.getSize("default_margin").width
-
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    spacing: UM.Theme.getSize("default_margin").height
-
-                                    Label {
-                                        Layout.fillWidth: true
-
-                                        text: "Objective"
-
-                                        font: smartSlicePopupContents.subheader_font
-                                        color: smartSlicePopupContents.subheader_color
-                                    }
-                                    Label {
-                                        id: labelDescriptionSafetyFactor
-                                        text: "Factor of Safety:"
-
-                                        font: smartSlicePopupContents.description_font
-                                        color: SmartSlice.Cloud.safetyFactorColor
-                                    }
-                                    Label {
-                                        id: labelDescriptionMaximumDisplacement
-                                        text: "Max Displacement:"
-
-                                        font: smartSlicePopupContents.description_font
-                                        color: SmartSlice.Cloud.maxDisplaceColor
-                                    }
-                                }
-                                ColumnLayout {
-                                    id: secondColumnPopup
-
-                                    spacing: UM.Theme.getSize("default_margin").height
-
-                                    Label {
-                                        Layout.alignment: Qt.AlignRight
-                                        font: smartSlicePopupContents.subheader_font
-                                        color: smartSlicePopupContents.subheader_color
-
-                                        text: "Computed"
-                                    }
-                                    Label {
-                                        id: labelResultSafetyFactor
-
-                                        Layout.alignment: Qt.AlignRight
-                                        font: smartSlicePopupContents.value_font
-                                        color: SmartSlice.Cloud.safetyFactorColor
-
-                                        Connections {
-                                            target: SmartSlice.Cloud
-                                            onResultSafetyFactorChanged: {
-                                                labelResultSafetyFactor.text = parseFloat(Math.round(SmartSlice.Cloud.resultSafetyFactor * 1000) / 1000).toFixed(3)
-                                            }
-                                        }
-
-                                        text: parseFloat(Math.round(SmartSlice.Cloud.resultSafetyFactor * 1000) / 1000).toFixed(3)
-                                    }
-                                    Label {
-                                        id: labelResultMaximalDisplacement
-
-                                        Layout.alignment: Qt.AlignRight
-                                        font: smartSlicePopupContents.value_font
-                                        color: SmartSlice.Cloud.maxDisplaceColor
-
-                                        Connections {
-                                            target: SmartSlice.Cloud
-                                            onResultMaximalDisplacementChanged: {
-                                                labelResultMaximalDisplacement.text = parseFloat(Math.round(SmartSlice.Cloud.resultMaximalDisplacement * 1000) / 1000).toFixed(3)
-                                            }
-                                        }
-
-                                        text: parseFloat(Math.round(SmartSlice.Cloud.resultMaximalDisplacement * 1000) / 1000).toFixed(3)
-                                    }
-                                }
-                                ColumnLayout {
-                                    id: thirdColumnPopup
-
-                                    spacing: UM.Theme.getSize("default_margin").height
-
-                                    Label {
-                                        Layout.alignment: Qt.AlignRight
-                                        font: smartSlicePopupContents.subheader_font
-                                        color: smartSlicePopupContents.subheader_color
-
-                                        text: "Target"
-                                    }
-                                    Label {
-                                        id: labelTargetSafetyFactor
-
-                                        Layout.alignment: Qt.AlignRight
-                                        font: smartSlicePopupContents.value_font
-                                        color: SmartSlice.Cloud.safetyFactorColor
-
-                                        Connections {
-                                            target: SmartSlice.Cloud
-                                            onTargetSafetyFactorChanged: {
-                                                labelTargetSafetyFactor.text = parseFloat(Math.round(SmartSlice.Cloud.targetSafetyFactor * 1000) / 1000).toFixed(3)
-                                            }
-                                        }
-
-                                        text: parseFloat(Math.round(SmartSlice.Cloud.targetSafetyFactor * 1000) / 1000).toFixed(3)
-                                    }
-                                    Label {
-                                        id: labelTargetMaximalDisplacement
-
-                                        Layout.alignment: Qt.AlignRight
-                                        font: smartSlicePopupContents.value_font
-                                        color: SmartSlice.Cloud.maxDisplaceColor
-
-                                        Connections {
-                                            target: SmartSlice.Cloud
-                                            onTargetMaximalDisplacementChanged: {
-                                                labelTargetMaximalDisplacement.text = parseFloat(Math.round(SmartSlice.Cloud.targetMaximalDisplacement * 1000) / 1000).toFixed(3)
-                                            }
-                                        }
-
-                                        text: parseFloat(Math.round(SmartSlice.Cloud.targetMaximalDisplacement * 1000) / 1000).toFixed(3)
-                                    }
-                                }
-                            }
-
-
-                            /* TIME ESTIMATION HEADER */
-                            Label {
-                                font: smartSlicePopupContents.header_font
-                                color: smartSlicePopupContents.header_color
-
-                                text: "TIME ESTIMATION"
-                            }
-
-                            RowLayout {
-                                spacing: UM.Theme.getSize("default_margin").width
-
-                                ColumnLayout {
-                                    spacing: UM.Theme.getSize("default_margin").height
-
-                                    Label {
-                                        Layout.fillWidth: true
-
-                                        text: "Print time:"
-
-                                        font: smartSlicePopupContents.description_font
-                                        color: smartSlicePopupContents.description_color
-                                    }
-                                    /*
-                                    Label {
-                                        Layout.fillWidth: true
-
-                                        text: "Infill:"
-
-                                        font: smartSlicePopupContents.description_font
-                                        color: smartSlicePopupContents.description_color
-                                    }
-                                    Label {
-                                        text: "Inner Walls:"
-
-                                        font: smartSlicePopupContents.description_font
-                                        color: smartSlicePopupContents.description_color
-                                    }
-                                    Label {
-                                        text: "Outer Walls:"
-
-                                        font: smartSlicePopupContents.description_font
-                                        color: smartSlicePopupContents.description_color
-                                    }
-                                    Label {
-                                        text: "Retractions:"
-
-                                        font: smartSlicePopupContents.description_font
-                                        color: smartSlicePopupContents.description_color
-                                    }
-                                    Label {
-                                        font: smartSlicePopupContents.description_font
-                                        color: smartSlicePopupContents.description_color
-
-                                        text: "Skin:"
-                                    }
-                                    Label {
-                                        font: smartSlicePopupContents.description_font
-                                        color: smartSlicePopupContents.description_color
-
-                                        text: "Skirt:"
-                                    }
-                                    Label {
-                                        font: smartSlicePopupContents.description_font
-                                        color: smartSlicePopupContents.description_color
-
-                                        text: "Travel:"
-                                    }
-                                    */
-                                }
-
-                                ColumnLayout {
-                                    width: secondColumnPopup.width
-
-                                    spacing: UM.Theme.getSize("default_margin").height
-
-                                    Label {
-                                        id: labelResultTimeTotal
-
-                                        Layout.alignment: Qt.AlignRight
-                                        font: smartSlicePopupContents.value_font
-                                        color: smartSlicePopupContents.value_color
-
-                                        text: Qt.formatTime(SmartSlice.Cloud.resultTimeTotal, "hh:mm")
-                                    }
-                                    /*
-                                    Label {
-                                        Layout.alignment: Qt.AlignRight
-                                        font: smartSlicePopupContents.value_font
-                                        color: smartSlicePopupContents.value_color
-
-                                        text: Qt.formatTime(SmartSlice.Cloud.resultTimeInfill, "hh:mm")
-                                    }
-                                    Label {
-                                        Layout.alignment: Qt.AlignRight
-                                        font: smartSlicePopupContents.value_font
-                                        color: smartSlicePopupContents.value_color
-
-                                        text: Qt.formatTime(SmartSlice.Cloud.resultTimeInnerWalls, "hh:mm")
-                                    }
-                                    Label {
-                                        Layout.alignment: Qt.AlignRight
-                                        font: smartSlicePopupContents.value_font
-                                        color: smartSlicePopupContents.value_color
-
-                                        text: Qt.formatTime(SmartSlice.Cloud.resultTimeOuterWalls, "hh:mm")
-                                    }
-                                    Label {
-                                        Layout.alignment: Qt.AlignRight
-                                        font: smartSlicePopupContents.value_font
-                                        color: smartSlicePopupContents.value_color
-
-                                        text: Qt.formatTime(SmartSlice.Cloud.resultTimeRetractions, "hh:mm")
-                                    }
-                                    Label {
-                                        Layout.alignment: Qt.AlignRight
-                                        font: smartSlicePopupContents.value_font
-                                        color: smartSlicePopupContents.value_color
-
-                                        text: Qt.formatTime(SmartSlice.Cloud.resultTimeSkin, "hh:mm")
-                                    }
-                                    Label {
-                                        Layout.alignment: Qt.AlignRight
-                                        font: smartSlicePopupContents.value_font
-                                        color: smartSlicePopupContents.value_color
-
-                                        text: Qt.formatTime(SmartSlice.Cloud.resultTimeSkirt, "hh:mm")
-                                    }
-                                    Label {
-                                        Layout.alignment: Qt.AlignRight
-                                        font: smartSlicePopupContents.value_font
-                                        color: smartSlicePopupContents.value_color
-
-                                        text: Qt.formatTime(SmartSlice.Cloud.resultTimeTravel, "hh:mm")
-                                    }
-                                    */
-                                }
-
-                                ColumnLayout {
-                                    width: thirdColumnPopup.width
-
-                                    spacing: UM.Theme.getSize("default_margin").height
-
-                                    Label {
-                                        Layout.alignment: Qt.AlignRight
-                                        font: smartSlicePopupContents.value_font
-                                        color: smartSlicePopupContents.value_color
-
-                                        text: "100 %"
-                                    }
-                                    /*
-                                    Label {
-                                        Layout.alignment: Qt.AlignRight
-                                        font: smartSlicePopupContents.value_font
-                                        color: smartSlicePopupContents.value_color
-
-                                        text: SmartSlice.Cloud.percentageTimeInfill.toFixed(2) + " %"
-                                    }
-                                    Label {
-                                        Layout.alignment: Qt.AlignRight
-                                        font: smartSlicePopupContents.value_font
-                                        color: smartSlicePopupContents.value_color
-
-                                        text: SmartSlice.Cloud.percentageTimeInnerWalls.toFixed(2) + " %"
-                                    }
-                                    Label {
-                                        Layout.alignment: Qt.AlignRight
-                                        font: smartSlicePopupContents.value_font
-                                        color: smartSlicePopupContents.value_color
-
-                                        text: SmartSlice.Cloud.percentageTimeOuterWalls.toFixed(2) + " %"
-                                    }
-                                    Label {
-                                        Layout.alignment: Qt.AlignRight
-                                        font: smartSlicePopupContents.value_font
-                                        color: smartSlicePopupContents.value_color
-
-                                        text: SmartSlice.Cloud.percentageTimeRetractions.toFixed(2) + " %"
-                                    }
-                                    Label {
-                                        Layout.alignment: Qt.AlignRight
-                                        font: smartSlicePopupContents.value_font
-                                        color: smartSlicePopupContents.value_color
-
-                                        text: SmartSlice.Cloud.percentageTimeSkin.toFixed(2) + " %"
-                                    }
-                                    Label {
-                                        Layout.alignment: Qt.AlignRight
-                                        font: smartSlicePopupContents.value_font
-                                        color: smartSlicePopupContents.value_color
-
-                                        text: SmartSlice.Cloud.percentageTimeSkirt.toFixed(2) + " %"
-                                    }
-                                    Label {
-                                        Layout.alignment: Qt.AlignRight
-                                        font: smartSlicePopupContents.value_font
-                                        color: smartSlicePopupContents.value_color
-
-                                        text: SmartSlice.Cloud.percentageTimeTravel.toFixed(2) + " %"
-                                    }
-                                    */
-                                }
-                            }
-
-                            /* Material ESTIMATION HEADER */
-                            Label {
-                                font: smartSlicePopupContents.header_font
-                                color: smartSlicePopupContents.header_color
-
-                                text: "MATERIAL ESTIMATION"
-                            }
-
-                            RowLayout {
-                                spacing: UM.Theme.getSize("default_margin").width
-
-                                Label {
-                                    id: labelMaterialName
-                                    Layout.fillWidth: true
-                                    font: UM.Theme.getFont("default")
-
-                                    text: SmartSlice.Cloud.materialName
-                                }
-
-                                // TODO: Hiding material lenght. The radius is zero all the time for some reason,
-                                // therefore the value is zero all the time, too.
-                                Label {
-                                    id: labelMaterialLength
-                                    Layout.alignment: Qt.AlignRight
-                                    font: smartSlicePopupContents.value_font
-                                    color: smartSlicePopupContents.value_color
-
-                                    text: SmartSlice.Cloud.materialLength + " m"
-                                }
-
-                                Label {
-                                    id: labelMaterialWeight
-
-                                    Layout.alignment: Qt.AlignRight
-                                    font: smartSlicePopupContents.value_font
-                                    color: smartSlicePopupContents.value_color
-
-                                    text: SmartSlice.Cloud.materialWeight.toFixed(2) + " g"
-                                }
-
-                                Label {
-                                    id: labelMaterialCost
-                                    Layout.alignment: Qt.AlignRight
-                                    font: smartSlicePopupContents.value_font
-                                    color: smartSlicePopupContents.value_color
-
-                                    text: SmartSlice.Cloud.materialCost.toFixed(2) + " €"
-                                }
-                            }
-                        }
-
-
-                        background: UM.PointingRectangle
-                        {
-                            color: UM.Theme.getColor("tool_panel_background")
-                            borderColor: UM.Theme.getColor("lining")
-                            borderWidth: UM.Theme.getSize("default_lining").width
-
-                            target: Qt.point(width - (smartSliceInfoIcon.width / 2) - UM.Theme.getSize("thin_margin").width,
-                                            height + UM.Theme.getSize("default_arrow").height - UM.Theme.getSize("thin_margin").height)
-
-                            arrowSize: UM.Theme.getSize("default_arrow").width
-                        }
+                    /*
+                        Smart Slice Button Click Event
+                    */
+                    onClicked: {
+                        //  Show Validation Dialog
+                        SmartSlice.Cloud.sliceButtonClicked()
                     }
                 }
-                }
-            }
-            Cura.PrimaryButton {
-                id: smartSliceButton
 
-                Layout.fillWidth: SmartSlice.Cloud.sliceButtonFillWidth
-                Layout.preferredWidth: UM.Theme.getSize("action_panel_widget").width * 2/3 - UM.Theme.getSize("thick_margin").width
+                Cura.SecondaryButton {
+                    id: smartSliceSecondaryButton
 
-                anchors.right: parent.right
-                anchors.bottom: parent.bottom
+                    height: parent.height
+                    width: smartSliceButton.visible ? (
+                        visible ? 1 / 3 * parent.width - 1 / 2 * UM.Theme.getSize("default_margin").width : UM.Theme.getSize("thick_margin").width
+                        ) : parent.width
+                    fixedWidthMode: true
 
-                text: SmartSlice.Cloud.sliceButtonText
+                    anchors.left: parent.left
+                    anchors.bottom: parent.bottom
 
-                enabled: SmartSlice.Cloud.sliceButtonEnabled
-                visible: SmartSlice.Cloud.sliceButtonVisible
+                    text: SmartSlice.Cloud.secondaryButtonText
+                    
+                    visible: SmartSlice.Cloud.secondaryButtonVisible
 
-                Connections {
-                    target: SmartSlice.Cloud
-                    onSliceButtonEnabledChanged: { smartSliceButton.enabled = SmartSlice.Cloud.sliceButtonEnabled }
-                    onSliceButtonFillWidthChanged: { smartSliceButton.Layout.fillWidth = SmartSlice.Cloud.sliceButtonFillWidth }
-                }
+                    Connections {
+                        target: SmartSlice.Cloud
+                        onSecondaryButtonVisibleChanged: { smartSliceSecondaryButton.visible = SmartSlice.Cloud.secondaryButtonVisible }
+                        onSecondaryButtonFillWidthChanged: { smartSliceSecondaryButton.Layout.fillWidth = SmartSlice.Cloud.secondaryButtonFillWidth }
+                    }
 
-                /*
-                    Smart Slice Button Click Event
-                */
-                onClicked: {
-                    //  Show Validation Dialog
-                    SmartSlice.Cloud.sliceButtonClicked()
-                }
-            }
-            Cura.SecondaryButton {
-                id: smartSliceSecondaryButton
-
-                //width: UM.Theme.getSize("thick_margin").width
-                Layout.fillWidth: SmartSlice.Cloud.secondaryButtonFillWidth
-
-                anchors.left: parent.left
-                anchors.bottom: parent.bottom
-
-                text: SmartSlice.Cloud.secondaryButtonText
-                
-                visible: SmartSlice.Cloud.secondaryButtonVisible
-
-                Connections {
-                    target: SmartSlice.Cloud
-                    onSecondaryButtonVisibleChanged: { smartSliceSecondaryButton.visible = SmartSlice.Cloud.secondaryButtonVisible }
-                    onSecondaryButtonFillWidthChanged: { smartSliceSecondaryButton.Layout.fillWidth = SmartSlice.Cloud.secondaryButtonFillWidth }
-                }
-
-                /*
-                    Smart Slice Button Click Event
-                */
-                onClicked: {
-                    //  Show Validation Dialog
-                    SmartSlice.Cloud.secondaryButtonClicked()
+                    /*
+                        Smart Slice Button Click Event
+                    */
+                    onClicked: {
+                        //  Show Validation Dialog
+                        SmartSlice.Cloud.secondaryButtonClicked()
+                    }
                 }
             }
         }
