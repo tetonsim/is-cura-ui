@@ -37,12 +37,7 @@ def registerThirdPartyModules(third_party_dir):
 
     # Looking for modules in these directories
     for found_platform_dir in found_platform_dirs:
-        for entry in os.listdir(found_platform_dir):
-            entry_abs = os.path.join(found_platform_dir, entry)
-            if not os.path.isdir(entry_abs):
-                continue
-            # Ensure that the found path is at the beginning of sys.path
-            while entry_abs in sys.path:
-                sys.path.remove(entry_abs)
-            site.addsitedir(entry_abs)
-            Logger.log("i", "Adding module: {}".format(entry))
+        while found_platform_dir in sys.path:
+            sys.path.remove(found_platform_dir)
+        site.addsitedir(found_platform_dir)
+        Logger.log("i", "Adding search path: {}".format(found_platform_dir))
