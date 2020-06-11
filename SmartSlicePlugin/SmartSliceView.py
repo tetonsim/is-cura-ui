@@ -21,6 +21,7 @@ class SmartSliceView(View):
             #self._shader.setUniformValue("u_ambientColor", Color(69, 129, 209, 1))
             self._shader.setUniformValue("u_overhangAngle", math.cos(math.radians(0)))
             self._shader.setUniformValue("u_faceId", -1)
+            self._shader.setUniformValue("u_renderError", 0)
 
     def beginRendering(self):
         scene = self.getController().getScene()
@@ -31,7 +32,7 @@ class SmartSliceView(View):
         for node in DepthFirstIterator(scene.getRoot()):
             if isinstance(node, (BuildVolume, ConvexHullNode, Platform)):
                 continue
-            
+
             if not node.render(renderer):
                 if node.getMeshData() and node.isVisible() and not node.callDecoration("getLayerData"):
                     uniforms = {}
@@ -46,7 +47,7 @@ class SmartSliceView(View):
                         pass
                     else:
                         renderer.queueNode(node, shader = self._shader, uniforms = uniforms)
-                
+
                 #if node.callDecoration("isGroup") and Selection.isSelected(node):
                 #    renderer.queueNode(scene.getRoot(), mesh = node.getBoundingBoxMesh(), mode = RenderBatch.RenderMode.LineLoop)
 
