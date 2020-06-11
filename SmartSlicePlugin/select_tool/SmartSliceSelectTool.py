@@ -1,5 +1,7 @@
 import numpy
 
+import pywim
+
 from PyQt5.QtCore import pyqtProperty
 
 from UM.i18n import i18nCatalog
@@ -15,6 +17,7 @@ from UM.Scene.SceneNode import SceneNode
 
 #  Local Imports
 from ..utils import makeInteractiveMesh
+from ..utils import getPrintableNodes
 from .SmartSliceSelectHandle import SelectionMode
 from .SmartSliceSelectHandle import SmartSliceSelectHandle
 
@@ -264,3 +267,50 @@ class SmartSliceSelectTool(Tool):
 
     def getLoadSelectionActive(self):
         return self._selection_mode is SelectionMode.LoadMode
+
+    def defineSteps(self):
+        
+        steps = pywim.WimList(pywim.chop.model.Step)
+
+        step = pywim.chop.model.Step(name='step-1')
+
+        anchor1 = pywim.chop.model.FixedBoundaryCondition(name='anchor-1')
+        anchor1.face.extend(self.anchor_face.triangleIds())
+        step.boundary_conditions.append(anchor1)
+
+        # Copied from Cura/plugins/3MFWriter/ThreeMFWriter.py
+        # The print coordinate system is different than what Cura uses internally (Y and Z flipped)
+        # so we need to transform the mesh transformation matrix
+        cura_to_print = Matrix()
+        cura_to_print._data[1, 1] = 0
+        cura_to_print._data[1, 2] = -1
+        cura_to_print._data[2, 1] = 1
+        cura_to_print._data[2, 2] = 0
+
+        normal_mesh = getPrintableNodes()[0]
+
+        mesh_transformation = normal_mesh.getLocalTransformation()
+        mesh_transformation.preMultiply(cura_to_print)
+
+        # Decompose the transformation matrix but only pick out the rotation component
+        _, mesh_rotation, _, _ = mesh_transformation.decompose()
+
+        applied_load_vec = self.force.loadVector(mesh_rotation)
+
+        # Create an applied force
+        force1 = pywim.chop.model.Force(name='force-1')
+        force1.force.set( [
+            float(applied_load_vec.x),
+            float(applied_load_vec.y),
+            float(applied_load_vec.z)
+        ])
+
+        # Add the face Ids from the STL mesh that the user selected for
+        # this force
+        force1.face.extend(self.load_face.triangleIds())
+
+        step.loads.append(force1)
+
+        steps.add(step)
+
+        return steps

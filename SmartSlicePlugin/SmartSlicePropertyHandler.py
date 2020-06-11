@@ -42,6 +42,14 @@ i18n_catalog = i18nCatalog("smartslice")
       retrieved from Cura's backend, as well as SmartSlice settings (e.g. Load/Anchor)
 """
 class SmartSlicePropertyHandler(QObject):
+
+    EXTRUDER_KEYS = [
+        "wall_extruder_nr",         # Both wall extruder drop down
+        "wall_0_extruder_nr",       # Outer wall extruder
+        "wall_x_extruder_nr",       # Inner wall extruder
+        "infill_extruder_nr"        # Infill extruder
+    ]
+
     def __init__(self, connector):
         super().__init__()
 
@@ -201,7 +209,8 @@ class SmartSlicePropertyHandler(QObject):
             if self._addProperties and not self._cancelChanges:
                 self.showConfirmDialog(revalidationRequired)
         else:
-            self.connector.prepareValidation()
+            self.connector.status = SmartSliceCloudStatus.Cancelling
+            self.connector.updateStatus()
             for p in props:
                 p.cache()
 
@@ -254,7 +263,8 @@ class SmartSlicePropertyHandler(QObject):
             self.cancelChanges()
         elif action == "continue":
             self.connector.cancelCurrentJob()
-            self.connector.prepareValidation() # TODO Added this - is it okay here?
+            self.connector.status = SmartSliceCloudStatus.Cancelling
+            self.connector.updateStatus()
             self.cacheChanges()
 
         msg.hide()
@@ -311,4 +321,4 @@ class SmartSlicePropertyHandler(QObject):
             if self.connector.status is SmartSliceCloudStatus.ReadyToVerify:
                 self.connector.doVerfication()
             else:
-                self.connector.prepareValidation()
+                self.connector.updateStatus()

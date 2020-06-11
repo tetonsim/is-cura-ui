@@ -15,9 +15,10 @@
 
 //  API Imports
 import QtQuick 2.7
-import QtQuick.Controls 2.1
+import QtQuick.Controls 2.2
 import QtQuick.Layouts 1.3
 import QtQuick.Controls.Styles 1.1
+import QtGraphicalEffects 1.0
 
 import UM 1.2 as UM
 import Cura 1.0 as Cura
@@ -735,6 +736,16 @@ Item {
                 height: UM.Theme.getSize("action_button").height
 
                 anchors.bottom: smartSliceWindow.bottom
+
+                MouseArea {
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onEntered: {
+                        if (SmartSlice.Cloud.errors && !smartSliceWarningPopup.opened) {
+                            smartSliceWarningPopup.open();
+                        }
+                    }
+                }
             
                 Cura.PrimaryButton {
                     id: smartSliceButton
@@ -764,6 +775,212 @@ Item {
                         //  Show Validation Dialog
                         SmartSlice.Cloud.sliceButtonClicked()
                     }
+                }
+
+                Glow {
+                    anchors.fill: smartSliceButton
+                    radius: 8
+                    samples: 17
+                    color: smartSlicePopupContents.warningColor
+                    source: smartSliceButton
+                    visible: SmartSlice.Cloud.errors && !smartSliceButton.enabled
+                }
+
+                // Popup message with warning / errors
+                Popup {
+                    id: smartSliceWarningPopup
+
+                    y: -(height + UM.Theme.getSize("default_arrow").height + UM.Theme.getSize("thin_margin").height)
+                    x: parent.width - width + UM.Theme.getSize("thin_margin").width
+
+                    contentWidth: parent.width
+                    contentHeight: smartSliceWarningContents.height
+
+                    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
+
+                    opacity: opened ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: 100 } }
+
+                    Column {
+                        id: smartSliceWarningContents
+
+                        width: parent.width
+                        spacing: UM.Theme.getSize("default_margin").width
+
+                        Column {
+
+                            width: parent.width
+                            topPadding: UM.Theme.getSize("default_margin").height
+                            leftPadding: UM.Theme.getSize("default_margin").width
+                            rightPadding: UM.Theme.getSize("default_margin").width
+
+                            spacing: UM.Theme.getSize("thin_margin").width
+
+                            Label {
+                                font: smartSlicePopupContents.header_font
+                                color: smartSlicePopupContents.value_color
+                                renderType: Text.NativeRendering
+
+                                text: "ITEMS NEED RESOLVED"
+                            }  
+                            
+                            Label {
+                                font: smartSlicePopupContents.subheader_font
+                                color: smartSlicePopupContents.value_color
+                                renderType: Text.NativeRendering
+                                width: parent.width
+                                rightPadding: UM.Theme.getSize("default_margin").width
+                                wrapMode: Text.WordWrap
+                                text: "The following items need to be resolved before you can validate:"
+                            }
+                        }
+
+                        ScrollView {
+                            property int maxHeight: 14 * UM.Theme.getSize("section_icon").width
+
+                            width: parent.width
+                            height: scrollErrors.height > maxHeight ? maxHeight : scrollErrors.height
+                            
+                            contentWidth: parent.width
+
+                            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                            ScrollBar.vertical.policy: ScrollBar.AsNeeded
+
+                            clip: true
+
+                            Item {
+                                id: scrollErrors
+
+                                width: parent.width
+                                height: smartSliceErrors.height
+                                implicitHeight: height
+
+                                Column {
+                                    id: smartSliceErrors
+
+                                    function getErrors() {
+                                        var errors = SmartSlice.Cloud.errors
+                                        var error_text = []
+                                        for(var error in errors) {
+                                            var error_resolution = []
+                                            error_resolution.push(error)
+                                            error_resolution.push(errors[error])
+
+                                            error_text.push(error_resolution)
+                                        }
+                                        return error_text
+                                    }
+
+                                    Repeater {
+                                        model: smartSliceErrors.getErrors()
+
+                                        Column {
+                                            width: parent.width
+
+                                            leftPadding: UM.Theme.getSize("default_margin").width
+                                            rightPadding: UM.Theme.getSize("default_margin").width
+                                            spacing: UM.Theme.getSize("thin_margin").width
+
+                                            Row {
+                                                width: parent.width
+
+                                                UM.RecolorImage {
+                                                    id: error_icon
+
+                                                    width: 0.5 * UM.Theme.getSize("section_icon").width
+                                                    height: width
+                                                    Layout.fillHeight: true
+                                                    anchors.verticalCenter: parent.verticalCenter
+
+                                                    source: "../images/circle.png"
+                                                    color: smartSlicePopupContents.warningColor
+                                                }
+
+                                                Label {
+                                                    id: error_label
+
+                                                    width: parent.width - error_icon.width - 3 * UM.Theme.getSize("default_margin").width - UM.Theme.getSize("thin_margin").width
+                                                    anchors. verticalCenter: parent.verticalCenter
+                                                    leftPadding: UM.Theme.getSize("thin_margin").width
+                                                    rightPadding: UM.Theme.getSize("default_margin").width
+                                                    Layout.fillHeight: true
+
+                                                    text: modelData[0]
+                                                    font: smartSlicePopupContents.value_font
+                                                    color: smartSlicePopupContents.value_color
+                                                    wrapMode: Text.WordWrap
+                                                    verticalAlignment: Text.AlignVCenter
+                                                }
+                                            }
+
+                                            Row {
+                                                width: parent.width
+                                                leftPadding: UM.Theme.getSize("thick_margin").width
+
+                                                UM.RecolorImage {
+                                                    id: resolution_icon
+
+                                                    width: 0.5 * UM.Theme.getSize("section_icon").width
+                                                    height: width
+                                                    Layout.fillHeight: true
+
+                                                    anchors.verticalCenter: parent.verticalCenter
+
+                                                    source: "../images/circle.png"
+                                                    color: smartSlicePopupContents.successColor
+                                                }
+
+                                                Label {
+                                                    id: resolution_label
+
+                                                    width: parent.width - resolution_icon.width - 3 * UM.Theme.getSize("default_margin").width - UM.Theme.getSize("thin_margin").width
+                                                    anchors. verticalCenter: parent.verticalCenter
+                                                    leftPadding: UM.Theme.getSize("thin_margin").width
+                                                    rightPadding: UM.Theme.getSize("default_margin").width
+                                                    Layout.fillHeight: true
+
+                                                    text: modelData[1]
+                                                    font: smartSlicePopupContents.value_font
+                                                    color: smartSlicePopupContents.value_color
+                                                    wrapMode: Text.WordWrap
+                                                    verticalAlignment: Text.AlignVCenter
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    width: parent.width
+                                    topPadding: UM.Theme.getSize("default_margin").height
+                                    leftPadding: UM.Theme.getSize("default_margin").width
+                                    rightPadding: UM.Theme.getSize("default_margin").width
+                                    bottomPadding: UM.Theme.getSize("default_margin").width
+
+                                    spacing: UM.Theme.getSize("thin_margin").width
+
+                                    Connections {
+                                        target: SmartSlice.Cloud
+                                        onSmartSliceErrorsChanged: { 
+                                            smartSliceErrors.forceLayout()
+                                            smartSliceWarningContents.forceLayout()
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    background: UM.PointingRectangle
+                    {
+                        color: UM.Theme.getColor("tool_panel_background")
+                        borderColor: UM.Theme.getColor("lining")
+                        borderWidth: UM.Theme.getSize("default_lining").width
+
+                        target: Qt.point(width - (smartSliceSecondaryButton.width / 2) - UM.Theme.getSize("thin_margin").width,
+                                        height + UM.Theme.getSize("default_arrow").height - UM.Theme.getSize("thin_margin").height)
+
+                        arrowSize: UM.Theme.getSize("default_arrow").width
+                    }
+
                 }
 
                 Cura.SecondaryButton {

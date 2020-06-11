@@ -1,8 +1,9 @@
 import copy
 
 from enum import Enum
+from typing import Dict, List
 
-from PyQt5.QtCore import pyqtSignal, pyqtProperty
+from PyQt5.QtCore import pyqtSignal, pyqtProperty, pyqtSlot
 from PyQt5.QtCore import QObject, QTime, QUrl
 
 from UM.i18n import i18nCatalog
@@ -17,8 +18,8 @@ i18n_catalog = i18nCatalog("smartslice")
 class SmartSliceCloudStatus(Enum):
     NoConnection = 1
     BadLogin = 2
-    NoModel = 3
-    NoConditions = 4
+    Cancelling = 3
+    Errors = 4
     ReadyToVerify = 5
     Underdimensioned = 6
     Overdimensioned = 7
@@ -30,8 +31,9 @@ class SmartSliceCloudStatus(Enum):
     def optimizable():
         return (SmartSliceCloudStatus.Underdimensioned, SmartSliceCloudStatus.Overdimensioned)
 
-# def Busy(status)
-#     return status == BusyValidating or status == BusyOptimizing
+    @staticmethod
+    def busy():
+        return (SmartSliceCloudStatus.BusyValidating, SmartSliceCloudStatus.BusyOptimizing)
 
 class SmartSliceCloudProxy(QObject):
     def __init__(self, connector) -> None:
@@ -40,7 +42,7 @@ class SmartSliceCloudProxy(QObject):
         self.connector = connector
 
         # Primary Button (Slice/Validate/Optimize)
-        self._sliceStatusEnum = 0
+        self._sliceStatusEnum = SmartSliceCloudStatus.Errors
         self._sliceStatus = "_Status"
         self._sliceHint = "_Hint"
         self._sliceButtonText = "_ButtonText"
@@ -50,6 +52,7 @@ class SmartSliceCloudProxy(QObject):
         self._sliceIconImage = ""
         self._sliceIconVisible = False
         self._sliceInfoOpen = False
+        self._errors = {}
 
         # Secondary Button (Preview/Cancel)
         self._secondaryButtonText = "_SecondaryText"
@@ -57,7 +60,7 @@ class SmartSliceCloudProxy(QObject):
         self._secondaryButtonVisible = False
 
         # Proxy Values (DO NOT USE DIRECTLY)
-        self._targetFactorOfSafety = 1.5
+        self._targetFactorOfSafety = 2.0
         self._targetMaximalDisplacement = 1.0
 
         self._safetyFactorColor = "#000000"
@@ -118,6 +121,7 @@ class SmartSliceCloudProxy(QObject):
     sliceStatusEnumChanged = pyqtSignal()
     sliceButtonFillWidthChanged = pyqtSignal()
 
+    smartSliceErrorsChanged = pyqtSignal()
     sliceHintChanged = pyqtSignal()
     sliceButtonVisibleChanged = pyqtSignal()
     sliceButtonEnabledChanged = pyqtSignal()
@@ -136,6 +140,10 @@ class SmartSliceCloudProxy(QObject):
     def isOptimized(self):
         return self._sliceStatusEnum is SmartSliceCloudStatus.Optimized
 
+    @pyqtProperty(bool, notify=sliceStatusEnumChanged)
+    def errors(self):
+        return self._sliceStatusEnum is SmartSliceCloudStatus.Errors
+
     @pyqtProperty(int, notify=sliceStatusEnumChanged)
     def sliceStatusEnum(self):
         return self._sliceStatusEnum
@@ -145,6 +153,15 @@ class SmartSliceCloudProxy(QObject):
         if self._sliceStatusEnum is not value:
             self._sliceStatusEnum = value
             self.sliceStatusEnumChanged.emit()
+
+    @pyqtProperty("QVariantMap", notify=smartSliceErrorsChanged)
+    def errors(self) -> Dict[str, str]:
+        return self._errors
+
+    @errors.setter
+    def errors(self, value: Dict[str, str]):
+        self._errors = value
+        self.smartSliceErrorsChanged.emit()
 
     @pyqtProperty(str, notify=sliceStatusChanged)
     def sliceStatus(self):

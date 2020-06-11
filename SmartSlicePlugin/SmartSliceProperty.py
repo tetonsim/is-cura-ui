@@ -76,13 +76,16 @@ class ContainerProperty(TrackedProperty):
         self._cached_value = self.value()
 
     def changed(self) -> bool:
-        return self._cached_value == self.value()
+        return self._cached_value != self.value()
 
 class GlobalProperty(ContainerProperty):
     NAMES = [
-      "layer_height",                 #   Layer Height
-      "layer_height_0",               #   Initial Layer Height
-      "quality"
+      "layer_height",                       #   Layer Height
+      "layer_height_0",                     #   Initial Layer Height
+      "quality",
+      "magic_spiralize",
+      "wireframe_enabled",
+      "adaptive_layer_height_enabled"
     ]
 
     def value(self):
@@ -99,21 +102,31 @@ class GlobalProperty(ContainerProperty):
 
 class ExtruderProperty(ContainerProperty):
     NAMES = [
-        "line_width",                 #  Line Width
-        "wall_line_width",            #  Wall Line Width
-        "wall_line_width_x",          #  Outer Wall Line Width
-        "wall_line_width_0",          #  Inner Wall Line Width
-        "wall_line_count",            #  Wall Line Count
-        "wall_thickness",             #  Wall Thickness
-        "skin_angles",                #  Skin (Top/Bottom) Angles
-        "top_layers",                 #  Top Layers
-        "bottom_layers",              #  Bottom Layers
-        "infill_pattern",             #  Infill Pattern
-        "infill_sparse_density",      #  Infill Density
-        "infill_angles",              #  Infill Angles
-        "infill_line_distance",       #  Infill Line Distance
-        "infill_sparse_thickness",    #  Infill Line Width
-        "alternate_extra_perimeter"   #  Alternate Extra Walls
+        "line_width",                       #  Line Width
+        "wall_line_width",                  #  Wall Line Width
+        "wall_line_width_x",                #  Outer Wall Line Width
+        "wall_line_width_0",                #  Inner Wall Line Width
+        "wall_line_count",                  #  Wall Line Count
+        "wall_thickness",                   #  Wall Thickness
+        "skin_angles",                      #  Skin (Top/Bottom) Angles
+        "top_layers",                       #  Top Layers
+        "bottom_layers",                    #  Bottom Layers
+        "infill_pattern",                   #  Infill Pattern
+        "infill_sparse_density",            #  Infill Density
+        "infill_angles",                    #  Infill Angles
+        "infill_line_distance",             #  Infill Line Distance
+        "infill_sparse_thickness",          #  Infill Line Width
+        "infill_line_width",                #  Infill Line Width
+        "alternate_extra_perimeter",        #  Alternate Extra Walls
+        "initial_layer_line_width_factor",  # % Scale for the initial layer line width
+        "top_bottom_pattern",               # Top / Bottom pattern
+        "top_bottom_pattern_0",             # Initial top / bottom pattern
+        "gradual_infill_steps",             
+        "mold_enabled",
+        "magic_mesh_surface_mode",
+        "spaghetti_infill_enabled",
+        "magic_fuzzy_skin_enabled",
+        "skin_line_width"
     ]
 
     def value(self):
