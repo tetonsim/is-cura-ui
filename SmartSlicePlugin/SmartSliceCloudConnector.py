@@ -80,14 +80,20 @@ class SmartSliceCloudJob(Job):
         protocol = preferences.getValue(self.connector.http_protocol_preference)
         hostname = preferences.getValue(self.connector.http_hostname_preference)
         port = preferences.getValue(self.connector.http_port_preference)
+
+        # To ensure that the user is tracked and has a proper subscription, we let them login and then use the token we recieve 
+        # to track them and their login status.
+        loginToken = self._getToken()
+
         if type(port) is not int:
             port = int(port)
 
-        self._client = pywim.http.thor.Client2020POC(
+        self._client = pywim.http.thor.Client(
             protocol=protocol,
             hostname=hostname,
             port=port
         )
+        self._client.set_token(loginToken)
 
         Logger.log("d", "SmartSlice HTTP Client: {}".format(self._client.address))
 
@@ -100,6 +106,49 @@ class SmartSliceCloudJob(Job):
         if value is not self._job_status:
             self._job_status = value
             Logger.log("d", "Status changed: {}".format(self.job_status))
+
+    # If our user has logged in before, their login token will be in the file.
+    def _getToken(self):
+        #TODO: If no token file, try to login and create one. For now, we will just create a token file.
+        token_file_path = os.path.join(PluginRegistry.getInstance().getPluginPath("SmartSlicePlugin"), ".token")
+        if not os.path.exists(token_file_path):
+            token = self._createTokenFile(token_file_path)
+        else:
+            try:
+                with open(token_file_path, "r") as token_file:
+                    token = json.load(token_file)
+            except:
+                Logger.log("d", "Unable to read Token JSON: Rebuilding")
+                token = self._createTokenFile(token_file_path)
+
+            if token == "" or token is None:
+                token = self._createTokenFile(token_file_path)
+        return token
+
+    # If there is no token in the file, or the file does not exist, we create one.
+    def _createTokenFile(self, token_file_path):
+        #TODO: Get the token from the login system correctly.
+        my_token = "[Insert Your Token Here]"
+        with open(token_file_path, "w") as token_file:
+            json.dump(my_token, token_file)
+        return my_token
+
+    def _handleThorErrors(self, http_error_code, returned_object):
+        if http_error_code == 400:
+            error_message = Message()
+            error_message.setTitle("Smart Slice Thor API")
+            error_message.setText(i18n_catalog.i18nc("@info:status", "SmartSlice Server Error (400: Bad Request):\n{}".format(returned_object.error)))
+            error_message.show()
+        elif http_error_code == 401:
+            error_message = Message()
+            error_message.setTitle("Smart Slice Thor API")
+            error_message.setText(i18n_catalog.i18nc("@info:status", "SmartSlice Server Error (401: Unauthorized):\nAre you logged in?"))
+            error_message.show()
+        else:
+            error_message = Message()
+            error_message.setTitle("Smart Slice Thor API")
+            error_message.setText(i18n_catalog.i18nc("@info:status", "SmartSlice Server Error (HTTP Error: {})".format(http_error_code)))
+            error_message.show()
 
     def determineTempDirectory(self):
         temporary_directory = tempfile.gettempdir()
@@ -164,41 +213,49 @@ class SmartSliceCloudJob(Job):
         threemf_fd.close()
 
         # Submit the 3MF data for a new task
-        task = self._client.submit.post(threemf_data)
-        Logger.log("d", "Status after posting: {}".format(task.status))
+        thor_status_code, task = self._client.new_smartslice_job(threemf_data)
 
-        # While the task status is not finished or failed continue to periodically
-        # check the status. This is a naive way of waiting, since this could take
-        # a while (minutes).
-        while task.status not in (pywim.http.thor.TaskStatus.failed,
-                                  pywim.http.thor.TaskStatus.finished
-                                  ) and not self.canceled:
+        Logger.log("d", "API Status after post'ing: {}".format(thor_status_code))
+        if thor_status_code is not 200:
+            self._handleThorErrors(thor_status_code, task)
+            self.connector.cancelCurrentJob()
+
+        if task is not None:
+            Logger.log("d", "Job status after post'ing: {}".format(task.status))
+
+        # While the task status is not finished/failed/crashed/aborted continue to
+        # wait on the status using the API.
+        while not self.canceled and task.status not in (pywim.http.thor.JobInfo.Status.failed,
+                                                        pywim.http.thor.JobInfo.Status.crashed,
+                                                        pywim.http.thor.JobInfo.Status.aborted,
+                                                        pywim.http.thor.JobInfo.Status.finished
+                                                        ):
             self.job_status = task.status
+            thor_status_code, task = self._client.smartslice_job_wait(task.id)
 
-            time.sleep(self._wait_time)
-            task = self._client.status.get(id=task.id)
+            if thor_status_code is not 200:
+                self._handleThorErrors(thor_status_code, task)
+                self.connector.cancelCurrentJob()
 
         if not self.canceled:
             self.connector.propertyHandler._cancelChanges = False
 
-            if task.status == pywim.http.thor.TaskStatus.failed:
+            if task.status == pywim.http.thor.JobInfo.Status.failed:
                 error_message = Message()
                 error_message.setTitle("Smart Slice Solver")
-                error_message.setText(i18n_catalog.i18nc("@info:status", "Error while processing the job:\n{}".format(task.error)))
+                error_message.setText(i18n_catalog.i18nc("@info:status", "Error while processing the job:\n{}".format(task.errors)))
                 error_message.show()
                 self.connector.cancelCurrentJob()
 
-                Logger.log("e", "An error occured while sending and receiving cloud job: {}".format(task.error))
+                Logger.log("e", "An error occured while sending and receiving cloud job: {}".format(task.errors))
                 self.connector.propertyHandler._cancelChanges = False
                 return None
-            elif task.status == pywim.http.thor.TaskStatus.finished:
-                # Get the task again, but this time with the results included
-                task = self._client.result.get(id=task.id)
+            elif task.status == pywim.http.thor.JobInfo.Status.finished:
                 return task
             else:
                 error_message = Message()
                 error_message.setTitle("Smart Slice Solver")
-                error_message.setText(i18n_catalog.i18nc("@info:status", "Unexpected status occured:\n{}".format(task.error)))
+                error_message.setText(i18n_catalog.i18nc("@info:status", "Unexpected status occured:\n{}".format(task.errors)))
                 error_message.show()
                 self.connector.cancelCurrentJob()
 
@@ -208,7 +265,7 @@ class SmartSliceCloudJob(Job):
         else:
             notification_message = Message()
             notification_message.setTitle("Smart Slice")
-            notification_message.setText(i18n_catalog.i18nc("@info:status", "Job has been canceled!".format(task.error)))
+            notification_message.setText(i18n_catalog.i18nc("@info:status", "Job has been canceled!"))
             notification_message.show()
             self.connector.cancelCurrentJob()
 
@@ -413,7 +470,6 @@ class SmartSliceCloudConnector(QObject):
     http_protocol_preference = "smartslice/http_protocol"
     http_hostname_preference = "smartslice/http_hostname"
     http_port_preference = "smartslice/http_port"
-    http_token_preference = "smartslice/token"
 
     debug_save_smartslice_package_preference = "smartslice/debug_save_smartslice_package"
     debug_save_smartslice_package_location = "smartslice/debug_save_smartslice_package_location"
@@ -440,9 +496,8 @@ class SmartSliceCloudConnector(QObject):
         # Application stuff
         self.app_preferences = Application.getInstance().getPreferences()
         self.app_preferences.addPreference(self.http_protocol_preference, "https")
-        self.app_preferences.addPreference(self.http_hostname_preference, "api-20.fea.cloud")
+        self.app_preferences.addPreference(self.http_hostname_preference, "test.smartslice.xyz")
         self.app_preferences.addPreference(self.http_port_preference, 443)
-        self.app_preferences.addPreference(self.http_token_preference, "")
 
         # Debug stuff
         self.app_preferences.addPreference(self.debug_save_smartslice_package_preference, False)

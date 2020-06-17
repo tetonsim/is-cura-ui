@@ -97,3 +97,6 @@ ENV/
 
 # Third party software
 SmartSlicePlugin/SmartSliceExtension/3rd-party/cpython-common/teton-*/*
+
+# SmartSlice Login Token
+SmartSlicePlugin/.token
