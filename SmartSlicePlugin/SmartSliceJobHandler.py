@@ -5,6 +5,7 @@ import json
 import zipfile
 import re
 from string import Formatter
+from typing import Dict, Tuple
 
 import pywim
 import threemf
@@ -18,7 +19,6 @@ from cura.Settings.ExtruderManager import ExtruderManager
 from .requirements_tool.SmartSliceRequirements import SmartSliceRequirements
 from .select_tool.SmartSliceSelectTool import SmartSliceSelectTool
 from .SmartSlicePropertyHandler import SmartSlicePropertyHandler
-from .SmartSliceCloudProxy import SmartSliceCloudStatus
 
 from .utils import getPrintableNodes
 from .utils import getModifierMeshes
@@ -42,16 +42,16 @@ class SmartSliceJobHandler:
 
     INFILL_DIRECTION = 45
 
-    def __init__(self, connector):
-        self._connector = connector
+    def __init__(self, handler: SmartSlicePropertyHandler):
         self._all_extruders_settings = None
+        self._propertyHandler = handler
 
-    # Builds and checks a smart slice job for errors. Returns the job
-    def checkJob(self) -> pywim.smartslice.job.Job:
+    # Builds and checks a smart slice job for errors based on current setup defined by the property handler
+    # Will return the job, and a dictionary of error keys and associated error resolutions
+    def checkJob(self, machine_name="printer") -> Tuple[pywim.smartslice.job.Job, Dict[str, str]]:
 
         if len(getPrintableNodes()) == 0:
-            self._connector.status = SmartSliceCloudStatus.Errors
-            return None
+            return None, {}
 
         # Create a new instance of errors. We will use this to replace the old errors and
         # emit a signal to replace them
@@ -118,14 +118,14 @@ class SmartSliceJobHandler:
 
         # Global print config -- assuming only 1 extruder is active for ALL meshes right now
         print_config = pywim.am.Config()
-        print_config.layer_height = self._connector.propertyHandler.getGlobalProperty("layer_height")
-        print_config.layer_width = self._connector.propertyHandler.getExtruderProperty("line_width")
-        print_config.walls = self._connector.propertyHandler.getExtruderProperty("wall_line_count")
-        print_config.bottom_layers = self._connector.propertyHandler.getExtruderProperty("top_layers")
-        print_config.top_layers = self._connector.propertyHandler.getExtruderProperty("bottom_layers")
+        print_config.layer_height = self._propertyHandler.getGlobalProperty("layer_height")
+        print_config.layer_width = self._propertyHandler.getExtruderProperty("line_width")
+        print_config.walls = self._propertyHandler.getExtruderProperty("wall_line_count")
+        print_config.bottom_layers = self._propertyHandler.getExtruderProperty("top_layers")
+        print_config.top_layers = self._propertyHandler.getExtruderProperty("bottom_layers")
 
         # > https://github.com/Ultimaker/CuraEngine/blob/master/src/FffGcodeWriter.cpp#L402
-        skin_angles = self._connector.propertyHandler.getExtruderProperty("skin_angles")
+        skin_angles = self._propertyHandler.getExtruderProperty("skin_angles")
         if type(skin_angles) is str:
             skin_angles = eval(skin_angles)
         if len(skin_angles) > 0:
@@ -133,15 +133,15 @@ class SmartSliceJobHandler:
         else:
             print_config.skin_orientations.extend((45, 135))
 
-        infill_pattern = self._connector.propertyHandler.getExtruderProperty("infill_pattern")
-        print_config.infill.density = self._connector.propertyHandler.getExtruderProperty("infill_sparse_density")
+        infill_pattern = self._propertyHandler.getExtruderProperty("infill_pattern")
+        print_config.infill.density = self._propertyHandler.getExtruderProperty("infill_sparse_density")
         if infill_pattern in self.INFILL_CURA_SMARTSLICE.keys():
             print_config.infill.pattern = self.INFILL_CURA_SMARTSLICE[infill_pattern]
         else:
             print_config.infill.pattern = infill_pattern # The job validation will handle the error
 
         # > https://github.com/Ultimaker/CuraEngine/blob/master/src/FffGcodeWriter.cpp#L366
-        infill_angles = self._connector.propertyHandler.getExtruderProperty("infill_angles")
+        infill_angles = self._propertyHandler.getExtruderProperty("infill_angles")
         if type(infill_angles) is str:
             infill_angles = eval(infill_angles)
         if not len(infill_angles):
@@ -164,36 +164,28 @@ class SmartSliceJobHandler:
             extruder.print_config.auxiliary = self._getAuxDict(extruder_stack)
             extruders += (extruder,)
 
-        printer = pywim.chop.machine.Printer(name=self._connector.active_machine.getName(), extruders=extruders)
+        printer = pywim.chop.machine.Printer(name=machine_name, extruders=extruders)
         job.chop.slicer = pywim.chop.slicer.CuraEngine(config=print_config, printer=printer)
 
         # Check the job and add the errors
         errors = errors + job.validate()
 
-        # Build the error messages for the popup (if any)
-        if (len(errors) > 0):
-            self._connector.status = SmartSliceCloudStatus.Errors
-        elif self._connector.status == SmartSliceCloudStatus.Errors or self._connector.status == SmartSliceCloudStatus.Cancelling:
-            self._connector.status = SmartSliceCloudStatus.ReadyToVerify
-
         error_dict = {}
         for err in errors:
             error_dict[err.error()] = err.resolution()
 
-        self._connector._proxy.errors = error_dict
-
-        return job
+        return job, error_dict
 
     # Builds a complete smart slice job to be written to a 3MF
-    def buildJobFor3mf(self) -> pywim.smartslice.job.Job:
+    def buildJobFor3mf(self, machine_name="printer") -> pywim.smartslice.job.Job:
 
-        job = self.checkJob()
+        job, errors = self.checkJob(machine_name)
 
         # Clear out the data we don't need or will override
         job.chop.meshes.clear()
         job.extruders.clear()
 
-        if len(self._connector._proxy.errors) > 0:
+        if len(errors) > 0:
             Logger.log("w", "Unresolved errors in the Smart Slice setup!")
             return None
 
@@ -230,7 +222,7 @@ class SmartSliceJobHandler:
         if len(extruders) == 0:
             Logger.log("e", "Did not find the extruder with position %i", machine_extruder.position)
 
-        printer = pywim.chop.machine.Printer(name=self._connector.active_machine.getName(), extruders=extruders)
+        printer = pywim.chop.machine.Printer(name=machine_name, extruders=extruders)
 
         # And finally set the slicer to the Cura Engine with the config and printer defined above
         job.chop.slicer = pywim.chop.slicer.CuraEngine(config=print_config, printer=printer)
@@ -259,7 +251,7 @@ class SmartSliceJobHandler:
         tmf_reader = threemf.io.Reader()
         tmf_reader.register_extension(pywim.smartslice.ThreeMFExtension)
 
-        tmf_reader.read(tmf, stream)
+        tmf_reader.read(tmf, file)
 
         if len(tmf.extensions) != 1:
             raise Exception('3MF extension count is not 1')

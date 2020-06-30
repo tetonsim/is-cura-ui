@@ -1,4 +1,6 @@
 import copy
+import json
+import math
 
 from enum import Enum
 from typing import Dict, List
@@ -12,6 +14,9 @@ from UM.Logger import Logger
 
 from .SmartSliceProperty import SmartSlicePropertyEnum, SmartSlicePropertyColor
 from .requirements_tool.SmartSliceRequirements import SmartSliceRequirements
+from .select_tool.SmartSliceSelectTool import SmartSliceSelectTool
+
+import pywim
 
 i18n_catalog = i18nCatalog("smartslice")
 
@@ -35,11 +40,10 @@ class SmartSliceCloudStatus(Enum):
     def busy():
         return (SmartSliceCloudStatus.BusyValidating, SmartSliceCloudStatus.BusyOptimizing)
 
+# Serves as a bridge between the main UI in QML and data regarding Smart Slice
 class SmartSliceCloudProxy(QObject):
-    def __init__(self, connector) -> None:
+    def __init__(self) -> None:
         super().__init__()
-
-        self.connector = connector
 
         # Primary Button (Slice/Validate/Optimize)
         self._sliceStatusEnum = SmartSliceCloudStatus.Errors
@@ -141,7 +145,7 @@ class SmartSliceCloudProxy(QObject):
         return self._sliceStatusEnum is SmartSliceCloudStatus.Optimized
 
     @pyqtProperty(bool, notify=sliceStatusEnumChanged)
-    def errors(self):
+    def errorsExist(self):
         return self._sliceStatusEnum is SmartSliceCloudStatus.Errors
 
     @pyqtProperty(int, notify=sliceStatusEnumChanged)
@@ -608,7 +612,7 @@ class SmartSliceCloudProxy(QObject):
         else:
             self.safetyFactorColor = SmartSlicePropertyColor.SuccessColor
         #  Override if part has gone through optimization
-        if self.connector.status is SmartSliceCloudStatus.Optimized:
+        if self._sliceStatusEnum == SmartSliceCloudStatus.Optimized:
             self.safetyFactorColor = SmartSlicePropertyColor.SuccessColor
 
         self.safetyFactorColorChanged.emit()
@@ -622,7 +626,7 @@ class SmartSliceCloudProxy(QObject):
         else:
             self.maxDisplaceColor = SmartSlicePropertyColor.SuccessColor
         # Override if part has gone through optimization
-        if self.connector.status is SmartSliceCloudStatus.Optimized:
+        if self._sliceStatusEnum == SmartSliceCloudStatus.Optimized:
             self.maxDisplaceColor = SmartSlicePropertyColor.SuccessColor
 
         self.maxDisplaceColorChanged.emit()
@@ -630,3 +634,143 @@ class SmartSliceCloudProxy(QObject):
     def updateColorUI(self):
         self.updateColorSafetyFactor()
         self.updateColorMaxDisplacement()
+
+    # Updates the properties from a job setup
+    def updatePropertiesFromJob(self, job: pywim.smartslice.job.Job):
+
+        select_tool = SmartSliceSelectTool.getInstance()
+        select_tool.updateFromJob(job)
+
+        requirements = SmartSliceRequirements.getInstance()
+        requirements.targetSafetyFactor = job.optimization.min_safety_factor
+        requirements.maxDisplacement = job.optimization.max_displacement
+
+    # Updates the properties
+    def updatePropertiesFromResults(self, results: pywim.smartslice.result.Result):
+
+        analysis = results.analyses[0]
+
+        self.resultSafetyFactor = analysis.structural.min_safety_factor
+        self.resultMaximalDisplacement = analysis.structural.max_displacement
+
+        qprint_time = QTime(0, 0, 0, 0)
+        qprint_time = qprint_time.addSecs(analysis.print_time)
+        self.resultTimeTotal = qprint_time
+
+        # TODO: Reactivate the block as soon as we have the single print times again!
+        #self.resultTimeInfill = QTime(1, 0, 0, 0)
+        #self.resultTimeInnerWalls = QTime(0, 20, 0, 0)
+        #self.resultTimeOuterWalls = QTime(0, 15, 0, 0)
+        #self.resultTimeRetractions = QTime(0, 5, 0, 0)
+        #self.resultTimeSkin = QTime(0, 10, 0, 0)
+        #self.resultTimeSkirt = QTime(0, 1, 0, 0)
+        #self.resultTimeTravel = QTime(0, 30, 0, 0)
+
+        if len(analysis.extruders) == 0:
+            # This shouldn't happen
+            material_volume = [0.0]
+        else:
+            material_volume = [analysis.extruders[0].material_volume]
+
+        material_extra_info = self._calculateAdditionalMaterialInfo(material_volume)
+        Logger.log("d", "material_extra_info: {}".format(material_extra_info))
+
+        # for pos in len(material_volume):
+        pos = 0
+        self.materialLength = material_extra_info[0][pos]
+        self.materialWeight = material_extra_info[1][pos]
+        self.materialCost = material_extra_info[2][pos]
+        # Below is commented out because we don't necessarily need it right now.
+        # We aren't sending multiple materials to optimize, so the material here
+        # won't change. And this assignment causes the "Lose Validation Results"
+        # pop-up to show.
+        #self.materialName = material_extra_info[3][pos]
+
+    def updateStatusFromResults(self, job: pywim.smartslice.job.Job, results: pywim.smartslice.result.Result):
+
+        if job:
+            if job.type == pywim.smartslice.job.JobType.validation:
+                if results:
+                    self.optimizationStatus()
+                    self.sliceInfoOpen = True
+                else:
+                    self._sliceStatusEnum = SmartSliceCloudStatus.ReadyToVerify
+            else:
+                self.optimizationStatus()
+                self.sliceInfoOpen = True
+        else:
+            self._sliceStatusEnum = SmartSliceCloudStatus.Errors
+
+        Application.getInstance().activityChanged.emit()
+
+    # Mainly taken from : {Cura}/cura/UI/PrintInformation.py@_calculateInformation
+    def _calculateAdditionalMaterialInfo(self, _material_volume):
+        global_stack = Application.getInstance().getGlobalContainerStack()
+        if global_stack is None:
+            return
+
+        _material_lengths = []
+        _material_weights = []
+        _material_costs = []
+        _material_names = []
+
+        material_preference_values = json.loads(Application.getInstance().getPreferences().getValue("cura/material_settings"))
+
+        Logger.log("d", "global_stack.extruderList: {}".format(global_stack.extruderList))
+
+        for extruder_stack in global_stack.extruderList:
+            position = extruder_stack.position
+            if type(position) is not int:
+                position = int(position)
+            if position >= len(_material_volume):
+                continue
+            amount = _material_volume[position]
+            # Find the right extruder stack. As the list isn't sorted because it's a annoying generator, we do some
+            # list comprehension filtering to solve this for us.
+            density = extruder_stack.getMetaDataEntry("properties", {}).get("density", 0)
+            material = extruder_stack.material
+            radius = extruder_stack.getProperty("material_diameter", "value") / 2
+
+            weight = float(amount) * float(density) / 1000
+            cost = 0.
+
+            material_guid = material.getMetaDataEntry("GUID")
+            material_name = material.getName()
+
+            if material_guid in material_preference_values:
+                material_values = material_preference_values[material_guid]
+
+                if material_values and "spool_weight" in material_values:
+                    weight_per_spool = float(material_values["spool_weight"])
+                else:
+                    weight_per_spool = float(extruder_stack.getMetaDataEntry("properties", {}).get("weight", 0))
+
+                cost_per_spool = float(material_values["spool_cost"] if material_values and "spool_cost" in material_values else 0)
+
+                if weight_per_spool != 0:
+                    cost = cost_per_spool * weight / weight_per_spool
+                else:
+                    cost = 0
+
+            # Material amount is sent as an amount of mm^3, so calculate length from that
+            if radius != 0:
+                length = round((amount / (math.pi * radius ** 2)) / 1000, 2)
+            else:
+                length = 0
+
+            _material_weights.append(weight)
+            _material_lengths.append(length)
+            _material_costs.append(cost)
+            _material_names.append(material_name)
+
+        return _material_lengths, _material_weights, _material_costs, _material_names
+
+    def optimizationStatus(self):
+        req_tool = SmartSliceRequirements.getInstance()
+        if req_tool.maxDisplacement > self.resultMaximalDisplacement and req_tool.targetSafetyFactor < self.resultSafetyFactor:
+            self._sliceStatusEnum = SmartSliceCloudStatus.Overdimensioned
+        elif req_tool.maxDisplacement <= self.resultMaximalDisplacement or req_tool.targetSafetyFactor >= self.resultSafetyFactor:
+            self._sliceStatusEnum = SmartSliceCloudStatus.Underdimensioned
+        else:
+            self._sliceStatusEnum = SmartSliceCloudStatus.Optimized
+

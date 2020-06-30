@@ -125,7 +125,7 @@ class SmartSliceStage(CuraStage):
         # SmartSlice tab.
         printable_node.callDecoration("getActiveExtruderChangedSignal").connect(self.extruderChanged)
 
-        self._connector.smartSliceJobHandle.checkJob()
+        self._connector.updateStatus()
 
         if not Selection.hasSelection():
             Selection.add(printable_node)

@@ -95,6 +95,8 @@ class SmartSlicePropertyHandler(QObject):
                 self._modifier_mesh
             ]
 
+        self._propertiesChanged = []
+
         self._activeMachineManager = CuraApplication.getInstance().getMachineManager()
         self._activeMachineManager.printerConnectedStatusChanged.connect(self.printerCheck)
         self.printerCheck()
@@ -262,9 +264,9 @@ class SmartSlicePropertyHandler(QObject):
         if action == "cancel":
             self.cancelChanges()
         elif action == "continue":
-            self.connector.cancelCurrentJob()
             self.connector.status = SmartSliceCloudStatus.Cancelling
             self.connector.updateStatus()
+            self.connector.cancelCurrentJob()
             self.cacheChanges()
 
         msg.hide()

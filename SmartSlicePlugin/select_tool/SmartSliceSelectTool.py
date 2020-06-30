@@ -24,7 +24,7 @@ from .SmartSliceSelectHandle import SmartSliceSelectHandle
 i18n_catalog = i18nCatalog("smartslice")
 
 class Force:
-    def __init__(self, normal : Vector = None, magnitude : float = 0.0, pull : bool = True):
+    def __init__(self, normal : Vector = None, magnitude : float = 0.0, pull : bool = False):
         self.normal = normal if normal else Vector(1.0, 0.0, 0.0)
         self.magnitude = magnitude
         self.pull = pull
@@ -136,6 +136,40 @@ class SmartSliceSelectTool(Tool):
 
     def setLoadDirection(self, value : bool):
         self.loadDirection = value
+
+    # Updates the properties from a predefined job
+    def updateFromJob(self, job: pywim.smartslice.job.Job):
+
+        normal_mesh = getPrintableNodes()[0]
+
+        if not Selection.hasSelection():
+            Selection.add(normal_mesh)
+
+        self._calculateMesh()
+
+        # Will need to update this when multiple loads / bc's are introduced
+
+        step = job.chop.steps[0]
+        if step and len(step.loads) > 0:
+            self.load_face.triangles = self._interactive_mesh.triangles_from_ids(step.loads[0].face)
+
+            load_tuple = step.loads[0].force
+            load_vector = pywim.geom.Vector(load_tuple[0], load_tuple[1], load_tuple[2])
+            self.loadMagnitude = load_vector.magnitude()
+
+            if len(self.load_face.triangles) > 0:
+                face_normal = self.load_face.triangles[0].normal
+                if load_vector.angle(face_normal) < self._interactive_mesh._COPLANAR_ANGLE:
+                    self.loadDirection = True
+                else:
+                    self.loadDirection = False
+
+        if step and len(step.boundary_conditions) > 0:
+            self.anchor_face.triangles = self._interactive_mesh.triangles_from_ids(step.boundary_conditions[0].face)
+
+        self.redraw()
+
+        return
 
     def _calculateMesh(self):
         scene = Application.getInstance().getController().getScene()
@@ -269,7 +303,7 @@ class SmartSliceSelectTool(Tool):
         return self._selection_mode is SelectionMode.LoadMode
 
     def defineSteps(self):
-        
+
         steps = pywim.WimList(pywim.chop.model.Step)
 
         step = pywim.chop.model.Step(name='step-1')
