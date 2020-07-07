@@ -140,17 +140,26 @@ class SmartSliceCloudJob(Job):
         if http_error_code == 400:
             error_message = Message()
             error_message.setTitle("Smart Slice Thor API")
-            error_message.setText(i18n_catalog.i18nc("@info:status", "SmartSlice Server Error (400: Bad Request):\n{}".format(returned_object.error)))
+            error_message.setText(i18n_catalog.i18nc(
+                "@info:status",
+                "SmartSlice Server Error (400: Bad Request):\n{}".format(returned_object.errors[0].message)
+            ))
             error_message.show()
         elif http_error_code == 401:
             error_message = Message()
             error_message.setTitle("Smart Slice Thor API")
-            error_message.setText(i18n_catalog.i18nc("@info:status", "SmartSlice Server Error (401: Unauthorized):\nAre you logged in?"))
+            error_message.setText(i18n_catalog.i18nc(
+                "@info:status",
+                "SmartSlice Server Error (401: Unauthorized):\nAre you logged in?"
+            ))
             error_message.show()
         else:
             error_message = Message()
             error_message.setTitle("Smart Slice Thor API")
-            error_message.setText(i18n_catalog.i18nc("@info:status", "SmartSlice Server Error (HTTP Error: {})".format(http_error_code)))
+            error_message.setText(i18n_catalog.i18nc(
+                "@info:status",
+                "SmartSlice Server Error (HTTP Error: {})".format(http_error_code)
+            ))
             error_message.show()
 
         self.setError(SmartSliceCloudJob.JobException(error_message.getText()))
@@ -248,11 +257,19 @@ class SmartSliceCloudJob(Job):
             if task.status == pywim.http.thor.JobInfo.Status.failed:
                 error_message = Message()
                 error_message.setTitle("Smart Slice Solver")
-                error_message.setText(i18n_catalog.i18nc("@info:status", "Error while processing the job:\n{}".format(task.errors)))
+                error_message.setText(i18n_catalog.i18nc(
+                    "@info:status",
+                    "Error while processing the job:\n{}".format(task.errors[0].message)
+                ))
                 error_message.show()
-                self.connector.cancelCurrentJob()
 
-                Logger.log("e", "An error occured while sending and receiving cloud job: {}".format(task.errors))
+                self.connector.cancelCurrentJob()
+                self.setError(SmartSliceCloudJob.JobException(error_message.getText()))
+
+                Logger.log(
+                    "e",
+                    "An error occured while sending and receiving cloud job: {}".format(error_message.getText())
+                )
                 self.connector.propertyHandler._cancelChanges = False
                 return None
             elif task.status == pywim.http.thor.JobInfo.Status.finished:
@@ -260,11 +277,19 @@ class SmartSliceCloudJob(Job):
             else:
                 error_message = Message()
                 error_message.setTitle("Smart Slice Solver")
-                error_message.setText(i18n_catalog.i18nc("@info:status", "Unexpected status occured:\n{}".format(task.errors)))
+                error_message.setText(i18n_catalog.i18nc(
+                    "@info:status",
+                    "Unexpected status occured:\n{}".format(task.errors[0].message)
+                ))
                 error_message.show()
-                self.connector.cancelCurrentJob()
 
-                Logger.log("e", "An unexpected status occured while sending and receiving cloud job: {}".format(task.status))
+                self.connector.cancelCurrentJob()
+                self.setError(SmartSliceCloudJob.JobException(error_message.getText()))
+
+                Logger.log(
+                    "e",
+                    "An unexpected status occured while sending and receiving cloud job: {}".format(error_message.getText())
+                )
                 self.connector.propertyHandler._cancelChanges = False
                 return None
         else:
@@ -272,7 +297,9 @@ class SmartSliceCloudJob(Job):
             notification_message.setTitle("Smart Slice")
             notification_message.setText(i18n_catalog.i18nc("@info:status", "Job has been canceled!"))
             notification_message.show()
+
             self.connector.cancelCurrentJob()
+            self.setError(SmartSliceCloudJob.JobException(error_message.getText()))
 
     def run(self) -> None:
         if not self.job_type:
