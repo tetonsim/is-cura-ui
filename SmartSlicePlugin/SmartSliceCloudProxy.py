@@ -116,6 +116,11 @@ class SmartSliceCloudProxy(QObject):
 
     # Properties (mainly) for the sliceinfo widget
 
+    # For main window dialog
+    closeSavePromptClicked = pyqtSignal()
+    escapeSavePromptClicked = pyqtSignal()
+    savePromptClicked = pyqtSignal()
+
     #
     #   SLICE BUTTON WINDOW
     #
