@@ -62,7 +62,8 @@ class SmartSlicePropertyHandler(QObject):
         self._extruder_properties = SmartSliceProperty.ExtruderProperty.CreateAll()
         self._selected_material = SmartSliceProperty.SelectedMaterial()
         self._scene = SmartSliceProperty.Scene()
-        self._modifier_mesh = SmartSliceProperty.ModifierMesh()
+
+        self._mod_mesh_removal_msg = None
 
         sel_tool = SmartSliceSelectTool.getInstance()
 
@@ -92,7 +93,6 @@ class SmartSlicePropertyHandler(QObject):
             [
                 self._selected_material,
                 self._scene,
-                self._modifier_mesh
             ]
 
         self._propertiesChanged = []
@@ -104,6 +104,7 @@ class SmartSlicePropertyHandler(QObject):
         sel_tool.selectedFaceChanged.connect(self._onSelectedFaceChanged)
         sel_tool.toolPropertyChanged.connect(self._onSelectToolPropertyChanged)
         req_tool.toolPropertyChanged.connect(self._onRequirementToolPropertyChanged)
+        controller.getScene().getRoot().childrenChanged.connect(self.loadModifierMesh)
 
         self._cancelChanges = False
         self._addProperties = True
@@ -121,8 +122,28 @@ class SmartSlicePropertyHandler(QObject):
             self._activeMachineManager.activeMachine.propertyChanged.connect(self._onGlobalPropertyChanged)
             self._activeMachineManager.activeMaterialChanged.connect(self._onMaterialChanged)
 
-    def hasModMesh(self) -> bool:
-        return self._modifier_mesh.value() is not None
+    def buildModifierMeshTrackedProperty(self, node):
+        modMesh = SmartSliceProperty.ModifierMesh(node, node.getName())
+        self._properties.append(modMesh)
+        Logger.log("d", "Tracking properties for {}".format(node.getName()))
+        modMesh.cache()
+        stack = node.callDecoration('getStack')
+        stack.propertyChanged.connect(self._onModMeshChanged)
+        node.parentChanged.connect(modMesh.parentChanged)
+        node.parentChanged.connect(self.modMeshRemoved)
+
+    def loadModifierMesh(self, root):
+        names = [p.mesh_name for p in self._properties if isinstance(p, SmartSliceProperty.ModifierMesh)]
+        for node in getModifierMeshes():
+            if node.getName() not in names:
+                self.buildModifierMeshTrackedProperty(node)
+
+    def modMeshRemoved(self, parent_node):
+        for property in self._properties:
+            if isinstance(property, SmartSliceProperty.ModifierMesh) and property.parent_changed:
+                Logger.log("d", "Stopped tracking for {}".format(property.mesh_name))
+                self._properties.remove(property)
+                break
 
     def cacheChanges(self):
         for p in self._properties:
@@ -168,7 +189,12 @@ class SmartSlicePropertyHandler(QObject):
         self.confirmPendingChanges(self._selected_material)
 
     def _onSceneChanged(self, changed_node):
-        self.confirmPendingChanges( [self._scene, self._modifier_mesh] )
+        self.confirmPendingChanges(self._scene)
+
+    def _onModMeshChanged(self, scene_node, infill_node):
+        self.confirmPendingChanges(
+            list(filter(lambda p: isinstance(p, SmartSliceProperty.ModifierMesh), self._properties))
+        )
 
     def _onMeshTransformationChanged(self, unused):
         self.confirmPendingChanges(self._scene)
@@ -232,7 +258,7 @@ class SmartSlicePropertyHandler(QObject):
 
         elif self.connector.status in { SmartSliceCloudStatus.BusyOptimizing, SmartSliceCloudStatus.Optimized }:
             self._confirmDialog = Message(
-                title="Lose Optimization Results?",
+                title="Smart Slice Warning",
                 text="Modifying this setting will invalidate your results.\nDo you want to continue and lose your \noptimization results?",
                 lifetime=0
             )
@@ -293,34 +319,39 @@ class SmartSlicePropertyHandler(QObject):
             self._confirmDialog.hide()
 
     def askToRemoveModMesh(self):
-        msg = Message(
-            title="",
-            text="Modifier meshes will be removed for the validation.\nDo you want to Continue?",
-            lifetime=0
-        )
-        msg.addAction(
-            "cancel",
-            i18n_catalog.i18nc("@action", "Cancel"),
-            "", "",
-            button_style=Message.ActionButtonStyle.SECONDARY
-        )
-        msg.addAction(
-            "continue",
-            i18n_catalog.i18nc("@action", "Continue"),
-            "", ""
-        )
-        msg.actionTriggered.connect(self.removeModMeshes)
-        msg.show()
+        if self._mod_mesh_removal_msg is not None:
+            self.removeModMeshes(self._mod_mesh_removal_msg, 'continue')
+        else:
+            self._mod_mesh_removal_msg = Message(
+                title="Smart Slice Warning",
+                text="Modifier meshes will be removed for the optimization.\nDo you want to Continue?",
+                lifetime=600,
+                dismissable=False
+            )
+            self._mod_mesh_removal_msg.addAction(
+                "cancel",
+                i18n_catalog.i18nc("@action", "Cancel"),
+                "", "",
+                button_style=Message.ActionButtonStyle.SECONDARY
+            )
+            self._mod_mesh_removal_msg.addAction(
+                "continue",
+                i18n_catalog.i18nc("@action", "Continue"),
+                "", ""
+            )
+            self._mod_mesh_removal_msg.actionTriggered.connect(self.removeModMeshes)
+            self._mod_mesh_removal_msg.show()
 
     def removeModMeshes(self, msg, action):
         """ Associated Action for askToRemoveModMesh() """
+        self._mod_mesh_removal_msg = None
         msg.hide()
         if action == "continue":
             op = GroupedOperation()
             for node in getModifierMeshes():
                 op.addOperation(RemoveSceneNodeOperation(node))
             op.push()
-            if self.connector.status is SmartSliceCloudStatus.ReadyToVerify:
-                self.connector.doVerfication()
-            else:
-                self.connector.updateStatus()
+            self.connector.status = SmartSliceCloudStatus.RemoveModMesh
+            self.connector.doOptimization()
+        else:
+            self.connector.prepareOptimization()

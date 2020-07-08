@@ -44,16 +44,18 @@ from .requirements_tool.SmartSliceRequirements import SmartSliceRequirements
 from .select_tool.SmartSliceSelectTool import SmartSliceSelectTool
 
 from .utils import getPrintableNodes
+from .utils import getModifierMeshes
 from .utils import getNodeActiveExtruder
 
 i18n_catalog = i18nCatalog("smartslice")
+
 
 class SmartSliceCloudJob(Job):
     # This job is responsible for uploading the backup file to cloud storage.
     # As it can take longer than some other tasks, we schedule this using a Cura Job.
 
     class JobException(Exception):
-        def __init__(self, problem : str):
+        def __init__(self, problem: str):
             super().__init__(problem)
             self.problem = problem
 
@@ -76,7 +78,7 @@ class SmartSliceCloudJob(Job):
         hostname = preferences.getValue(self.connector.http_hostname_preference)
         port = preferences.getValue(self.connector.http_port_preference)
 
-        # To ensure that the user is tracked and has a proper subscription, we let them login and then use the token we recieve 
+        # To ensure that the user is tracked and has a proper subscription, we let them login and then use the token we recieve
         # to track them and their login status.
         loginToken = self._getToken()
 
@@ -110,9 +112,11 @@ class SmartSliceCloudJob(Job):
     def saved(self, value):
         if self._saved != value:
             self._saved = value
+
     # If our user has logged in before, their login token will be in the file.
+
     def _getToken(self):
-        #TODO: If no token file, try to login and create one. For now, we will just create a token file.
+        # TODO: If no token file, try to login and create one. For now, we will just create a token file.
         token_file_path = os.path.join(PluginRegistry.getInstance().getPluginPath("SmartSlicePlugin"), ".token")
         if not os.path.exists(token_file_path):
             token = self._createTokenFile(token_file_path)
@@ -130,7 +134,7 @@ class SmartSliceCloudJob(Job):
 
     # If there is no token in the file, or the file does not exist, we create one.
     def _createTokenFile(self, token_file_path):
-        #TODO: Get the token from the login system correctly.
+        # TODO: Get the token from the login system correctly.
         my_token = "[Insert Your Token Here]"
         with open(token_file_path, "w") as token_file:
             json.dump(my_token, token_file)
@@ -187,7 +191,7 @@ class SmartSliceCloudJob(Job):
     # - job_type: Job type to be sent. Can be either:
     #             > pywim.smartslice.job.JobType.validation
     #             > pywim.smartslice.job.JobType.optimization
-    def prepareJob(self, filename = None, filedir = None):
+    def prepareJob(self, filename=None, filedir=None):
         # Using tempfile module to probe for a temporary file path
         # TODO: We can do this more elegant of course, too.
 
@@ -202,9 +206,15 @@ class SmartSliceCloudJob(Job):
 
         # Checking whether count of models == 1
         mesh_nodes = getPrintableNodes()
+        mod_mesh = getModifierMeshes()
+
+
         if len(mesh_nodes) is not 1:
             Logger.log("d", "Found {} meshes!".format(["no", "too many"][len(mesh_nodes) > 1]))
             return None
+        for node in mod_mesh:
+            Logger.log("d", "Adding modifier mesh {} to validation".format(node.getName()))
+            mesh_nodes.append(node)
 
         Logger.log("d", "Writing 3MF file")
         job = self.connector.smartSliceJobHandle.buildJobFor3mf()
@@ -349,6 +359,7 @@ class SmartSliceCloudOptimizeJob(SmartSliceCloudVerificationJob):
         super().__init__(connector)
 
         self.job_type = pywim.smartslice.job.JobType.optimization
+
 
 class SmartSliceCloudConnector(QObject):
     http_protocol_preference = "smartslice/http_protocol"
@@ -557,6 +568,14 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.secondaryButtonVisible = True
             self._proxy.secondaryButtonFillWidth = True
             self._proxy.sliceInfoOpen = True
+        elif self.status is SmartSliceCloudStatus.RemoveModMesh:
+            self._proxy.sliceStatus = ""
+            self._proxy.sliceHint = ""
+            self._proxy.secondaryButtonText = "Cancel"
+            self._proxy.sliceButtonVisible = False
+            self._proxy.secondaryButtonVisible = True
+            self._proxy.secondaryButtonFillWidth = True
+            self._proxy.sliceInfoOpen = False
         else:
             self._proxy.sliceStatus = "Unknown status"
             self._proxy.sliceHint = "Sorry, something went wrong!"
@@ -588,7 +607,6 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.sliceIconVisible = False
 
         self._proxy.updateColorUI()
-
 
     @property
     def status(self):
@@ -741,13 +759,19 @@ class SmartSliceCloudConnector(QObject):
                 modifier_mesh_node,
                 Application.getInstance().getController().getScene().getRoot()
             ))
-            op.addOperation(SetParentOperation(modifier_mesh_node, our_only_node))
+            op.addOperation(SetParentOperation(
+                modifier_mesh_node,
+                Application.getInstance().getController().getScene().getRoot()
+            ))
             op.push()
 
+
             # Use the data from the SmartSlice engine to translate / rotate / scale the mod mesh
-            modifier_mesh_transform_matrix = Matrix(modifier_mesh.transform)
+            parent_transformation = our_only_node.getLocalTransformation()
+            modifier_mesh_transform_matrix = parent_transformation.multiply(Matrix(modifier_mesh.transform))
             modifier_mesh_node.setTransformation(modifier_mesh_transform_matrix)
 
+            # emit changes and connect error tracker
             Application.getInstance().getController().getScene().sceneChanged.emit(modifier_mesh_node)
 
         self._proxy.updatePropertiesFromResults(job.getResult())
@@ -762,38 +786,36 @@ class SmartSliceCloudConnector(QObject):
 
         Application.getInstance().activityChanged.emit()
 
-    def doVerfication(self):
-        #  Check if model has an existing modifier mesh
-        #    and ask user if they would like to proceed if so
-        if self.propertyHandler.hasModMesh():
-            self.propertyHandler.askToRemoveModMesh()
-        else:
-            self.status = SmartSliceCloudStatus.BusyValidating
-
-            self.propertyHandler._cancelChanges = False
-            self._current_job += 1
-            self._jobs[self._current_job] = SmartSliceCloudVerificationJob(self)
-            self._jobs[self._current_job]._id = self._current_job
-            self._jobs[self._current_job].finished.connect(self._onJobFinished)
-            self._jobs[self._current_job].start()
+    def doVerification(self):
+        self.status = SmartSliceCloudStatus.BusyValidating
+        self.propertyHandler._cancelChanges = False
+        self._current_job += 1
+        self._jobs[self._current_job] = SmartSliceCloudVerificationJob(self)
+        self._jobs[self._current_job]._id = self._current_job
+        self._jobs[self._current_job].finished.connect(self._onJobFinished)
+        self._jobs[self._current_job].start()
 
     """
       prepareOptimization()
         Convenience function for updating the cloud status outside of Validation/Optimization Jobs
     """
+
     def prepareOptimization(self):
         self._proxy.optimizationStatus()
         self.updateSliceWidget()
 
     def doOptimization(self):
-        self.status = SmartSliceCloudStatus.BusyOptimizing
+        if len(getModifierMeshes()) > 0:
+            self.propertyHandler.askToRemoveModMesh()
+        else:
+            self.status = SmartSliceCloudStatus.BusyOptimizing
 
-        self.propertyHandler._cancelChanges = False
-        self._current_job += 1
-        self._jobs[self._current_job] = SmartSliceCloudOptimizeJob(self)
-        self._jobs[self._current_job]._id = self._current_job
-        self._jobs[self._current_job].finished.connect(self._onJobFinished)
-        self._jobs[self._current_job].start()
+            self.propertyHandler._cancelChanges = False
+            self._current_job += 1
+            self._jobs[self._current_job] = SmartSliceCloudOptimizeJob(self)
+            self._jobs[self._current_job]._id = self._current_job
+            self._jobs[self._current_job].finished.connect(self._onJobFinished)
+            self._jobs[self._current_job].start()
 
     '''
       Primary Button Actions:
@@ -801,10 +823,11 @@ class SmartSliceCloudConnector(QObject):
         * Optimize
         * Slice
     '''
+
     def onSliceButtonClicked(self):
         if not self._jobs[self._current_job]:
             if self.status is SmartSliceCloudStatus.ReadyToVerify:
-                self.doVerfication()
+                self.doVerification()
             elif self.status in SmartSliceCloudStatus.optimizable():
                 self.doOptimization()
             elif self.status is SmartSliceCloudStatus.Optimized:
@@ -818,6 +841,7 @@ class SmartSliceCloudConnector(QObject):
         * Cancel  (Validating / Optimizing)
         * Preview
     '''
+
     def onSecondaryButtonClicked(self):
         if self._jobs[self._current_job] is not None:
             if self.status is SmartSliceCloudStatus.BusyOptimizing:
@@ -829,7 +853,7 @@ class SmartSliceCloudConnector(QObject):
                 self._jobs[self._current_job].canceled = True
                 self._jobs[self._current_job] = None
                 if req_tool.targetSafetyFactor < self._proxy.resultSafetyFactor and \
-                   req_tool.maxDisplacement > self._proxy.resultMaximalDisplacement:
+                        req_tool.maxDisplacement > self._proxy.resultMaximalDisplacement:
                     self.status = SmartSliceCloudStatus.Overdimensioned
                 else:
                     self.status = SmartSliceCloudStatus.Underdimensioned

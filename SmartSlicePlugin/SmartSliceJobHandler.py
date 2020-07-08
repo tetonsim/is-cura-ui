@@ -73,10 +73,26 @@ class SmartSliceJobHandler:
         # Normal mesh
         normal_mesh = getPrintableNodes()[0]
 
-        # Get all of the normal and mod meshes
+        # Check the material
+        machine_extruder = getNodeActiveExtruder(normal_mesh)
+        guid = machine_extruder.material.getMetaData().get("GUID", "")
+        material = self._getMaterial(guid)
+
+        if not material:
+            errors.append(pywim.smartslice.val.InvalidSetup(
+                "Material <i>{}</i> is not currently characterized for Smart Slice".format(machine_extruder.material.name),
+                "Please select a characterized material."
+            ))
+        else:
+            job.bulk.add(
+                pywim.fea.model.Material.from_dict(material)
+            )
+
+        # Get all nodes to cycle through
         nodes = [normal_mesh] + getModifierMeshes()
 
-        # Cycle through all of the meshes and se
+
+        # Cycle through all of the meshes and check extruder
         for node in nodes:
             active_extruder = getNodeActiveExtruder(node)
 
@@ -92,21 +108,6 @@ class SmartSliceJobHandler:
                     "Invalid extruder selected for <i>{}</i>".format(node.getName()),
                     "Change active extruder to Extruder 1"
                 ))
-
-            # Check the material
-            machine_extruder = getNodeActiveExtruder(node)
-            guid = machine_extruder.material.getMetaData().get("GUID", "")
-            material = self._getMaterial(guid)
-
-            if not material:
-                errors.append(pywim.smartslice.val.InvalidSetup(
-                    "Material <i>{}</i> is not currently characterized for Smart Slice".format(machine_extruder.material.name),
-                    "Please select a characterized material."
-                ))
-            else:
-                job.bulk.add(
-                    pywim.fea.model.Material.from_dict(material)
-                )
 
         # Use Cases
         job.chop.steps = SmartSliceSelectTool.getInstance().defineSteps()

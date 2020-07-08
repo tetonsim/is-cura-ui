@@ -80,12 +80,12 @@ class ContainerProperty(TrackedProperty):
 
 class GlobalProperty(ContainerProperty):
     NAMES = [
-      "layer_height",                       #   Layer Height
-      "layer_height_0",                     #   Initial Layer Height
-      "quality",
-      "magic_spiralize",
-      "wireframe_enabled",
-      "adaptive_layer_height_enabled"
+        "layer_height",                       #   Layer Height
+        "layer_height_0",                     #   Initial Layer Height
+        "quality",
+        "magic_spiralize",
+        "wireframe_enabled",
+        "adaptive_layer_height_enabled"
     ]
 
     def value(self):
@@ -121,7 +121,7 @@ class ExtruderProperty(ContainerProperty):
         "initial_layer_line_width_factor",  # % Scale for the initial layer line width
         "top_bottom_pattern",               # Top / Bottom pattern
         "top_bottom_pattern_0",             # Initial top / bottom pattern
-        "gradual_infill_steps",             
+        "gradual_infill_steps",
         "mold_enabled",
         "magic_mesh_surface_mode",
         "spaghetti_infill_enabled",
@@ -194,31 +194,57 @@ class Scene(TrackedProperty):
             scale != self._print_node_scale or \
             ori != self._print_node_ori
 
+
 class ModifierMesh(TrackedProperty):
-    def __init__(self):
-        self._node = None
+    def __init__(self, node=None, name=None):
+        self.parent_changed = False
+        self.mesh_name = name
+        self._node = node
+        self._properties = None
+        self._prop_changed = None
+        self._names = [
+            "line_width",                       #  Line Width
+            "wall_line_width",                  #  Wall Line Width
+            "wall_line_width_x",                #  Outer Wall Line Width
+            "wall_line_width_0",                #  Inner Wall Line Width
+            "wall_line_count",                  #  Wall Line Count
+            "wall_thickness",                   #  Wall Thickness
+            "top_layers",                       #  Top Layers
+            "bottom_layers",                    #  Bottom Layers
+            "infill_pattern",                   #  Infill Pattern
+            "infill_sparse_density",            #  Infill Density
+            "infill_sparse_thickness",          #  Infill Line Width
+            "infill_line_width",                #  Infill Line Width
+            "top_bottom_pattern",               # Top / Bottom pattern
+        ]
 
     def value(self):
-        nodes = getModifierMeshes()
-        for n in nodes:
-            if n.getName() == "SmartSliceMeshModifier.stl":
-                return n
+        if self._node:
+            stack = self._node.callDecoration("getStack").getTop()
+            properties = tuple([stack.getProperty(property, "value") for property in self._names])
+            return properties
         return None
 
     def cache(self):
-        self._node = self.value()
+        self._properties = self.value()
+
+    def changed(self):
+        if self._node:
+            properties = self.value()
+            prop_changed = [[name, prop] for name, prop in zip(self._names, self._properties) if prop not in properties]
+            if prop_changed:
+                self._prop_changed = prop_changed[0]
+                return True
 
     def restore(self):
-        if self._node:
-            #self._node.setPosition(position, SceneNode.TransformSpace.World)
-            scene_root = CuraApplication.getInstance().getController().getScene().getRoot()
-            scene_root.addChild(self._node)
+        if self._node and self._prop_changed:
+            node = self._node.callDecoration("getStack").getTop()
+            node.setProperty(self._prop_changed[0], "value", self._prop_changed[1])
+            self._prop_changed = None
 
-    def changed(self) -> bool:
-        return not (self._node is self.value())
+    def parentChanged(self, parent):
+        self.parent_changed = True
 
-    def getNode(self) -> Optional[CuraSceneNode]:
-        return self._node
 
 class ToolProperty(TrackedProperty):
     def __init__(self, tool, property):
