@@ -154,15 +154,50 @@ class SmartSliceSelectTool(Tool):
             self.load_face.triangles = self._interactive_mesh.triangles_from_ids(step.loads[0].face)
 
             load_tuple = step.loads[0].force
-            load_vector = pywim.geom.Vector(load_tuple[0], load_tuple[1], load_tuple[2])
-            self.loadMagnitude = load_vector.magnitude()
+            load_vector = Vector(
+                load_tuple[0],
+                load_tuple[1],
+                load_tuple[2]
+            )
+
+            # Need to rotate the load from the FEA system to the UI system
+            # Create a transformation Matrix to convert from 3mf worldspace into ours.
+            transformation = Matrix()
+            transformation._data[1, 1] = 0
+            transformation._data[1, 2] = 1
+            transformation._data[2, 1] = -1
+            transformation._data[2, 2] = 0
+
+            _, rotation, _, _ = transformation.decompose()
+
+            rotated_load_vector = numpy.dot(rotation.getData(), load_vector.getData())
+            rotated_vector = Vector(rotated_load_vector[0], rotated_load_vector[1], rotated_load_vector[2])
+
+            # We have to convert this to a pywim vector for a correct angle calculation
+            # The UM.Vector class takes the absolute valueof the dot product before
+            # computing the arc cosine, which will cause any parallel vector to be "the same angle"
+            rotated_load = pywim.geom.Vector(
+                rotated_vector.x,
+                rotated_vector.y,
+                rotated_vector.z
+            )
 
             if len(self.load_face.triangles) > 0:
                 face_normal = self.load_face.triangles[0].normal
-                if load_vector.angle(face_normal) < self._interactive_mesh._COPLANAR_ANGLE:
-                    self.loadDirection = True
+                self.force.normal = Vector(
+                    face_normal.r,
+                    face_normal.s,
+                    face_normal.t
+                )
+
+                if face_normal.angle(rotated_load) < self._interactive_mesh._COPLANAR_ANGLE:
+                    self.force.pull = True
                 else:
-                    self.loadDirection = False
+                    self.force.pull = False
+
+                self.loadMagnitude = rotated_load.magnitude()
+
+                self.selectedFaceChanged.emit()
 
         if step and len(step.boundary_conditions) > 0:
             self.anchor_face.triangles = self._interactive_mesh.triangles_from_ids(step.boundary_conditions[0].face)
@@ -233,8 +268,6 @@ class SmartSliceSelectTool(Tool):
         self._handle.drawSelection(self._selection_mode, selected_triangles)
 
         self.selectedFaceChanged.emit()
-
-        #self.extension.cloud.prepareValidation()
 
     def redraw(self):
         if not self.getEnabled():
