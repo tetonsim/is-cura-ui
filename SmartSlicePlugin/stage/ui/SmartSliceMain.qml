@@ -16,6 +16,7 @@
 //  API Imports
 import QtQuick 2.7
 import QtQuick.Controls 2.2
+import QtQuick.Controls 1.4 as QQC1
 import QtQuick.Layouts 1.3
 import QtQuick.Controls.Styles 1.1
 import QtGraphicalEffects 1.0
@@ -1021,6 +1022,12 @@ Item {
                 }
             }
         }
+    }
+
+    SmartSlice.SmartSliceLogin {
+        id: loginDialog
+
+        visible: true
     }
 
 }

@@ -1,6 +1,9 @@
 import os
 import sys
 
+from PyQt5.QtCore import QUrl
+from PyQt5.QtQml import qmlRegisterType
+
 from UM.i18n import i18nCatalog
 i18n_catalog = i18nCatalog("smartslice")
 from UM.Logger import Logger
@@ -60,6 +63,15 @@ def getMetaData():
 
 
 def register(app):
+    directory = os.path.dirname(os.path.abspath(__file__))
+
+    qmlRegisterType(
+        QUrl.fromLocalFile(os.path.join(directory, "stage", "ui", "SmartSliceLogin.qml")),
+        "SmartSlice",
+        1, 0,
+        "SmartSliceLogin"
+    )
+
     return {
         "extension": extension,
         "stage": SmartSliceStage.SmartSliceStage(extension.cloud),

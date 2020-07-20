@@ -115,6 +115,8 @@ class SmartSliceStage(CuraStage):
 
         self._previous_view = controller.getActiveView().name
 
+        self._connector.api_connection.openConnection()
+
         # When the Smart Slice stage is active we want to use our SmartSliceView
         # to control the rendering of various nodes. Views are referred to by their
         # plugin name.

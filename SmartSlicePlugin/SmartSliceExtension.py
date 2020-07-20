@@ -30,7 +30,7 @@ class SmartSliceExtension(Extension):
 
         # Proxy to the UI, and the cloud connector for the cloud
         self.proxy = SmartSliceCloudProxy()
-        self.cloud = SmartSliceCloudConnector(self.proxy)
+        self.cloud = SmartSliceCloudConnector(self.proxy, self)
 
         #self.setMenuName(i18n_catalog.i18nc("@item:inmenu", "Smart Slice"))
 
@@ -38,10 +38,9 @@ class SmartSliceExtension(Extension):
         self._about_dialog = None
         self.addMenuItem(i18n_catalog.i18nc("@item:inmenu", "About"), self._openAboutDialog)
 
-        # Login Window
-        self._login_dialog = None
-        #self.addMenuItem(i18n_catalog.i18n("Login"),
-        #                 self._openLoginDialog)
+        # Logout Menu Option
+        self.addMenuItem(i18n_catalog.i18n("Logout"),
+                         self.cloud.api_connection.logout)
 
         # Connection to the file writer on File->Save
         self._outputManager = Application.getInstance().getOutputDeviceManager()
@@ -65,11 +64,6 @@ class SmartSliceExtension(Extension):
         # The handle to the class which does all of the checks on application exit. Add our function to the callback list
         self._exitManager = CuraApplication.getInstance().getOnExitCallbackManager()
         self._exitManager.addCallback(self._saveOnExit)
-
-    def _openLoginDialog(self):
-        if not self._login_dialog:
-            self._login_dialog = self._createQmlDialog("SmartSliceCloudLogin.qml")
-        self._login_dialog.show()
 
     def _openAboutDialog(self):
         if not self._about_dialog:
