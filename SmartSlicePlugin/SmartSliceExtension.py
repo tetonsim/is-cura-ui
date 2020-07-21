@@ -8,12 +8,9 @@ from PyQt5.QtCore import pyqtSignal
 from UM.i18n import i18nCatalog
 from UM.Application import Application
 from UM.Extension import Extension
-from UM.Logger import Logger
 from UM.PluginRegistry import PluginRegistry
-from UM.Workspace.WorkspaceMetadataStorage import WorkspaceMetadataStorage
 
 from cura.CuraApplication import CuraApplication
-from cura.UI import PrintInformation
 
 from .SmartSliceCloudConnector import SmartSliceCloudConnector
 from .SmartSliceCloudProxy import SmartSliceCloudProxy, SmartSliceCloudStatus
@@ -22,6 +19,7 @@ from .utils import getPrintableNodes
 import pywim
 
 i18n_catalog = i18nCatalog("smartslice")
+
 
 class SmartSliceExtension(Extension):
 
@@ -49,6 +47,10 @@ class SmartSliceExtension(Extension):
         # Connection to File->Open after the mesh is loaded - this depends on if the user is loading a Cura project
         CuraApplication.getInstance().fileCompleted.connect(self._getState)
         Application.getInstance().workspaceLoaded.connect(self._getState)
+
+        controller = Application.getInstance().getController()
+        controller.getScene().getRoot().childrenChanged.connect(self._reset)
+
 
         # Data storage location for workspaces - this is where we store our data for saving to the Cura project
         self._storage = Application.getInstance().getWorkspaceMetadataStorage()
@@ -214,6 +216,11 @@ class SmartSliceExtension(Extension):
 
         self.cloud.updateSliceWidget()
         self.proxy.updateColorUI()
+
+    def _reset(self, *args):
+        if len(getPrintableNodes()) == 0:
+            plugin_info = self._getMetadata()
+            self._storage.getPluginMetadata(plugin_info['id']).clear()
 
     def _getMetadata(self) -> Dict[str, str]:
         try:

@@ -18,15 +18,15 @@ from UM.Application import Application
 from UM.PluginRegistry import PluginRegistry
 from UM.Message import Message
 from UM.Scene.Selection import Selection
+from UM.Signal import Signal
 from UM.Version import Version
 from UM.View.GL.OpenGL import OpenGL
 
 from cura.Stages.CuraStage import CuraStage
 from cura.CuraApplication import CuraApplication
 
-from .. utils import getPrintableNodes
-from .. utils import getNodeActiveExtruder
-from .. SmartSlicePropertyHandler import SmartSlicePropertyHandler
+from . import SmartSliceScene
+from ..utils import findChildSceneNode, getPrintableNodes, getModifierMeshes
 
 i18n_catalog = i18nCatalog("smartslice")
 
@@ -35,6 +35,7 @@ i18n_catalog = i18nCatalog("smartslice")
 #   Stage Class Definition
 #
 class SmartSliceStage(CuraStage):
+    smartSliceNodeChanged = Signal()
 
     def __init__(self, extension, parent=None):
         super().__init__(parent)
@@ -58,6 +59,12 @@ class SmartSliceStage(CuraStage):
         self._our_toolset = (
             "SmartSlicePlugin_SelectTool",
             "SmartSlicePlugin_RequirementsTool",
+        )
+
+    @staticmethod
+    def getInstance() -> 'SmartSliceStage':
+        return Application.getInstance().getController().getStage(
+            "SmartSlicePlugin"
         )
 
     def _scene_not_ready(self, text):
@@ -132,6 +139,24 @@ class SmartSliceStage(CuraStage):
         if not Selection.hasSelection():
             Selection.add(printable_node)
 
+        aabb = printable_node.getBoundingBox()
+        if aabb:
+            controller.getCameraTool().setOrigin(aabb.center)
+
+        smart_slice_node = findChildSceneNode(printable_node, SmartSliceScene.Root)
+
+        if not smart_slice_node:
+            smart_slice_node = SmartSliceScene.Root()
+            smart_slice_node.initialize(printable_node)
+            self.smartSliceNodeChanged.emit(smart_slice_node)
+
+        for c in controller.getScene().getRoot().getAllChildren():
+            if isinstance(c, SmartSliceScene.Root):
+                c.setVisible(True)
+
+        for mesh in getModifierMeshes():
+            mesh.setSelectable(False)
+
         # Ensure we have tools defined and apply them here
         use_tool = self._our_toolset[0]
         self.setToolVisibility(True)
@@ -145,11 +170,10 @@ class SmartSliceStage(CuraStage):
         self._connector.updateSliceWidget()
 
     def extruderPropertyChanged(self, key: str, property_name: str):
-        if key in SmartSlicePropertyHandler.EXTRUDER_KEYS:
-            self.extruderChanged()
-
+        self.extruderChanged()
     # This creates the popup dialog that informs the user that only the
     # first extruder on a machine is currently supported.
+
     def extruderChanged(self):
         self._connector.smartSliceJobHandle.checkJob()
 
@@ -167,9 +191,15 @@ class SmartSliceStage(CuraStage):
         if self._previous_tool:
             application.getController().setActiveTool(self._default_fallback_tool)
 
-        #  Hide all visible SmartSlice UI Components
+        for c in controller.getScene().getRoot().getAllChildren():
+            if isinstance(c, SmartSliceScene.Root):
+                c.setVisible(False)
 
-    def getVisibleTools(self):
+        for mesh in getModifierMeshes():
+            mesh.setSelectable(True)
+
+    @staticmethod
+    def getVisibleTools():
         visible_tools = []
         tools = CuraApplication.getInstance().getController().getAllTools()
 
@@ -251,10 +281,12 @@ class SmartSliceStage(CuraStage):
         # Undisplay our tools!
         self.setToolVisibility(False)
 
+        #self._scene.initialize()
+
     def _checkScene(self):
         active_stage = CuraApplication.getInstance().getController().getActiveStage()
 
-        if active_stage and active_stage.getPluginId() == "SmartSlicePlugin":
+        if active_stage and active_stage.getPluginId() == self.getPluginId():
             self._exit_stage_if_scene_is_invalid()
 
     ##  Get whether the select face feature is supported.

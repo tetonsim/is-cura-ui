@@ -23,6 +23,8 @@ from .SmartSlicePropertyHandler import SmartSlicePropertyHandler
 from .utils import getPrintableNodes
 from .utils import getModifierMeshes
 from .utils import getNodeActiveExtruder
+from .utils import findChildSceneNode
+from .stage.SmartSliceScene import Root
 
 """
   SmartSliceJobHandler
@@ -110,7 +112,9 @@ class SmartSliceJobHandler:
                 ))
 
         # Use Cases
-        job.chop.steps = SmartSliceSelectTool.getInstance().defineSteps()
+        smart_sliceScene_node = findChildSceneNode(getPrintableNodes()[0], Root)
+        if smart_sliceScene_node:
+            job.chop.steps = smart_sliceScene_node.createSteps()
 
         # Requirements
         req_tool = SmartSliceRequirements.getInstance()

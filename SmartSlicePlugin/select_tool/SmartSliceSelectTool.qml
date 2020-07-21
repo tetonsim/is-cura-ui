@@ -13,7 +13,8 @@ Item {
     //width: childrenRect.width
     width: selectAnchorButton.width * 3 - 2*UM.Theme.getSize("default_margin").width
     //height: childrenRect.height
-    height: selectAnchorButton.height + UM.Theme.getSize("default_margin").width
+    //height: selectAnchorButton.height + UM.Theme.getSize("default_margin").width
+    height: selectAnchorButton.height + UM.Theme.getSize("default_margin").width + bcListAnchors.height
 
     UM.I18nCatalog {
         id: catalog;
@@ -64,6 +65,30 @@ Item {
         }
     }
 
+    SmartSlice.BoundaryConditionList {
+        id: bcListAnchors
+        visible: selectAnchorButton.checked
+        addButtonText: "Add Anchor"
+        boundaryConditionType: 0
+
+        anchors.left: selectAnchorButton.left
+        anchors.top: selectAnchorButton.bottom
+    }
+
+    SmartSlice.BoundaryConditionList {
+        id: bcListForces
+        visible: selectLoadButton.checked
+        addButtonText: "Add Force"
+        boundaryConditionType: 1
+
+        anchors.left: selectAnchorButton.left
+        anchors.top: selectAnchorButton.bottom
+
+        onSelectionChanged: {
+            checkboxLoadDialogFlipDirection.checked = model.loadDirection;
+            textLoadDialogMagnitude.text = model.loadMagnitude;
+        }
+    }
 
     Rectangle {
         id: applyLoadDialog
@@ -118,9 +143,9 @@ Item {
 
             text: "Flip Direction"
 
-            checked: SmartSlice.Cloud.loadDirection
+            checked: bcListForces.model.loadDirection
             onCheckedChanged: {
-                UM.ActiveTool.setProperty("LoadDirection", checked);
+                bcListForces.model.loadDirection = checked
 			}
         }
 
@@ -147,13 +172,13 @@ Item {
             anchors.leftMargin: UM.Theme.getSize("default_margin").width
 
             onEditingFinished: {
-                UM.ActiveTool.setProperty("LoadMagnitude", text);
+                bcListForces.model.loadMagnitude = text;
             }
 
-            placeholderText: "Type in your load"
+            text: bcListForces.model.loadMagnitude
             property string unit: "[N]";
         }
-
+/*
         Binding {
             target: checkboxLoadDialogFlipDirection
             property: "checked"
@@ -165,5 +190,6 @@ Item {
             property: "text"
             value: UM.ActiveTool.properties.getValue("LoadMagnitude")
         }
+*/
     }
 }

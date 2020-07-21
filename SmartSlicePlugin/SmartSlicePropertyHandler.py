@@ -8,24 +8,19 @@ from PyQt5.QtCore import QObject
 
 from UM.i18n import i18nCatalog
 from UM.Application import Application
-from UM.Scene.SceneNode import SceneNode
-from UM.Scene.Selection import Selection
 from UM.Message import Message
-from UM.Signal import Signal
 from UM.Logger import Logger
-from UM.Settings.SettingInstance import InstanceState
-from UM.Math.Vector import Vector
 from UM.Operations.RemoveSceneNodeOperation import RemoveSceneNodeOperation
 from UM.Operations.GroupedOperation import GroupedOperation
+from UM.Workspace.WorkspaceMetadataStorage import WorkspaceMetadataStorage
 
 from cura.CuraApplication import CuraApplication
 
 from .SmartSliceCloudProxy import SmartSliceCloudStatus
-from .SmartSliceProperty import SmartSlicePropertyEnum
 from .select_tool.SmartSliceSelectTool import SmartSliceSelectTool
-from .select_tool.SmartSliceSelectHandle import SelectionMode
 from .requirements_tool.SmartSliceRequirements import SmartSliceRequirements
-from .utils import getModifierMeshes
+from .utils import getModifierMeshes, getPrintableNodes
+from .stage.SmartSliceScene import Root
 
 from . import SmartSliceProperty
 
@@ -67,16 +62,6 @@ class SmartSlicePropertyHandler(QObject):
 
         sel_tool = SmartSliceSelectTool.getInstance()
 
-        self._sel_tool_properties = [
-            SmartSliceProperty.ToolProperty(sel_tool, "LoadMagnitude"),
-            SmartSliceProperty.ToolProperty(sel_tool, "LoadDirection")
-        ]
-
-        self._selected_face_properties = [
-            SmartSliceProperty.FaceSelectionProperty(sel_tool.anchor_face),
-            SmartSliceProperty.FaceSelectionProperty(sel_tool.load_face),
-        ]
-
         req_tool = SmartSliceRequirements.getInstance()
 
         self._req_tool_properties = [
@@ -87,9 +72,7 @@ class SmartSlicePropertyHandler(QObject):
         self._properties = \
             self._global_properties + \
             self._extruder_properties + \
-            self._sel_tool_properties + \
             self._req_tool_properties + \
-            self._selected_face_properties + \
             [
                 self._selected_material,
                 self._scene,
@@ -101,10 +84,15 @@ class SmartSlicePropertyHandler(QObject):
         self._activeMachineManager.printerConnectedStatusChanged.connect(self.printerCheck)
         self.printerCheck()
 
-        sel_tool.selectedFaceChanged.connect(self._onSelectedFaceChanged)
+        Root.faceAdded.connect(self._faceAdded)
+        Root.faceRemoved.connect(self._faceRemoved)
+        Root.loadPropertyChanged.connect(self._faceChanged)
+
+        sel_tool.selectedFaceChanged.connect(self._faceChanged)
         sel_tool.toolPropertyChanged.connect(self._onSelectToolPropertyChanged)
         req_tool.toolPropertyChanged.connect(self._onRequirementToolPropertyChanged)
         controller.getScene().getRoot().childrenChanged.connect(self.loadModifierMesh)
+        controller.getScene().getRoot().childrenChanged.connect(self._reset)
 
         self._cancelChanges = False
         self._addProperties = True
@@ -114,6 +102,28 @@ class SmartSlicePropertyHandler(QObject):
         controller.getScene().getRoot().childrenChanged.connect(self._onSceneChanged)
         controller.getTool("ScaleTool").operationStopped.connect(self._onMeshTransformationChanged)
         controller.getTool("RotateTool").operationStopped.connect(self._onMeshTransformationChanged)
+
+        # SmartSliceStage.SmartSliceStage.getInstance().smartSliceNodeChanged.connect(self._onSmartSliceNodeChanged)
+
+    def _faceAdded(self, face):
+        prop = SmartSliceProperty.SmartSliceFace(face)
+        prop.cache()
+        self._properties.append(prop)
+
+    def _faceChanged(self):
+        face_properties = [prop for prop in self._properties if isinstance(prop, SmartSliceProperty.SmartSliceFace)]
+        self.confirmPendingChanges(face_properties)
+
+    def _faceRemoved(self, face):
+        for prop in self._properties:
+            if isinstance(prop, SmartSliceProperty.SmartSliceFace) and face == prop.face:
+                self._properties.remove(prop)
+                break
+        self._faceChanged()
+
+    def _reset(self, *args):
+        if len(getPrintableNodes()) == 0:
+            self.connector.reset()
 
     #  Check that a printer has been set-up by the wizard.
     def printerCheck(self):
@@ -198,9 +208,6 @@ class SmartSlicePropertyHandler(QObject):
 
     def _onMeshTransformationChanged(self, unused):
         self.confirmPendingChanges(self._scene)
-
-    def _onSelectedFaceChanged(self):
-        self.confirmPendingChanges(self._selected_face_properties)
 
     def _onSelectToolPropertyChanged(self, property_name):
         self.confirmPendingChanges(

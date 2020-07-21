@@ -8,37 +8,16 @@ from UM.Settings.SettingInstance import InstanceState
 from cura.CuraApplication import CuraApplication
 from cura.Scene.CuraSceneNode import CuraSceneNode
 
-from . utils import getPrintableNodes, getModifierMeshes
+from . utils import getPrintableNodes, findChildSceneNode
+from .stage.SmartSliceScene import AnchorFace, LoadFace, Root
 
-class SmartSlicePropertyEnum(Enum):
-    # Mesh Properties
-    MeshScale       =  1
-    MeshRotation    =  2
-    ModifierMesh    =  3
-    # Requirements
-    FactorOfSafety  =  11
-    MaxDisplacement =  12
-    # Loads/Anchors
-    SelectedFace    =  20
-    LoadMagnitude   =  21
-    LoadDirection   =  22
-
-    # Material
-    Material        =  170
-
-    # Global Props
-    GlobalProperty   = 1000
-    ExtruderProperty = 1001
-
-class SmartSliceLoadDirection(Enum):
-    Pull = 1
-    Push = 2
 
 class SmartSlicePropertyColor():
     SubheaderColor = "#A9A9A9"
     WarningColor = "#F3BA1A"
     ErrorColor = "#F15F63"
     SuccessColor = "#5DBA47"
+
 
 class TrackedProperty:
     def value(self):
@@ -60,8 +39,10 @@ class TrackedProperty:
             extruder = machine.extruderList[0]
         return machine, extruder
 
+
 class ContainerProperty(TrackedProperty):
     NAMES = []
+
     def __init__(self, name):
         self.name = name
         self._cached_value = None
@@ -77,6 +58,7 @@ class ContainerProperty(TrackedProperty):
 
     def changed(self) -> bool:
         return self._cached_value != self.value()
+
 
 class GlobalProperty(ContainerProperty):
     NAMES = [
@@ -99,6 +81,7 @@ class GlobalProperty(ContainerProperty):
         if machine and self._cached_value and self._cached_value != self.value():
             machine.setProperty(self.name, "value", self._cached_value, set_from_cache=True)
             machine.setProperty(self.name, "state", InstanceState.Default, set_from_cache=True)
+
 
 class ExtruderProperty(ContainerProperty):
     NAMES = [
@@ -141,6 +124,7 @@ class ExtruderProperty(ContainerProperty):
             extruder.setProperty(self.name, "value", self._cached_value, set_from_cache=True)
             extruder.setProperty(self.name, "state", InstanceState.Default, set_from_cache=True)
 
+
 class SelectedMaterial(TrackedProperty):
     def __init__(self):
         self._cached_material = None
@@ -160,6 +144,7 @@ class SelectedMaterial(TrackedProperty):
 
     def changed(self) -> bool:
         return not (self._cached_material is self.value())
+
 
 class Scene(TrackedProperty):
     def __init__(self):
@@ -268,20 +253,34 @@ class ToolProperty(TrackedProperty):
     def changed(self) -> bool:
         return self._cached_value != self.value()
 
-class FaceSelectionProperty(TrackedProperty):
-    def __init__(self, selector):
-        self._selector = selector
-        self._cached_triangles = None
+
+class SmartSliceFace(TrackedProperty):
+    def __init__(self, face):
+        self.face = face
+        self._direction = None
+        self._magnitude = None
+        self._triangles = None
 
     def value(self):
-        return self._selector.triangles
+        if isinstance(self.face, AnchorFace):
+            triangles = self.face._triangles
+            return triangles, None, None
+        elif isinstance(self.face, LoadFace):
+            triangles = self.face._triangles
+            magnitude = self.face.force.magnitude
+            direction = self.face.force.pull
+            return triangles, magnitude, direction
+        return None, None, None
 
     def cache(self):
-        self._cached_triangles = copy.copy(self.value())
-
-    def restore(self):
-        self._selector.triangles.clear()
-        self._selector.triangles.extend(self._cached_triangles)
+        self._triangles, self._magnitude, self._direction = self.value()
 
     def changed(self) -> bool:
-        return set(self._cached_triangles) != set(self.value())
+        triangles, magnitude, direction = self.value()
+        return triangles != self._triangles or magnitude != self._magnitude or direction != self._direction
+
+    def restore(self):
+        if isinstance(self.face, LoadFace):
+            self.face.setArrowDirection(self._direction)
+            self.face.force.magnitude = self._magnitude
+        self.face.setMeshDataFromPywimTriangles(self._triangles)

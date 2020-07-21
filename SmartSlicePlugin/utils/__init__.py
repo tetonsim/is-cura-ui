@@ -1,11 +1,15 @@
+from typing import Optional
 
 from UM.Mesh.MeshData import MeshData
 from UM.Scene.Iterator.DepthFirstIterator import DepthFirstIterator
+from UM.Scene.SceneNode import SceneNode
+
 from cura.CuraApplication import CuraApplication
 from cura.Settings.ExtruderStack import ExtruderStack
 from UM.Scene.SceneNode import SceneNode
 
-def makeInteractiveMesh(mesh_data : MeshData) -> 'pywim.geom.tri.Mesh':
+
+def makeInteractiveMesh(mesh_data: MeshData) -> 'pywim.geom.tri.Mesh':
     import pywim
 
     int_mesh = pywim.geom.tri.Mesh()
@@ -27,8 +31,8 @@ def makeInteractiveMesh(mesh_data : MeshData) -> 'pywim.geom.tri.Mesh':
     else:
         for i in range(0, len(int_mesh.vertices), 3):
             v1 = int_mesh.vertices[i]
-            v2 = int_mesh.vertices[i+1]
-            v3 = int_mesh.vertices[i+2]
+            v2 = int_mesh.vertices[i + 1]
+            v3 = int_mesh.vertices[i + 2]
 
             int_mesh.add_triangle(i // 3, v1, v2, v3)
 
@@ -37,6 +41,7 @@ def makeInteractiveMesh(mesh_data : MeshData) -> 'pywim.geom.tri.Mesh':
     int_mesh.analyze_mesh(remove_degenerate_triangles=False)
 
     return int_mesh
+
 
 def getNodes(func):
     scene = CuraApplication.getInstance().getController().getScene()
@@ -61,11 +66,13 @@ def getNodes(func):
 
     return nodes
 
+
 def getPrintableNodes():
     return getNodes(
         lambda isSliceable, isPrinting, isSupport, isInfillMesh: \
             isSliceable and isPrinting and not isSupport and not isInfillMesh
     )
+
 
 def getModifierMeshes():
     return getNodes(
@@ -73,7 +80,15 @@ def getModifierMeshes():
             isSliceable and not isPrinting and not isSupport and isInfillMesh
     )
 
-def getNodeActiveExtruder(node : SceneNode) -> ExtruderStack:
+
+def findChildSceneNode(node: SceneNode, node_type: type) -> Optional[SceneNode]:
+    for c in node.getAllChildren():
+        if isinstance(c, node_type):
+            return c
+    return None
+
+
+def getNodeActiveExtruder(node: SceneNode) -> ExtruderStack:
     active_extruder_position = node.callDecoration("getActiveExtruderPosition")
     if active_extruder_position is None:
         active_extruder_position = 0

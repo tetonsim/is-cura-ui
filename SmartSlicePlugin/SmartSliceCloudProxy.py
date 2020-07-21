@@ -12,7 +12,7 @@ from UM.i18n import i18nCatalog
 from UM.Application import Application
 from UM.Logger import Logger
 
-from .SmartSliceProperty import SmartSlicePropertyEnum, SmartSlicePropertyColor
+from .SmartSliceProperty import SmartSlicePropertyColor
 from .requirements_tool.SmartSliceRequirements import SmartSliceRequirements
 from .select_tool.SmartSliceSelectTool import SmartSliceSelectTool
 

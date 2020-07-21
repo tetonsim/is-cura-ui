@@ -8,77 +8,45 @@ from UM.i18n import i18nCatalog
 
 from UM.Application import Application
 from UM.Logger import Logger
-from UM.Math.Vector import Vector
 from UM.Math.Matrix import Matrix
 from UM.Signal import Signal
 from UM.Tool import Tool
 from UM.Scene.Selection import Selection
-from UM.Scene.SceneNode import SceneNode
+from UM.Scene.Iterator.DepthFirstIterator import DepthFirstIterator
 
-#  Local Imports
-from ..utils import makeInteractiveMesh
+from ..stage import SmartSliceScene
+from ..stage import SmartSliceStage
 from ..utils import getPrintableNodes
-from .SmartSliceSelectHandle import SelectionMode
-from .SmartSliceSelectHandle import SmartSliceSelectHandle
+from ..utils import findChildSceneNode
+from .BoundaryConditionList import BoundaryConditionListModel
 
 i18n_catalog = i18nCatalog("smartslice")
 
-class Force:
-    def __init__(self, normal : Vector = None, magnitude : float = 0.0, pull : bool = False):
-        self.normal = normal if normal else Vector(1.0, 0.0, 0.0)
-        self.magnitude = magnitude
-        self.pull = pull
 
-    def loadVector(self, rotation : Matrix = None) -> Vector:
-        scale = self.magnitude if self.pull else -self.magnitude
+class SelectionMode:
+    AnchorMode = 1
+    LoadMode = 2
 
-        v = Vector(
-            self.normal.x * scale,
-            self.normal.y * scale,
-            self.normal.z * scale,
-        )
-
-        if rotation:
-            vT = numpy.dot(rotation.getData(), v.getData())
-            return Vector(vT[0], vT[1], vT[2])
-
-        return v
-
-class SmartSliceSelection:
-    def __init__(self):
-        self.triangles = [] # List[pywim.geom.tri.Triangle]
-
-    def reset(self):
-        self.triangles.clear()
-
-    def triangleIds(self):
-        return [t.id for t in self.triangles]
 
 class SmartSliceSelectTool(Tool):
-    def __init__(self, extension : 'SmartSliceExtension'):
+    def __init__(self, extension: 'SmartSliceExtension'):
         super().__init__()
         self.extension = extension
-        self._handle = SmartSliceSelectHandle(self.extension, self)
+
+        self._connector = extension.cloud  # SmartSliceCloudConnector
+        self._mode = SelectionMode.AnchorMode
 
         self.setExposedProperties(
             "AnchorSelectionActive",
             "LoadSelectionActive",
             "SelectionMode",
-            "LoadMagnitude",
-            "LoadDirection"
         )
 
         Selection.selectedFaceChanged.connect(self._onSelectedFaceChanged)
 
         self._selection_mode = SelectionMode.AnchorMode
-        self._scene = self.getController().getScene()
-        self._scene_node_name = None
-        self._interactive_mesh = None # pywim.geom.tri.Mesh
 
-        self.load_face = SmartSliceSelection()
-        self.anchor_face = SmartSliceSelection()
-
-        self.force = Force(magnitude=10.)
+        self._bc_list = None
 
         self._controller.activeToolChanged.connect(self._onActiveStateChanged)
 
@@ -91,192 +59,77 @@ class SmartSliceSelectTool(Tool):
             "SmartSlicePlugin_SelectTool"
         )
 
-    @pyqtProperty(float)
-    def loadMagnitude(self):
-        return self.force.magnitude
+    def setActiveBoundaryConditionList(self, bc_list):
+        self._bc_list = bc_list
 
-    @loadMagnitude.setter
-    def loadMagnitude(self, value : float):
-        fvalue = float(value)
-        if self.force.pull == fvalue:
-            return
-        self.force.magnitude = fvalue
+    def _onSelectionChanged(self):
+        super()._onSelectionChanged()
 
-        Logger.log("d", "Load magnitude changed, new force vector: {}".format(self.force.loadVector()))
-
-        self.propertyChanged.emit()
-        self.toolPropertyChanged.emit("LoadMagnitude")
-
-    @pyqtProperty(bool)
-    def loadDirection(self):
-        return self.force.pull
-
-    @loadDirection.setter
-    def loadDirection(self, value : bool):
-        if self.force.pull == value:
-            return
-        self.force.pull = bool(value)
-        self._handle.drawSelection(self._selection_mode)
-
-        Logger.log("d", "Load direction changed, new force vector: {}".format(self.force.loadVector()))
-
-        self.propertyChanged.emit()
-        self.toolPropertyChanged.emit("LoadDirection")
-
-    # These additional getters/setters are necessary to work with setting properties
-    # from QML via the UM.ActiveToolProxy
-    def getLoadMagnitude(self) -> float:
-        return self.loadMagnitude
-
-    def setLoadMagnitude(self, value : float):
-        self.loadMagnitude = value
-
-    def getLoadDirection(self) -> bool:
-        return self.loadDirection
-
-    def setLoadDirection(self, value : bool):
-        self.loadDirection = value
-
-    # Updates the properties from a predefined job
     def updateFromJob(self, job: pywim.smartslice.job.Job):
+        """
+        When loading a saved smart slice job, get all associated smart slice selection data and load into scene
+        """
+        self._bc_list = None
 
         normal_mesh = getPrintableNodes()[0]
 
-        if not Selection.hasSelection():
-            Selection.add(normal_mesh)
+        smart_slice_node = findChildSceneNode(normal_mesh, SmartSliceScene.Root)
+        if smart_slice_node is None:
+            # add smart slice scene to node
+            SmartSliceScene.Root().initialize(normal_mesh)
+            smart_slice_node = findChildSceneNode(normal_mesh, SmartSliceScene.Root)
 
-        self._calculateMesh()
-
-        # Will need to update this when multiple loads / bc's are introduced
+        self.setActiveBoundaryConditionList(BoundaryConditionListModel())
 
         step = job.chop.steps[0]
-        if step and len(step.loads) > 0:
-            self.load_face.triangles = self._interactive_mesh.triangles_from_ids(step.loads[0].face)
 
-            load_tuple = step.loads[0].force
-            load_vector = Vector(
-                load_tuple[0],
-                load_tuple[1],
-                load_tuple[2]
-            )
-
-            # Need to rotate the load from the FEA system to the UI system
-            # Create a transformation Matrix to convert from 3mf worldspace into ours.
-            transformation = Matrix()
-            transformation._data[1, 1] = 0
-            transformation._data[1, 2] = 1
-            transformation._data[2, 1] = -1
-            transformation._data[2, 2] = 0
-
-            _, rotation, _, _ = transformation.decompose()
-
-            rotated_load_vector = numpy.dot(rotation.getData(), load_vector.getData())
-            rotated_vector = Vector(rotated_load_vector[0], rotated_load_vector[1], rotated_load_vector[2])
-
-            # We have to convert this to a pywim vector for a correct angle calculation
-            # The UM.Vector class takes the absolute valueof the dot product before
-            # computing the arc cosine, which will cause any parallel vector to be "the same angle"
-            rotated_load = pywim.geom.Vector(
-                rotated_vector.x,
-                rotated_vector.y,
-                rotated_vector.z
-            )
-
-            if len(self.load_face.triangles) > 0:
-                face_normal = self.load_face.triangles[0].normal
-                self.force.normal = Vector(
-                    face_normal.r,
-                    face_normal.s,
-                    face_normal.t
-                )
-
-                if face_normal.angle(rotated_load) < self._interactive_mesh._COPLANAR_ANGLE:
-                    self.force.pull = True
-                else:
-                    self.force.pull = False
-
-                self.loadMagnitude = rotated_load.magnitude()
-
-                self.selectedFaceChanged.emit()
-
-        if step and len(step.boundary_conditions) > 0:
-            self.anchor_face.triangles = self._interactive_mesh.triangles_from_ids(step.boundary_conditions[0].face)
+        smart_slice_node.loadStep(step)
+        smart_slice_node.setOrigin()
 
         self.redraw()
 
+        controller = Application.getInstance().getController()
+        for c in controller.getScene().getRoot().getAllChildren():
+            if isinstance(c, SmartSliceScene.Root):
+                c.setVisible(False)
+
         return
 
-    def _calculateMesh(self):
-        scene = Application.getInstance().getController().getScene()
-        nodes = Selection.getAllSelectedObjects()
-
-        if len(nodes) > 0:
-            sn = nodes[0]
-
-            if self._scene_node_name is None or sn.getName() != self._scene_node_name:
-
-                mesh_data = sn.getMeshData()
-
-                if mesh_data:
-                    Logger.log('d', 'Compute interactive mesh from SceneNode {}'.format(sn.getName()))
-
-                    self._scene_node_name = sn.getName()
-                    self._interactive_mesh = makeInteractiveMesh(mesh_data)
-
-                    self.load_face.reset()
-                    self.anchor_face.reset()
-
-                    self._handle.clearSelection()
-
-                    self.extension.cloud._onApplicationActivityChanged()
-
-                    controller = Application.getInstance().getController()
-                    camTool = controller.getCameraTool()
-                    aabb = sn.getBoundingBox()
-                    if aabb:
-                        camTool.setOrigin(aabb.center)
-
     def _onSelectedFaceChanged(self, curr_sf=None):
-        if not self.getEnabled():
-            return
+        """
+        Gets face id and triangles from current face selection
+        """
+        if getPrintableNodes() and Selection.isSelected(getPrintableNodes()[0]): # Fixes bug for when scene is unselected
+            if not self.getEnabled():
+                return
 
-        curr_sf = Selection.getSelectedFace()
-        if curr_sf is None:
-            return
+            curr_sf = Selection.getSelectedFace()
+            if curr_sf is None:
+                return
 
-        self._calculateMesh()
+            node, face_id = curr_sf
 
-        scene_node, face_id = curr_sf
+            if self._bc_list is None:
+                return
 
-        selected_triangles = list(self._interactive_mesh.select_planar_face(face_id))
+            bc_node = self._bc_list.getActiveNode()
 
-        if self.getLoadSelectionActive():
-            self.load_face.triangles = selected_triangles
+            if bc_node is None:
+                return
 
-            if len(self.load_face.triangles) > 0:
-                tri = self.load_face.triangles[0]
+            smart_slice_node = findChildSceneNode(node, SmartSliceScene.Root)
 
-                # Convert from a pywim.geom.Vector to UM.Math.Vector
-                self.force.normal = Vector(
-                    tri.normal.r,
-                    tri.normal.s,
-                    tri.normal.t
-                )
-        else:
-            self.anchor_face.triangles = selected_triangles
+            selected_triangles = list(smart_slice_node.getInteractiveMesh().select_planar_face(face_id))
 
-        self._handle.drawSelection(self._selection_mode, selected_triangles)
+            bc_node.setMeshDataFromPywimTriangles(selected_triangles)
 
-        self.selectedFaceChanged.emit()
+            self._connector.updateStatus()
+
+            self.selectedFaceChanged.emit()
 
     def redraw(self):
         if not self.getEnabled():
             return
-
-        if self.getLoadSelectionActive():
-            self._handle.drawSelection(self._selection_mode, self.load_face.triangles)
-        else:
-            self._handle.drawSelection(self._selection_mode, self.anchor_face.triangles)
 
     def _onActiveStateChanged(self):
         if not self.getEnabled():
@@ -297,7 +150,7 @@ class SmartSliceSelectTool(Tool):
             Selection.setFaceSelectMode(False)
             Logger.log("d", "Disabled faceSelectMode!")
 
-        self._calculateMesh()
+        self.extension.cloud._onApplicationActivityChanged()
 
     def setSelectionMode(self, mode):
         Selection.clearFace()
@@ -310,74 +163,11 @@ class SmartSliceSelectTool(Tool):
     def setAnchorSelection(self):
         self.setSelectionMode(SelectionMode.AnchorMode)
 
-        self._handle.clearSelection()
-
-        if len(self.anchor_face.triangles) > 0:
-            self._handle.drawSelection(
-                self._selection_mode,
-                self.anchor_face.triangles
-            )
-
     def getAnchorSelectionActive(self):
         return self._selection_mode is SelectionMode.AnchorMode
 
     def setLoadSelection(self):
         self.setSelectionMode(SelectionMode.LoadMode)
 
-        self._handle.clearSelection()
-
-        if len(self.load_face.triangles) > 0:
-            self._handle.drawSelection(
-                self._selection_mode,
-                self.load_face.triangles
-            )
-
     def getLoadSelectionActive(self):
         return self._selection_mode is SelectionMode.LoadMode
-
-    def defineSteps(self):
-
-        steps = pywim.WimList(pywim.chop.model.Step)
-
-        step = pywim.chop.model.Step(name='step-1')
-
-        anchor1 = pywim.chop.model.FixedBoundaryCondition(name='anchor-1')
-        anchor1.face.extend(self.anchor_face.triangleIds())
-        step.boundary_conditions.append(anchor1)
-
-        # Copied from Cura/plugins/3MFWriter/ThreeMFWriter.py
-        # The print coordinate system is different than what Cura uses internally (Y and Z flipped)
-        # so we need to transform the mesh transformation matrix
-        cura_to_print = Matrix()
-        cura_to_print._data[1, 1] = 0
-        cura_to_print._data[1, 2] = -1
-        cura_to_print._data[2, 1] = 1
-        cura_to_print._data[2, 2] = 0
-
-        normal_mesh = getPrintableNodes()[0]
-
-        mesh_transformation = normal_mesh.getLocalTransformation()
-        mesh_transformation.preMultiply(cura_to_print)
-
-        # Decompose the transformation matrix but only pick out the rotation component
-        _, mesh_rotation, _, _ = mesh_transformation.decompose()
-
-        applied_load_vec = self.force.loadVector(mesh_rotation)
-
-        # Create an applied force
-        force1 = pywim.chop.model.Force(name='force-1')
-        force1.force.set( [
-            float(applied_load_vec.x),
-            float(applied_load_vec.y),
-            float(applied_load_vec.z)
-        ])
-
-        # Add the face Ids from the STL mesh that the user selected for
-        # this force
-        force1.face.extend(self.load_face.triangleIds())
-
-        step.loads.append(force1)
-
-        steps.add(step)
-
-        return steps
