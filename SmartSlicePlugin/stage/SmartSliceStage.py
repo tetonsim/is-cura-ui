@@ -111,7 +111,6 @@ class SmartSliceStage(CuraStage):
         controller = application.getController()
         extruderManager = application.getExtruderManager()
         extruderManager.activeExtruderChanged.connect(self.extruderChanged)
-        application.getMachineManager().activeMachine.propertyChanged.connect(self.extruderPropertyChanged)
 
         Selection.clear()
 
@@ -169,11 +168,8 @@ class SmartSliceStage(CuraStage):
 
         self._connector.updateSliceWidget()
 
-    def extruderPropertyChanged(self, key: str, property_name: str):
-        self.extruderChanged()
     # This creates the popup dialog that informs the user that only the
     # first extruder on a machine is currently supported.
-
     def extruderChanged(self):
         self._connector.smartSliceJobHandle.checkJob()
 
