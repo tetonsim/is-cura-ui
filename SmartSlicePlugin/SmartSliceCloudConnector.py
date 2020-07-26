@@ -957,16 +957,16 @@ class SmartSliceCloudConnector(QObject):
     '''
 
     def onSliceButtonClicked(self):
-        if not self._jobs[self._current_job]:
+        if self.status in SmartSliceCloudStatus.busy():
+            self._jobs[self._current_job].cancel()
+            self._jobs[self._current_job] = None
+        else:
             if self.status is SmartSliceCloudStatus.ReadyToVerify:
                 self.doVerification()
             elif self.status in SmartSliceCloudStatus.optimizable():
                 self.doOptimization()
             elif self.status is SmartSliceCloudStatus.Optimized:
                 Application.getInstance().getController().setActiveStage("PreviewStage")
-        else:
-            self._jobs[self._current_job].cancel()
-            self._jobs[self._current_job] = None
 
     '''
       Secondary Button Actions:
@@ -975,30 +975,29 @@ class SmartSliceCloudConnector(QObject):
     '''
 
     def onSecondaryButtonClicked(self):
-        if self._jobs[self._current_job] is not None:
-            if self.status is SmartSliceCloudStatus.BusyOptimizing:
-                req_tool = SmartSliceRequirements.getInstance()
-                #
-                #  CANCEL SMART SLICE JOB HERE
-                #    Any connection to AWS server should be severed here
-                #
-                self._jobs[self._current_job].canceled = True
-                self._jobs[self._current_job] = None
-                if req_tool.targetSafetyFactor < self._proxy.resultSafetyFactor and \
-                        req_tool.maxDisplacement > self._proxy.resultMaximalDisplacement:
-                    self.status = SmartSliceCloudStatus.Overdimensioned
-                else:
-                    self.status = SmartSliceCloudStatus.Underdimensioned
-                Application.getInstance().activityChanged.emit()
-            elif self.status is SmartSliceCloudStatus.BusyValidating:
-                #
-                #  CANCEL SMART SLICE JOB HERE
-                #    Any connection to AWS server should be severed here
-                #
-                self._jobs[self._current_job].canceled = True
-                self._jobs[self._current_job] = None
-                self.status = SmartSliceCloudStatus.Cancelling
-                self.updateStatus() # Have to update the slice widget right away
-                self.cancelCurrentJob()
+        if self.status is SmartSliceCloudStatus.BusyOptimizing:
+            req_tool = SmartSliceRequirements.getInstance()
+            #
+            #  CANCEL SMART SLICE JOB HERE
+            #    Any connection to AWS server should be severed here
+            #
+            self._jobs[self._current_job].canceled = True
+            self._jobs[self._current_job] = None
+            if req_tool.targetSafetyFactor < self._proxy.resultSafetyFactor and \
+                    req_tool.maxDisplacement > self._proxy.resultMaximalDisplacement:
+                self.status = SmartSliceCloudStatus.Overdimensioned
+            else:
+                self.status = SmartSliceCloudStatus.Underdimensioned
+            Application.getInstance().activityChanged.emit()
+        elif self.status is SmartSliceCloudStatus.BusyValidating:
+            #
+            #  CANCEL SMART SLICE JOB HERE
+            #    Any connection to AWS server should be severed here
+            #
+            self._jobs[self._current_job].canceled = True
+            self._jobs[self._current_job] = None
+            self.status = SmartSliceCloudStatus.Cancelling
+            self.updateStatus() # Have to update the slice widget right away
+            self.cancelCurrentJob()
         else:
             Application.getInstance().getController().setActiveStage("PreviewStage")
