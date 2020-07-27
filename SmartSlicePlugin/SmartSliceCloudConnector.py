@@ -6,8 +6,6 @@ import json
 import tempfile
 from pathlib import Path
 
-import numpy
-
 import pywim  # @UnresolvedImport
 
 from PyQt5.QtCore import pyqtSignal, pyqtProperty, pyqtSlot
@@ -18,27 +16,17 @@ from UM.i18n import i18nCatalog
 from UM.Application import Application
 from UM.Job import Job
 from UM.Logger import Logger
-from UM.Math.Matrix import Matrix
-from UM.Mesh.MeshBuilder import MeshBuilder
 from UM.Message import Message
-from UM.Operations.AddSceneNodeOperation import AddSceneNodeOperation
-from UM.Operations.GroupedOperation import GroupedOperation
 from UM.PluginRegistry import PluginRegistry
-from UM.Scene.SceneNode import SceneNode
-from UM.Settings.SettingInstance import SettingInstance
-from UM.Signal import Signal
 
-from cura.Operations.SetParentOperation import SetParentOperation
-from cura.Scene.BuildPlateDecorator import BuildPlateDecorator
-from cura.Scene.CuraSceneNode import CuraSceneNode
-from cura.Scene.SliceableObjectDecorator import SliceableObjectDecorator
-from cura.Settings.ExtruderStack import ExtruderStack
+from UM.Signal import Signal
 from cura.UI.PrintInformation import PrintInformation
 
-from .SmartSliceCloudProxy import SmartSliceCloudStatus
+from .SmartSliceCloudStatus import SmartSliceCloudStatus
 from .SmartSliceCloudProxy import SmartSliceCloudProxy
 from .SmartSlicePropertyHandler import SmartSlicePropertyHandler
 from .SmartSliceJobHandler import SmartSliceJobHandler
+from .stage.ui.ResultTable import ResultTableData
 
 from .requirements_tool.SmartSliceRequirements import SmartSliceRequirements
 from .select_tool.SmartSliceSelectTool import SmartSliceSelectTool
@@ -370,8 +358,8 @@ class SmartSliceAPIClient(QObject):
             self._handleThorErrors(thor_status_code, task)
             self.connector.cancelCurrentJob()
 
-        if task is not None:
-            Logger.log("d", "Job status after post'ing: {}".format(task.status))
+        if getattr(task, 'status', None):
+            Logger.log("d", "Job status after posting: {}".format(task.status))
 
         # While the task status is not finished/failed/crashed/aborted continue to
         # wait on the status using the API.
@@ -435,7 +423,7 @@ class SmartSliceAPIClient(QObject):
             notification_message.show()
 
             self.connector.cancelCurrentJob()
-            self.setError(SmartSliceCloudJob.JobException(error_message.getText()))
+            self.setError(SmartSliceCloudJob.JobException(notification_message.getText()))
 
     # When something goes wrong with the API, the errors are sent here. The http_error_code is an int that indicates
     #   the problem that has occurred. The returned object may hold additional information about the error, or it may be None.
@@ -552,6 +540,19 @@ class SmartSliceCloudConnector(QObject):
 
         return None
 
+    def addJob(self, job_type: pywim.smartslice.job.JobType):
+
+        self.propertyHandler._cancelChanges = False
+        self._current_job += 1
+
+        if job_type == pywim.smartslice.job.JobType.optimization:
+            self._jobs[self._current_job] = SmartSliceCloudOptimizeJob(self)
+        else:
+            self._jobs[self._current_job] = SmartSliceCloudVerificationJob(self)
+
+        self._jobs[self._current_job]._id = self._current_job
+        self._jobs[self._current_job].finished.connect(self._onJobFinished)
+
     def cancelCurrentJob(self):
         if self._jobs[self._current_job] is not None:
             if not self._jobs[self._current_job].canceled:
@@ -562,20 +563,16 @@ class SmartSliceCloudConnector(QObject):
             self._jobs[self._current_job] = None
 
     # Resets all of the tracked properties and jobs
-    def reset(self):
+    def clearJobs(self):
 
         # Cancel the running job (if any)
-        if len(self._jobs) > 0 and self._jobs[self._current_job] and not self._jobs[self._current_job].canceled:
+        if len(self._jobs) > 0 and self._jobs[self._current_job] and self._jobs[self._current_job].isRunning():
             self.cancelCurrentJob()
 
         # Clear out the jobs
         self._jobs.clear()
         self._current_job = 0
         self._jobs[self._current_job] = None
-
-        # Reset the property handler by creating a new instance
-        self.propertyHandler.cacheChanges()
-        self.propertyHandler._propertiesChanged.clear()
 
     def _onSaveDebugPackage(self, messageId: str, actionId: str) -> None:
         dummy_job = SmartSliceCloudVerificationJob(self)
@@ -592,7 +589,7 @@ class SmartSliceCloudConnector(QObject):
         debug_filedir = self.app_preferences.getValue(self.debug_save_smartslice_package_location)
         dummy_job = dummy_job.prepareJob(filename=debug_filename, filedir=debug_filedir)
 
-    def getProxy(self, engine, script_engine):
+    def getProxy(self, engine=None, script_engine=None):
         return self._proxy
 
     def getAPI(self, engine, script_engine):
@@ -798,7 +795,7 @@ class SmartSliceCloudConnector(QObject):
         self._proxy.shouldRaiseConfirmation = False
 
         if self._jobs[self._current_job].getResult():
-            self._process_analysis_result()
+            self.processAnalysisResult()
             if self._jobs[self._current_job].job_type == pywim.smartslice.job.JobType.optimization:
                 self.status = SmartSliceCloudStatus.Optimized
             else:
@@ -812,101 +809,16 @@ class SmartSliceCloudConnector(QObject):
                     text=i18n_catalog.i18nc("@info:status", "SmartSlice was unable to find a solution")
                 ).show()
 
-    def _process_analysis_result(self):
-        # TODO: We need a per node solution here as soon as we want to analysis multiple models.
-        our_only_node =  getPrintableNodes()[0]
-
+    def processAnalysisResult(self, selectedRow=0):
         job = self._jobs[self._current_job]
-        analysis = job.getResult().analyses[0]
+        active_extruder = getNodeActiveExtruder(getPrintableNodes()[0])
 
-        active_extruder = getNodeActiveExtruder(our_only_node)
+        if job.job_type == pywim.smartslice.job.JobType.validation and active_extruder:
+            resultData = ResultTableData.analysisToResultDict(0, job.getResult().analyses[0])
+            self._proxy.updatePropertiesFromResults(resultData)
 
-        if job.job_type == pywim.smartslice.job.JobType.optimization and active_extruder:
-            # TODO - Move this into a common class or function to apply an am.Config to GlobalStack/ExtruderStack
-            if analysis.print_config.infill:
-                infill_density = analysis.print_config.infill.density
-                infill_pattern = analysis.print_config.infill.pattern
-
-                if infill_pattern is None or infill_pattern == pywim.am.InfillType.unknown:
-                    infill_pattern = pywim.am.InfillType.grid
-
-                infill_pattern_name = SmartSliceJobHandler.INFILL_SMARTSLICE_CURA[infill_pattern]
-
-                if infill_density:
-                    Logger.log("d", "Update extruder infill density to {}".format(infill_density))
-                    active_extruder.setProperty("infill_sparse_density", "value", infill_density, set_from_cache=True)
-                    active_extruder.setProperty("infill_pattern", "value", infill_pattern_name, set_from_cache=True)
-                    Application.getInstance().getMachineManager().forceUpdateAllSettings()
-
-        # MODIFIER MESHES STUFF
-        #our_only_node_stack = our_only_node.callDecoration("getStack")
-        for modifier_mesh in analysis.modifier_meshes:
-            # Building the scene node
-            modifier_mesh_node = CuraSceneNode()
-            modifier_mesh_node.setName("SmartSliceMeshModifier")
-            modifier_mesh_node.setSelectable(True)
-            modifier_mesh_node.setCalculateBoundingBox(True)
-
-            # Building the mesh
-
-            # # Preparing the data from pywim for MeshBuilder
-            modifier_mesh_vertices = [[v.x, v.y, v.z] for v in modifier_mesh.vertices ]
-            modifier_mesh_indices = [[triangle.v1, triangle.v2, triangle.v3] for triangle in modifier_mesh.triangles]
-
-            # # Doing the actual build
-            modifier_mesh_data = MeshBuilder()
-            modifier_mesh_data.setVertices(numpy.asarray(modifier_mesh_vertices, dtype=numpy.float32))
-            modifier_mesh_data.setIndices(numpy.asarray(modifier_mesh_indices, dtype=numpy.int32))
-            modifier_mesh_data.calculateNormals()
-
-            modifier_mesh_node.setMeshData(modifier_mesh_data.build())
-            modifier_mesh_node.calculateBoundingBoxMesh()
-
-            active_build_plate = Application.getInstance().getMultiBuildPlateModel().activeBuildPlate
-            modifier_mesh_node.addDecorator(BuildPlateDecorator(active_build_plate))
-            modifier_mesh_node.addDecorator(SliceableObjectDecorator())
-
-            stack = modifier_mesh_node.callDecoration("getStack")
-            settings = stack.getTop()
-
-            modifier_mesh_node_infill_pattern = SmartSliceJobHandler.INFILL_SMARTSLICE_CURA[modifier_mesh.print_config.infill.pattern]
-            definition_dict = {
-                "infill_mesh" : True,
-                "infill_pattern" : modifier_mesh_node_infill_pattern,
-                "infill_sparse_density": modifier_mesh.print_config.infill.density,
-                }
-            Logger.log("d", "definition_dict: {}".format(definition_dict))
-
-            for key, value in definition_dict.items():
-                definition = stack.getSettingDefinition(key)
-                new_instance = SettingInstance(definition, settings)
-                new_instance.setProperty("value", value)
-
-                new_instance.resetState()  # Ensure that the state is not seen as a user state.
-                settings.addInstance(new_instance)
-
-            op = GroupedOperation()
-            # First add node to the scene at the correct position/scale, before parenting, so the eraser mesh does not get scaled with the parent
-            op.addOperation(AddSceneNodeOperation(
-                modifier_mesh_node,
-                Application.getInstance().getController().getScene().getRoot()
-            ))
-            op.addOperation(SetParentOperation(
-                modifier_mesh_node,
-                Application.getInstance().getController().getScene().getRoot()
-            ))
-            op.push()
-
-
-            # Use the data from the SmartSlice engine to translate / rotate / scale the mod mesh
-            parent_transformation = our_only_node.getLocalTransformation()
-            modifier_mesh_transform_matrix = parent_transformation.multiply(Matrix(modifier_mesh.transform))
-            modifier_mesh_node.setTransformation(modifier_mesh_transform_matrix)
-
-            # emit changes and connect error tracker
-            Application.getInstance().getController().getScene().sceneChanged.emit(modifier_mesh_node)
-
-        self._proxy.updatePropertiesFromResults(job.getResult())
+        elif job.job_type == pywim.smartslice.job.JobType.optimization and active_extruder:
+            self._proxy.resultsTable.setResults(job.getResult().analyses, selectedRow)
 
     def updateStatus(self):
         job, self._proxy.errors = self.smartSliceJobHandle.checkJob()
@@ -920,11 +832,7 @@ class SmartSliceCloudConnector(QObject):
 
     def doVerification(self):
         self.status = SmartSliceCloudStatus.BusyValidating
-        self.propertyHandler._cancelChanges = False
-        self._current_job += 1
-        self._jobs[self._current_job] = SmartSliceCloudVerificationJob(self)
-        self._jobs[self._current_job]._id = self._current_job
-        self._jobs[self._current_job].finished.connect(self._onJobFinished)
+        self.addJob(pywim.smartslice.job.JobType.validation)
         self._jobs[self._current_job].start()
 
     """
@@ -941,12 +849,7 @@ class SmartSliceCloudConnector(QObject):
             self.propertyHandler.askToRemoveModMesh()
         else:
             self.status = SmartSliceCloudStatus.BusyOptimizing
-
-            self.propertyHandler._cancelChanges = False
-            self._current_job += 1
-            self._jobs[self._current_job] = SmartSliceCloudOptimizeJob(self)
-            self._jobs[self._current_job]._id = self._current_job
-            self._jobs[self._current_job].finished.connect(self._onJobFinished)
+            self.addJob(pywim.smartslice.job.JobType.optimization)
             self._jobs[self._current_job].start()
 
     '''

@@ -25,10 +25,6 @@ UM.Dialog {
 
     closeOnAccept: false
 
-    Component.onCompleted: {
-        saveDialog.rejected.connect(SmartSlice.Cloud.escapeSavePromptClicked())
-    }
-
     Column {
 
         UM.I18nCatalog{id: catalog; name: "smartslice"}

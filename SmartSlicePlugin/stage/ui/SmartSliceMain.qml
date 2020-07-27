@@ -23,6 +23,7 @@ import QtGraphicalEffects 1.0
 
 import UM 1.2 as UM
 import Cura 1.0 as Cura
+
 import SmartSlice 1.0 as SmartSlice
 
 //  Main UI Stage Components
@@ -32,6 +33,7 @@ Item {
     //  Main Stage Accessible Properties
     property int smartLoads : 0
     property int smartAnchors : 0
+
 
     //  1.) Brand Logo
     Image {
@@ -1022,6 +1024,13 @@ Item {
                 }
             }
         }
+    }
+
+    SmartSlice.ResultsTable {
+        implicitHeight: 0.25 * smartSliceMain.height
+        width: 0.4 * smartSliceMain.width
+
+        visible: SmartSlice.Cloud.isOptimized
     }
 
     SmartSlice.SmartSliceLogin {

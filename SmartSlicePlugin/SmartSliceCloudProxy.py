@@ -1,49 +1,42 @@
 import copy
 import json
 import math
+import numpy
 
-from enum import Enum
 from typing import Dict, List
 
 from PyQt5.QtCore import pyqtSignal, pyqtProperty, pyqtSlot
-from PyQt5.QtCore import QObject, QTime, QUrl
+from PyQt5.QtCore import QObject, QTime, QUrl, QAbstractListModel
+
+from cura.Scene.CuraSceneNode import CuraSceneNode
+from cura.Scene.BuildPlateDecorator import BuildPlateDecorator
+from cura.Scene.SliceableObjectDecorator import SliceableObjectDecorator
+from cura.Operations.SetParentOperation import SetParentOperation
 
 from UM.i18n import i18nCatalog
 from UM.Application import Application
 from UM.Logger import Logger
+from UM.Operations.RemoveSceneNodeOperation import RemoveSceneNodeOperation
+from UM.Operations.GroupedOperation import GroupedOperation
+from UM.Mesh.MeshBuilder import MeshBuilder
+from UM.Settings.SettingInstance import SettingInstance
+from UM.Scene.SceneNode import SceneNode
+from UM.Operations.AddSceneNodeOperation import AddSceneNodeOperation
+from UM.Math.Matrix import Matrix
 
+from .SmartSliceCloudStatus import SmartSliceCloudStatus
 from .SmartSliceProperty import SmartSlicePropertyColor
+from .SmartSliceJobHandler import SmartSliceJobHandler
 from .requirements_tool.SmartSliceRequirements import SmartSliceRequirements
 from .select_tool.SmartSliceSelectTool import SmartSliceSelectTool
+from .stage.ui.ResultTable import ResultsTableHeader, ResultTableData
+from .utils import getNodeActiveExtruder
+from .utils import getModifierMeshes
+from .utils import getPrintableNodes
 
 import pywim
 
 i18n_catalog = i18nCatalog("smartslice")
-
-class SmartSliceCloudStatus(Enum):
-    NoConnection = 1
-    BadLogin = 2
-    Cancelling = 3
-    Errors = 4
-    ReadyToVerify = 5
-    Underdimensioned = 6
-    Overdimensioned = 7
-    BusyValidating = 8
-    BusyOptimizing = 9
-    Optimized = 10
-    RemoveModMesh = 11
-
-    @staticmethod
-    def optimizable():
-        return (
-            SmartSliceCloudStatus.Underdimensioned,
-            SmartSliceCloudStatus.Overdimensioned,
-            SmartSliceCloudStatus.RemoveModMesh
-        )
-
-    @staticmethod
-    def busy():
-        return (SmartSliceCloudStatus.BusyValidating, SmartSliceCloudStatus.BusyOptimizing)
 
 # Serves as a bridge between the main UI in QML and data regarding Smart Slice
 class SmartSliceCloudProxy(QObject):
@@ -77,6 +70,11 @@ class SmartSliceCloudProxy(QObject):
 
         #  Use-case & Requirements Cache
         self.reqsMaxDeflect  = self._targetMaximalDisplacement
+
+        # Results table
+        self._resultsTable = ResultTableData()
+        self._resultsTable.updateDisplaySignal.connect(self.updatePropertiesFromResults)
+        self._resultsTable.resultsUpdated.connect(self._resultsTableUpdated)
 
         # Properties (mainly) for the sliceinfo widget
         self._resultSafetyFactor = 0.0 #copy.copy(self._targetFactorOfSafety)
@@ -340,6 +338,15 @@ class SmartSliceCloudProxy(QObject):
     #
     #   SMART SLICE RESULTS
     #
+
+    resultsTableUpdated = pyqtSignal()
+
+    @pyqtProperty(QAbstractListModel, notify=resultsTableUpdated)
+    def resultsTable(self):
+        return self._resultsTable
+
+    def _resultsTableUpdated(self):
+        self.resultsTableUpdated.emit()
 
     resultTimeTotalChanged = pyqtSignal()
 
@@ -656,16 +663,11 @@ class SmartSliceCloudProxy(QObject):
         requirements.maxDisplacement = job.optimization.max_displacement
 
     # Updates the properties
-    def updatePropertiesFromResults(self, results: pywim.smartslice.result.Result):
+    def updatePropertiesFromResults(self, result):
 
-        analysis = results.analyses[0]
-
-        self.resultSafetyFactor = analysis.structural.min_safety_factor
-        self.resultMaximalDisplacement = analysis.structural.max_displacement
-
-        qprint_time = QTime(0, 0, 0, 0)
-        qprint_time = qprint_time.addSecs(analysis.print_time)
-        self.resultTimeTotal = qprint_time
+        self.resultSafetyFactor = result[ResultsTableHeader.Strength.value]
+        self.resultMaximalDisplacement = result[ResultsTableHeader.Displacement.value]
+        self.resultTimeTotal = result[ResultsTableHeader.Time.value]
 
         # TODO: Reactivate the block as soon as we have the single print times again!
         #self.resultTimeInfill = QTime(1, 0, 0, 0)
@@ -676,25 +678,19 @@ class SmartSliceCloudProxy(QObject):
         #self.resultTimeSkirt = QTime(0, 1, 0, 0)
         #self.resultTimeTravel = QTime(0, 30, 0, 0)
 
-        if len(analysis.extruders) == 0:
-            # This shouldn't happen
-            material_volume = [0.0]
-        else:
-            material_volume = [analysis.extruders[0].material_volume]
+        self.materialLength = result[ResultsTableHeader.Length.value]
+        self.materialWeight = result[ResultsTableHeader.Mass.value]
+        self.materialCost = result[ResultsTableHeader.Cost.value]
 
-        material_extra_info = self._calculateAdditionalMaterialInfo(material_volume)
-        Logger.log("d", "material_extra_info: {}".format(material_extra_info))
-
-        # for pos in len(material_volume):
-        pos = 0
-        self.materialLength = material_extra_info[0][pos]
-        self.materialWeight = material_extra_info[1][pos]
-        self.materialCost = material_extra_info[2][pos]
         # Below is commented out because we don't necessarily need it right now.
         # We aren't sending multiple materials to optimize, so the material here
         # won't change. And this assignment causes the "Lose Validation Results"
         # pop-up to show.
         #self.materialName = material_extra_info[3][pos]
+
+        if self._sliceStatusEnum == SmartSliceCloudStatus.Optimized:
+            result_id = result[ResultsTableHeader.Rank.value] - 1
+            self.updateSceneFromOptimizationResult(self._resultsTable.analyses[result_id])
 
     def updateStatusFromResults(self, job: pywim.smartslice.job.Job, results: pywim.smartslice.result.Result):
 
@@ -713,68 +709,6 @@ class SmartSliceCloudProxy(QObject):
 
         Application.getInstance().activityChanged.emit()
 
-    # Mainly taken from : {Cura}/cura/UI/PrintInformation.py@_calculateInformation
-    def _calculateAdditionalMaterialInfo(self, _material_volume):
-        global_stack = Application.getInstance().getGlobalContainerStack()
-        if global_stack is None:
-            return
-
-        _material_lengths = []
-        _material_weights = []
-        _material_costs = []
-        _material_names = []
-
-        material_preference_values = json.loads(Application.getInstance().getPreferences().getValue("cura/material_settings"))
-
-        Logger.log("d", "global_stack.extruderList: {}".format(global_stack.extruderList))
-
-        for extruder_stack in global_stack.extruderList:
-            position = extruder_stack.position
-            if type(position) is not int:
-                position = int(position)
-            if position >= len(_material_volume):
-                continue
-            amount = _material_volume[position]
-            # Find the right extruder stack. As the list isn't sorted because it's a annoying generator, we do some
-            # list comprehension filtering to solve this for us.
-            density = extruder_stack.getMetaDataEntry("properties", {}).get("density", 0)
-            material = extruder_stack.material
-            radius = extruder_stack.getProperty("material_diameter", "value") / 2
-
-            weight = float(amount) * float(density) / 1000
-            cost = 0.
-
-            material_guid = material.getMetaDataEntry("GUID")
-            material_name = material.getName()
-
-            if material_guid in material_preference_values:
-                material_values = material_preference_values[material_guid]
-
-                if material_values and "spool_weight" in material_values:
-                    weight_per_spool = float(material_values["spool_weight"])
-                else:
-                    weight_per_spool = float(extruder_stack.getMetaDataEntry("properties", {}).get("weight", 0))
-
-                cost_per_spool = float(material_values["spool_cost"] if material_values and "spool_cost" in material_values else 0)
-
-                if weight_per_spool != 0:
-                    cost = cost_per_spool * weight / weight_per_spool
-                else:
-                    cost = 0
-
-            # Material amount is sent as an amount of mm^3, so calculate length from that
-            if radius != 0:
-                length = round((amount / (math.pi * radius ** 2)) / 1000, 2)
-            else:
-                length = 0
-
-            _material_weights.append(weight)
-            _material_lengths.append(length)
-            _material_costs.append(cost)
-            _material_names.append(material_name)
-
-        return _material_lengths, _material_weights, _material_costs, _material_names
-
     def optimizationStatus(self):
         req_tool = SmartSliceRequirements.getInstance()
         if req_tool.maxDisplacement > self.resultMaximalDisplacement and req_tool.targetSafetyFactor < self.resultSafetyFactor:
@@ -783,4 +717,114 @@ class SmartSliceCloudProxy(QObject):
             self._sliceStatusEnum = SmartSliceCloudStatus.Underdimensioned
         else:
             self._sliceStatusEnum = SmartSliceCloudStatus.Optimized
+
+    def updateSceneFromOptimizationResult(self, analysis: pywim.smartslice.result.Analysis):
+        our_only_node =  getPrintableNodes()[0]
+        active_extruder = getNodeActiveExtruder(our_only_node)
+
+        # TODO - Move this into a common class or function to apply an am.Config to GlobalStack/ExtruderStack
+        if analysis.print_config.infill:
+
+            infill_density = analysis.print_config.infill.density
+            infill_pattern = analysis.print_config.infill.pattern
+
+            if infill_pattern is None or infill_pattern == pywim.am.InfillType.unknown:
+                infill_pattern = pywim.am.InfillType.grid
+
+            infill_pattern_name = SmartSliceJobHandler.INFILL_SMARTSLICE_CURA[infill_pattern]
+
+            extruder_dict = {
+                "wall_line_count": analysis.print_config.walls,
+                "top_layers": analysis.print_config.top_layers,
+                "bottom_layers": analysis.print_config.bottom_layers,
+                "infill_sparse_density": analysis.print_config.infill.density,
+                "infill_pattern": infill_pattern_name
+            }
+
+            Logger.log("d", "Optimized extruder settings: {}".format(extruder_dict))
+
+            for key, value in extruder_dict.items():
+                if value is not None:
+                    active_extruder.setProperty(key, "value", value, set_from_cache=True)
+
+            Application.getInstance().getMachineManager().forceUpdateAllSettings()
+
+        # Remove any modifier meshes which are present from a previous result
+        mod_meshes = getModifierMeshes()
+        if len(mod_meshes) > 0:
+            op = GroupedOperation()
+            for node in mod_meshes:
+                op.addOperation(RemoveSceneNodeOperation(node))
+            op.push()
+
+        # Add in the new modifier meshes
+        for modifier_mesh in analysis.modifier_meshes:
+            # Building the scene node
+            modifier_mesh_node = CuraSceneNode()
+            modifier_mesh_node.setName("SmartSliceMeshModifier")
+            modifier_mesh_node.setSelectable(True)
+            modifier_mesh_node.setCalculateBoundingBox(True)
+
+            # Building the mesh
+
+            # # Preparing the data from pywim for MeshBuilder
+            modifier_mesh_vertices = [[v.x, v.y, v.z] for v in modifier_mesh.vertices ]
+            modifier_mesh_indices = [[triangle.v1, triangle.v2, triangle.v3] for triangle in modifier_mesh.triangles]
+
+            # Doing the actual build
+            modifier_mesh_data = MeshBuilder()
+            modifier_mesh_data.setVertices(numpy.asarray(modifier_mesh_vertices, dtype=numpy.float32))
+            modifier_mesh_data.setIndices(numpy.asarray(modifier_mesh_indices, dtype=numpy.int32))
+            modifier_mesh_data.calculateNormals()
+
+            modifier_mesh_node.setMeshData(modifier_mesh_data.build())
+            modifier_mesh_node.calculateBoundingBoxMesh()
+
+            active_build_plate = Application.getInstance().getMultiBuildPlateModel().activeBuildPlate
+            modifier_mesh_node.addDecorator(BuildPlateDecorator(active_build_plate))
+            modifier_mesh_node.addDecorator(SliceableObjectDecorator())
+
+            stack = modifier_mesh_node.callDecoration("getStack")
+            settings = stack.getTop()
+
+            modifier_mesh_node_infill_pattern = SmartSliceJobHandler.INFILL_SMARTSLICE_CURA[modifier_mesh.print_config.infill.pattern]
+            definition_dict = {
+                "infill_mesh" : True,
+                "infill_pattern" : modifier_mesh_node_infill_pattern,
+                "infill_sparse_density": modifier_mesh.print_config.infill.density,
+                "wall_line_count": modifier_mesh.print_config.walls,
+                "top_layers": modifier_mesh.print_config.top_layers,
+                "bottom_layers": modifier_mesh.print_config.bottom_layers,
+                }
+            Logger.log("d", "Optimized modifier mesh settings: {}".format(definition_dict))
+
+            for key, value in definition_dict.items():
+                if value is not None:
+                    definition = stack.getSettingDefinition(key)
+                    new_instance = SettingInstance(definition, settings)
+                    new_instance.setProperty("value", value)
+
+                    new_instance.resetState()  # Ensure that the state is not seen as a user state.
+                    settings.addInstance(new_instance)
+
+            op = GroupedOperation()
+            # First add node to the scene at the correct position/scale, before parenting, so the eraser mesh does not get scaled with the parent
+            op.addOperation(AddSceneNodeOperation(
+                modifier_mesh_node,
+                Application.getInstance().getController().getScene().getRoot()
+            ))
+            op.addOperation(SetParentOperation(
+                modifier_mesh_node,
+                Application.getInstance().getController().getScene().getRoot()
+            ))
+            op.push()
+
+
+            # Use the data from the SmartSlice engine to translate / rotate / scale the mod mesh
+            parent_transformation = our_only_node.getLocalTransformation()
+            modifier_mesh_transform_matrix = parent_transformation.multiply(Matrix(modifier_mesh.transform))
+            modifier_mesh_node.setTransformation(modifier_mesh_transform_matrix)
+
+            # emit changes and connect error tracker
+            Application.getInstance().getController().getScene().sceneChanged.emit(modifier_mesh_node)
 

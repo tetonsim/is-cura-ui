@@ -13,7 +13,9 @@ from UM.PluginRegistry import PluginRegistry
 from cura.CuraApplication import CuraApplication
 
 from .SmartSliceCloudConnector import SmartSliceCloudConnector
-from .SmartSliceCloudProxy import SmartSliceCloudProxy, SmartSliceCloudStatus
+from .SmartSliceCloudProxy import SmartSliceCloudProxy
+from .SmartSliceCloudStatus import SmartSliceCloudStatus
+from .stage.ui.ResultTable import ResultTableData
 from .utils import getPrintableNodes
 
 import pywim
@@ -177,10 +179,16 @@ class SmartSliceExtension(Extension):
         # Need to do some checks to see if we've stored the results for the active job
         if cloudJob and cloudJob.getResult() and not cloudJob.saved:
             self._storage.setEntryToStore(plugin_id=plugin_info['id'], key='results', data=cloudJob.getResult().to_dict())
+            self._storage.setEntryToStore(
+                plugin_id=plugin_info['id'],
+                key='selectedResult',
+                data=self.proxy.resultsTable.getSelectedResultId()
+            )
             if writing_workspace:
                 cloudJob.saved = True
         elif job.type == pywim.smartslice.job.JobType.validation and (not cloudJob or not cloudJob.getResult()):
             self._storage.setEntryToStore(plugin_id=plugin_info['id'], key='results', data=None)
+            self._storage.setEntryToStore(plugin_id=plugin_info['id'], key='selectedResult', data=None)
 
     # Acquires all of the smart slice data from Cura storage and updates the UI
     def _getState(self, filename=None):
@@ -195,18 +203,16 @@ class SmartSliceExtension(Extension):
         job_dict = all_data['job']
         status = all_data['status']
         results_dict = all_data['results']
+        row = all_data['selectedResult'] # The row is stored as the order of the results
 
         job = pywim.smartslice.job.Job.from_dict(job_dict) if job_dict else None
         results = pywim.smartslice.result.Result.from_dict(results_dict) if results_dict else None
+        selected_row = row if row and row >= 0 else 0
+
+        self.cloud.clearJobs()
 
         if job:
             self.proxy.updatePropertiesFromJob(job)
-
-        self.cloud.reset()
-
-        if results:
-            self.proxy.updatePropertiesFromResults(results)
-            self.cloud.reset()
 
         if status:
             self.cloud.status = SmartSliceCloudStatus(status)
@@ -214,6 +220,16 @@ class SmartSliceExtension(Extension):
             self.proxy.updateStatusFromResults(job, results)
             self.cloud.updateStatus()
 
+        if self.cloud.status == SmartSliceCloudStatus.Optimized:
+            self.cloud.addJob(pywim.smartslice.job.JobType.optimization)
+        else:
+            self.cloud.addJob(pywim.smartslice.job.JobType.validation)
+
+        if results:
+            self.cloud.cloudJob.setResult(results)
+            self.cloud.processAnalysisResult(selected_row)
+
+        self.cloud.propertyHandler.resetProperties()
         self.cloud.updateSliceWidget()
         self.proxy.updateColorUI()
 

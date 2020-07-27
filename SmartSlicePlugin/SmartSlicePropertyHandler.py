@@ -16,7 +16,7 @@ from UM.Workspace.WorkspaceMetadataStorage import WorkspaceMetadataStorage
 
 from cura.CuraApplication import CuraApplication
 
-from .SmartSliceCloudProxy import SmartSliceCloudStatus
+from .SmartSliceCloudStatus import SmartSliceCloudStatus
 from .select_tool.SmartSliceSelectTool import SmartSliceSelectTool
 from .requirements_tool.SmartSliceRequirements import SmartSliceRequirements
 from .utils import getModifierMeshes, getPrintableNodes
@@ -123,7 +123,8 @@ class SmartSlicePropertyHandler(QObject):
 
     def _reset(self, *args):
         if len(getPrintableNodes()) == 0:
-            self.connector.reset()
+            self.connector.clearJobs()
+            self.resetProperties()
 
     #  Check that a printer has been set-up by the wizard.
     def printerCheck(self):
@@ -362,3 +363,7 @@ class SmartSlicePropertyHandler(QObject):
             self.connector.doOptimization()
         else:
             self.connector.prepareOptimization()
+
+    def resetProperties(self):
+        self.cacheChanges()
+        self._propertiesChanged.clear()
