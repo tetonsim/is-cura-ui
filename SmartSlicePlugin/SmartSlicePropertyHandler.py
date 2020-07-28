@@ -250,7 +250,7 @@ class SmartSlicePropertyHandler(QObject):
     def _onRequirementToolPropertyChanged(self, property_name):
         # We handle changes in the requirements tool differently, depending on the current
         # status. We only need to ask for confirmation if the model has been optimized
-        if self.connector.status in { SmartSliceCloudStatus.BusyValidating, SmartSliceCloudStatus.Underdimensioned, SmartSliceCloudStatus.Overdimensioned }:
+        if self.connector.status in {SmartSliceCloudStatus.Underdimensioned, SmartSliceCloudStatus.Overdimensioned }:
             self.connector.prepareOptimization()
         else:
             self.confirmPendingChanges(

@@ -12,6 +12,7 @@ class SmartSliceCloudStatus(Enum):
     BusyOptimizing = 9
     Optimized = 10
     RemoveModMesh = 11
+    Queued = 12
 
     @staticmethod
     def optimizable():
@@ -23,5 +24,5 @@ class SmartSliceCloudStatus(Enum):
 
     @staticmethod
     def busy():
-        return (SmartSliceCloudStatus.BusyValidating, SmartSliceCloudStatus.BusyOptimizing)
+        return SmartSliceCloudStatus.BusyValidating, SmartSliceCloudStatus.BusyOptimizing, SmartSliceCloudStatus.Queued
 

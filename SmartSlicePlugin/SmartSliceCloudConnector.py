@@ -53,6 +53,7 @@ class SmartSliceCloudJob(Job):
         self.job_type = None
         self._id = 0
         self._saved = False
+        self.api_job_id = None
 
         self.canceled = False
 
@@ -207,6 +208,23 @@ class SmartSliceCloudOptimizeJob(SmartSliceCloudJob):
 
         self.job_type = pywim.smartslice.job.JobType.optimization
 
+
+class JobStatusTracker:
+    def __init__(self, connector, status) -> None:
+        self._previous_status = status
+        self.connector = connector
+
+    def __call__(self, job: pywim.http.thor.JobInfo) -> bool:
+        Logger.log("d", "Current job status: {}".format(job.status))
+        if job.status == pywim.http.thor.JobInfo.Status.queued and self.connector.status is not SmartSliceCloudStatus.Queued:
+            self.connector.status = SmartSliceCloudStatus.Queued
+            self.connector.updateSliceWidget()
+        elif job.status == pywim.http.thor.JobInfo.Status.running and self.connector.status not in (SmartSliceCloudStatus.BusyOptimizing, SmartSliceCloudStatus.BusyValidating):
+            self.connector.status = self._previous_status
+            self.connector.updateSliceWidget()
+        return False
+
+
 # This class defines and contains our API connection. API errors, login and token
 #   checking is all handled here.
 class SmartSliceAPIClient(QObject):
@@ -347,12 +365,17 @@ class SmartSliceAPIClient(QObject):
         with open(self._token_file_path, "w") as token_file:
             json.dump(self._token, token_file)
 
+    def cancelJob(self, job_id):
+        self._client.smartslice_job_abort(job_id)
+
     # If the user is correctly logged in, and has a valid token, we can use the 3mf data from
     #    the plugin to submit a job to the API, and the results will be handled when they are returned.
     def submitSmartSliceJob(self, cloud_job, threemf_data):
         thor_status_code, task = self._client.new_smartslice_job(threemf_data)
 
-        Logger.log("d", "API Status after post'ing: {}".format(thor_status_code))
+        job_status_tracker = JobStatusTracker(self.connector, self.connector.status)
+
+        Logger.log("d", "API Status after posting: {}".format(thor_status_code))
 
         if thor_status_code is not 200:
             self._handleThorErrors(thor_status_code, task)
@@ -368,8 +391,10 @@ class SmartSliceAPIClient(QObject):
                                                         pywim.http.thor.JobInfo.Status.aborted,
                                                         pywim.http.thor.JobInfo.Status.finished
                                                         ):
+
             self.job_status = task.status
-            thor_status_code, task = self._client.smartslice_job_wait(task.id)
+            cloud_job.api_job_id = task.id
+            thor_status_code, task = self._client.smartslice_job_wait(task.id, callback=job_status_tracker)
 
             if thor_status_code is not 200:
                 self._handleThorErrors(thor_status_code, task)
@@ -398,7 +423,7 @@ class SmartSliceAPIClient(QObject):
                 return None
             elif task.status == pywim.http.thor.JobInfo.Status.finished:
                 return task
-            else:
+            elif len(task.errors) > 0:
                 error_message = Message()
                 error_message.setTitle("Smart Slice Solver")
                 error_message.setText(i18n_catalog.i18nc(
@@ -416,14 +441,7 @@ class SmartSliceAPIClient(QObject):
                 )
                 self.connector.propertyHandler._cancelChanges = False
                 return None
-        else:
-            notification_message = Message()
-            notification_message.setTitle("Smart Slice")
-            notification_message.setText(i18n_catalog.i18nc("@info:status", "Job has been canceled!"))
-            notification_message.show()
 
-            self.connector.cancelCurrentJob()
-            self.setError(SmartSliceCloudJob.JobException(notification_message.getText()))
 
     # When something goes wrong with the API, the errors are sent here. The http_error_code is an int that indicates
     #   the problem that has occurred. The returned object may hold additional information about the error, or it may be None.
@@ -431,7 +449,20 @@ class SmartSliceAPIClient(QObject):
         error_message = Message()
         error_message.setTitle("Smart Slice API")
         if http_error_code == 400:
-            error_message.setText(i18n_catalog.i18nc("@info:status", "SmartSlice Server Error (400: Bad Request):\n{}".format(returned_object.error)))
+            if returned_object.error.startswith('User\'s maximum job queue count reached'):
+                print(error_message.getActions())
+                error_message.setTitle("")
+                error_message.setText("You have exceeded the maximum allowable "
+                                      "number of queued\n jobs. Please cancel a "
+                                      "queued job or wait for your queue to clear.")
+                error_message.addAction(
+                    "continue",
+                    i18n_catalog.i18nc("@action", "Ok"),
+                    "", ""
+                )
+                error_message.actionTriggered.connect(self.errorMessageAction)
+            else:
+                error_message.setText(i18n_catalog.i18nc("@info:status", "SmartSlice Server Error (400: Bad Request):\n{}".format(returned_object.error)))
         elif http_error_code == 401:
             error_message.setText(i18n_catalog.i18nc("@info:status", "SmartSlice Server Error (401: Unauthorized):\nAre you logged in?"))
         elif http_error_code == 429:
@@ -439,6 +470,10 @@ class SmartSliceAPIClient(QObject):
         else:
             error_message.setText(i18n_catalog.i18nc("@info:status", "SmartSlice Server Error (HTTP Error: {})".format(http_error_code)))
         error_message.show()
+
+    @staticmethod
+    def errorMessageAction(msg, action):
+        msg.hide()
 
     @pyqtSlot()
     def onLoginButtonClicked(self):
@@ -554,6 +589,7 @@ class SmartSliceCloudConnector(QObject):
         self._jobs[self._current_job].finished.connect(self._onJobFinished)
 
     def cancelCurrentJob(self):
+        self.api_connection.cancelJob(self._jobs[self._current_job].api_job_id)
         if self._jobs[self._current_job] is not None:
             if not self._jobs[self._current_job].canceled:
                 self.status = SmartSliceCloudStatus.Cancelling
@@ -708,6 +744,14 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.secondaryButtonVisible = True
             self._proxy.secondaryButtonFillWidth = True
             self._proxy.sliceInfoOpen = True
+        elif self.status is SmartSliceCloudStatus.Queued:
+            self._proxy.sliceStatus = "Queued..."
+            self._proxy.sliceHint = ""
+            self._proxy.secondaryButtonText = "Cancel"
+            self._proxy.sliceButtonVisible = False
+            self._proxy.secondaryButtonVisible = True
+            self._proxy.secondaryButtonFillWidth = True
+            self._proxy.sliceInfoOpen = False
         elif self.status is SmartSliceCloudStatus.RemoveModMesh:
             self._proxy.sliceStatus = ""
             self._proxy.sliceHint = ""
@@ -878,29 +922,10 @@ class SmartSliceCloudConnector(QObject):
     '''
 
     def onSecondaryButtonClicked(self):
-        if self.status is SmartSliceCloudStatus.BusyOptimizing:
-            req_tool = SmartSliceRequirements.getInstance()
-            #
-            #  CANCEL SMART SLICE JOB HERE
-            #    Any connection to AWS server should be severed here
-            #
-            self._jobs[self._current_job].canceled = True
-            self._jobs[self._current_job] = None
-            if req_tool.targetSafetyFactor < self._proxy.resultSafetyFactor and \
-                    req_tool.maxDisplacement > self._proxy.resultMaximalDisplacement:
-                self.status = SmartSliceCloudStatus.Overdimensioned
-            else:
-                self.status = SmartSliceCloudStatus.Underdimensioned
-            Application.getInstance().activityChanged.emit()
-        elif self.status is SmartSliceCloudStatus.BusyValidating:
-            #
-            #  CANCEL SMART SLICE JOB HERE
-            #    Any connection to AWS server should be severed here
-            #
-            self._jobs[self._current_job].canceled = True
-            self._jobs[self._current_job] = None
-            self.status = SmartSliceCloudStatus.Cancelling
-            self.updateStatus() # Have to update the slice widget right away
+        if isinstance(self._jobs[self._current_job], SmartSliceCloudOptimizeJob):
+            self.cancelCurrentJob()
+            self.prepareOptimization()
+        elif isinstance(self._jobs[self._current_job], SmartSliceCloudVerificationJob):
             self.cancelCurrentJob()
         else:
             Application.getInstance().getController().setActiveStage("PreviewStage")
