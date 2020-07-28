@@ -359,6 +359,7 @@ class SmartSliceAPIClient(QObject):
         apiCode, apiResult = self._client.whoami()
         if apiCode != 200:
             self._token = None
+            self._createTokenFile()
 
     # If there is no token in the file, or the file does not exist, we create one.
     def _createTokenFile(self):
