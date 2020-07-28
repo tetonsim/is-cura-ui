@@ -13,13 +13,15 @@ from UM.Logger import Logger
 from UM.Operations.RemoveSceneNodeOperation import RemoveSceneNodeOperation
 from UM.Operations.GroupedOperation import GroupedOperation
 from UM.Workspace.WorkspaceMetadataStorage import WorkspaceMetadataStorage
+from UM.Scene import Scene
+from UM.Scene.SceneNode import SceneNode
 
 from cura.CuraApplication import CuraApplication
 
 from .SmartSliceCloudStatus import SmartSliceCloudStatus
 from .select_tool.SmartSliceSelectTool import SmartSliceSelectTool
 from .requirements_tool.SmartSliceRequirements import SmartSliceRequirements
-from .utils import getModifierMeshes, getPrintableNodes
+from .utils import getModifierMeshes, getPrintableNodes, findChildSceneNode
 from .stage.SmartSliceScene import Root
 
 from . import SmartSliceProperty
@@ -57,6 +59,7 @@ class SmartSlicePropertyHandler(QObject):
         self._extruder_properties = SmartSliceProperty.ExtruderProperty.CreateAll()
         self._selected_material = SmartSliceProperty.SelectedMaterial()
         self._scene = SmartSliceProperty.Scene()
+        self._root = SmartSliceProperty.SmartSliceSceneRoot()
 
         self._mod_mesh_removal_msg = None
 
@@ -76,6 +79,7 @@ class SmartSlicePropertyHandler(QObject):
             [
                 self._selected_material,
                 self._scene,
+                self._root
             ]
 
         self._propertiesChanged = []
@@ -87,6 +91,7 @@ class SmartSlicePropertyHandler(QObject):
         Root.faceAdded.connect(self._faceAdded)
         Root.faceRemoved.connect(self._faceRemoved)
         Root.loadPropertyChanged.connect(self._faceChanged)
+        Root.rootChanged.connect(self._onRootChanged)
 
         sel_tool.selectedFaceChanged.connect(self._faceChanged)
         sel_tool.toolPropertyChanged.connect(self._onSelectToolPropertyChanged)
@@ -109,9 +114,11 @@ class SmartSlicePropertyHandler(QObject):
         prop = SmartSliceProperty.SmartSliceFace(face)
         prop.cache()
         self._properties.append(prop)
+        self.confirmPendingChanges(self._root)
 
     def _faceChanged(self):
         face_properties = [prop for prop in self._properties if isinstance(prop, SmartSliceProperty.SmartSliceFace)]
+        self.connector.updateStatus()
         self.confirmPendingChanges(face_properties)
 
     def _faceRemoved(self, face):
@@ -119,7 +126,7 @@ class SmartSlicePropertyHandler(QObject):
             if isinstance(prop, SmartSliceProperty.SmartSliceFace) and face == prop.face:
                 self._properties.remove(prop)
                 break
-        self._faceChanged()
+        self.confirmPendingChanges(self._root)
 
     def _reset(self, *args):
         if len(getPrintableNodes()) == 0:
@@ -168,8 +175,21 @@ class SmartSlicePropertyHandler(QObject):
             p.restore()
 
         self._addProperties = False
+        self._cleanRootCache()
         self._activeMachineManager.forceUpdateAllSettings()
         self._addProperties = True
+
+    def _cleanRootCache(self):
+        """
+        Cleans the cache for the Root children and their individual tracking
+        """
+        faces = self._root.value()
+
+        for prop in self._properties:
+            if isinstance(prop, SmartSliceProperty.SmartSliceFace) and prop.face not in faces:
+                self._properties.remove(prop)
+
+        self._root.cache()
 
     def getGlobalProperty(self, key):
         for p in self._global_properties:
@@ -201,6 +221,18 @@ class SmartSlicePropertyHandler(QObject):
 
     def _onSceneChanged(self, changed_node):
         self.confirmPendingChanges(self._scene)
+
+    def _onRootChanged(self, root: Root):
+        if root is not None:
+            self._root = SmartSliceProperty.SmartSliceSceneRoot(root)
+
+            for prop in self._properties:
+                if isinstance(prop, SmartSliceProperty.SmartSliceSceneRoot):
+                    self._properties.remove(prop)
+                    break
+
+            self._properties.append(self._root)
+            self._cleanRootCache()
 
     def _onModMeshChanged(self, scene_node, infill_node):
         self.confirmPendingChanges(

@@ -21,10 +21,12 @@ Item {
     property int centerX: 0.5 * (parent.width - width)
     property int centerY: 0.5 * (parent.height - height)
 
-    property bool locationSet: tableArea.model.locationSet
+    property var handler: SmartSlice.Cloud.resultsTableDialog
 
-    property int xLocation: tableArea.model.xLocation
-    property int yLocation: tableArea.model.yLocation
+    property bool locationSet: handler.positionSet
+
+    property int xLocation: handler.xPosition
+    property int yLocation: handler.yPosition
 
     x: {
         if (locationSet) {
@@ -79,7 +81,7 @@ Item {
 
                     resultsTable.x = posX
                     resultsTable.y = posY
-                    tableArea.model.setLocation(posX, posY)
+                    resultsTable.handler.setPosition(posX, posY)
                 }
             }
             onReleased: {
@@ -90,6 +92,7 @@ Item {
                 dragging = false
                 resultsTable.x = resultsTable.centerX
                 resultsTable.y = resultsTable.centerY
+                resultsTable.handler.setPosition(resultsTable.centerX, resultsTable.centerY)
             }
 
             Rectangle {
@@ -108,8 +111,8 @@ Item {
             implicitHeight: resultsTable.implicitHeight
             width: parent.width
 
-            property int tableHeight: model.height
-            property bool heightSet: model.heightSet
+            property int tableHeight: resultsTable.handler.height
+            property bool heightSet: resultsTable.handler.heightSet
 
             height: {
                 if (heightSet) {
@@ -419,7 +422,7 @@ Item {
                     resultsTable.height = h + draggableArea.height + topDragArea.height;
                     resultTableColumn.forceLayout()
 
-                    tableArea.model.setHeight(h)
+                    resultsTable.handler.setHeight(h)
                 }
             }
 

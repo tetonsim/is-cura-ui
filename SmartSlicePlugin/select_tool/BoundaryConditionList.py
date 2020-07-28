@@ -123,12 +123,15 @@ class BoundaryConditionListModel(QAbstractListModel):
                 return self._bcs[index.row()].getName()
         return None
 
-    @pyqtSlot()
-    def activate(self):
+    @pyqtSlot(int)
+    def activate(self, index=0):
         for n in self._bcs:
             n.setVisible(False)
 
-        self.select(0)
+        if index >= 0 and len(self._bcs) > index:
+            self.select(index)
+        elif len(self._bcs) > 0:
+            self.select(0)
 
         if isinstance(self._active_node, SmartSliceScene.LoadFace):
             self.loadMagnitudeChanged.emit(self._active_node)
@@ -148,7 +151,10 @@ class BoundaryConditionListModel(QAbstractListModel):
 
     @pyqtSlot()
     def add(self):
-        N = len(self._bcs)+1
+        if len(self._bcs) == 0:
+            N = 1
+        else:
+            N = int(self._bcs[-1].getName().split(" ")[1]) + 1
 
         if self._bc_type == BoundaryConditionListModel.Anchor:
             bc = SmartSliceScene.AnchorFace('Anchor ' + str(N))

@@ -31,6 +31,7 @@ Item {
             renderType: Text.NativeRendering
 
             text: catalog.i18nc("@action:button", "Factor of Safety \u2265")
+            verticalAlignment: TextInput.AlignVCenter
         }
 
         Label {
@@ -40,6 +41,7 @@ Item {
             renderType: Text.NativeRendering
 
             text: catalog.i18nc("@action:button", "Max Deflection  \u2264")
+            verticalAlignment: TextInput.AlignVCenter
         }
 
         TextField {
@@ -49,14 +51,18 @@ Item {
             style: UM.Theme.styles.text_field;
 
             onEditingFinished: {
-                UM.ActiveTool.setProperty("TargetSafetyFactor", text)
+                var value = parseFloat(text)
+                if (value >= 1.0) {
+                    UM.ActiveTool.setProperty("TargetSafetyFactor", text)
+                } else {
+                    text = "1"
+                }
             }
 
-            /*onTextChanged: {
-            }*/
+            inputMethodHints: Qt.ImhFormattedNumbersOnly
 
             placeholderText: catalog.i18nc("@action:button", "Must be above 1")
-            property string unit: "[1]";
+            property string unit: " ";
         }
 
         TextField {
@@ -69,8 +75,8 @@ Item {
                 UM.ActiveTool.setProperty("MaxDisplacement", text)
             }
 
-            /*onTextChanged: {
-            }*/
+            validator: DoubleValidator {bottom: 0.0}
+            inputMethodHints: Qt.ImhFormattedNumbersOnly
 
             //text: SmartSlice.Cloud.targetMaximalDisplacement
             placeholderText: ""

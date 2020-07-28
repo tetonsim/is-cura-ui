@@ -9,7 +9,7 @@ from cura.CuraApplication import CuraApplication
 from cura.Scene.CuraSceneNode import CuraSceneNode
 
 from . utils import getPrintableNodes, findChildSceneNode
-from .stage.SmartSliceScene import AnchorFace, LoadFace, Root
+from .stage.SmartSliceScene import HighlightFace, AnchorFace, LoadFace, Root
 
 
 class SmartSlicePropertyColor():
@@ -284,3 +284,44 @@ class SmartSliceFace(TrackedProperty):
             self.face.setArrowDirection(self._direction)
             self.face.force.magnitude = self._magnitude
         self.face.setMeshDataFromPywimTriangles(self._triangles)
+
+class SmartSliceSceneRoot(TrackedProperty):
+    def __init__(self, root: Root = None):
+        self._root = root
+        self._faces = [] # HighlightFaces
+
+    def value(self):
+        faces = []
+        if self._root:
+            for child in self._root.getAllChildren():
+                if isinstance(child, HighlightFace):
+                    faces.append(child)
+        return faces
+
+    def cache(self):
+        self._faces = self.value()
+
+    def changed(self) -> bool:
+        faces = self.value()
+        if len(self._faces) != len(faces):
+            return True
+
+        #     if f not in faces: # check the id(f) not in [id(f2) for f2 in faces]
+        #         return True
+        return False
+
+    def restore(self):
+        if self._root is None:
+            return
+
+        faces = self.value()
+
+        # Remove any faces which were added
+        for f in faces:
+            if f not in self._faces:
+                self._root.removeChild(f)
+
+        # Add any faces which were removed
+        for f in self._faces:
+            if f not in faces:
+                self._root.addChild(f)

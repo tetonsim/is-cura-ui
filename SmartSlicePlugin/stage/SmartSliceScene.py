@@ -42,6 +42,7 @@ class Root(SceneNode):
     faceAdded = Signal()
     faceRemoved = Signal()
     loadPropertyChanged = Signal()
+    rootChanged = Signal()
 
     def __init__(self):
         super().__init__(name='_SmartSlice', visible=True)
@@ -55,6 +56,8 @@ class Root(SceneNode):
             Logger.log('d', 'Compute interactive mesh from SceneNode {}'.format(parent.getName()))
 
             self._interactive_mesh = makeInteractiveMesh(mesh_data)
+
+        self.rootChanged.emit(self)
 
     def getInteractiveMesh(self) -> pywim.geom.tri.Mesh:
         return self._interactive_mesh

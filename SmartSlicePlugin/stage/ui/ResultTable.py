@@ -45,8 +45,6 @@ class ResultTableData(QAbstractListModel):
     selectedRowChanged = pyqtSignal()
     sortColumnChanged = pyqtSignal()
     sortOrderChanged = pyqtSignal()
-    locationChanged = pyqtSignal()
-    heightChanged = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -60,13 +58,6 @@ class ResultTableData(QAbstractListModel):
 
         self.updateDisplaySignal = Signal() # Tells the owner of the table when to  update the display (like when a row is clicked)
         self.resultsUpdated = Signal()
-
-        self._xLocation = 0
-        self._yLocation = 0
-        self._locationSet = False
-
-        self._height = 0
-        self._heightSet = False
 
     def setResults(self, results: List[pywim.smartslice.result.Analysis], requested_result=0):
 
@@ -99,39 +90,6 @@ class ResultTableData(QAbstractListModel):
 
     def roleNames(self):
         return ResultsTableHeader.rolesAsBytes()
-
-    @pyqtProperty(bool, notify=locationChanged)
-    def locationSet(self):
-        return self._locationSet
-
-    @pyqtProperty(int, notify=locationChanged)
-    def xLocation(self):
-        return self._xLocation
-
-    @pyqtProperty(int, notify=locationChanged)
-    def yLocation(self):
-        return self._yLocation
-
-    @pyqtSlot(int, int)
-    def setLocation(self, x, y):
-        self._xLocation = x
-        self._yLocation = y
-        self._locationSet = True
-        self.locationChanged.emit()
-
-    @pyqtProperty(bool, notify=heightChanged)
-    def heightSet(self):
-        return self._heightSet
-
-    @pyqtProperty(int, notify=heightChanged)
-    def height(self):
-        return self._height
-
-    @pyqtSlot(int)
-    def setHeight(self, height):
-        self._height = height
-        self._heightSet = True
-        self.heightChanged.emit()
 
     @pyqtProperty(int, notify=selectedRowChanged)
     def selectedRow(self):

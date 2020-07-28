@@ -33,6 +33,7 @@ from .stage.ui.ResultTable import ResultsTableHeader, ResultTableData
 from .utils import getNodeActiveExtruder
 from .utils import getModifierMeshes
 from .utils import getPrintableNodes
+from .components import Dialog
 
 import pywim
 
@@ -60,6 +61,9 @@ class SmartSliceCloudProxy(QObject):
         self._secondaryButtonText = "_SecondaryText"
         self._secondaryButtonFillWidth = False
         self._secondaryButtonVisible = False
+
+        self._loadDialog = Dialog.Dialog()
+        self._resultsTableDialog = Dialog.Dialog()
 
         # Proxy Values (DO NOT USE DIRECTLY)
         self._targetFactorOfSafety = 2.0
@@ -143,6 +147,16 @@ class SmartSliceCloudProxy(QObject):
     secondaryButtonTextChanged = pyqtSignal()
     secondaryButtonVisibleChanged = pyqtSignal()
     secondaryButtonFillWidthChanged = pyqtSignal()
+
+    resultsTableUpdated = pyqtSignal()
+
+    @pyqtProperty(QObject)
+    def loadDialog(self):
+        return self._loadDialog
+
+    @pyqtProperty(QObject, notify=resultsTableUpdated)
+    def resultsTableDialog(self):
+        return self._resultsTableDialog
 
     @pyqtProperty(bool, notify=sliceStatusEnumChanged)
     def isValidated(self):
@@ -338,8 +352,6 @@ class SmartSliceCloudProxy(QObject):
     #
     #   SMART SLICE RESULTS
     #
-
-    resultsTableUpdated = pyqtSignal()
 
     @pyqtProperty(QAbstractListModel, notify=resultsTableUpdated)
     def resultsTable(self):

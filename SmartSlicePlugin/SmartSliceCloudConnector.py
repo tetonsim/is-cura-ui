@@ -683,7 +683,7 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.sliceInfoOpen = True
         elif self.status is SmartSliceCloudStatus.Overdimensioned:
             self._proxy.sliceStatus = "Part appears overdesigned"
-            self._proxy.sliceHint = "Optimize to reduce material?"
+            self._proxy.sliceHint = "Optimize to reduce print time and material?"
             self._proxy.sliceButtonText = "Optimize"
             self._proxy.secondaryButtonText = "Preview"
             self._proxy.sliceButtonEnabled = True
