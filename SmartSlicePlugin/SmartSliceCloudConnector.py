@@ -923,10 +923,10 @@ class SmartSliceCloudConnector(QObject):
     '''
 
     def onSecondaryButtonClicked(self):
-        if isinstance(self._jobs[self._current_job], SmartSliceCloudOptimizeJob):
+        if self.status == SmartSliceCloudStatus.BusyOptimizing:
             self.cancelCurrentJob()
             self.prepareOptimization()
-        elif isinstance(self._jobs[self._current_job], SmartSliceCloudVerificationJob):
+        elif self.status == SmartSliceCloudStatus.BusyValidating:
             self.cancelCurrentJob()
         else:
             Application.getInstance().getController().setActiveStage("PreviewStage")
