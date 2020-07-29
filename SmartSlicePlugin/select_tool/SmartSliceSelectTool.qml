@@ -282,6 +282,13 @@ Item {
                         anchors.left: parent.left
                         anchors.leftMargin: 2 * UM.Theme.getSize("default_margin").width
 
+                        onTextChanged: {
+                            var value = parseFloat(text)
+                            if (value >= 0.0) {
+                                bcListForces.model.loadMagnitude = text;
+                            }
+                        }
+
                         onEditingFinished: {
                             bcListForces.model.loadMagnitude = text;
                         }
