@@ -5,5 +5,9 @@
     "version": "20.1.14.0",
     "description": "Optimizes your model and slicing properties based on physical boundary conditions set by the user.",
     "supported_sdk_versions": ["7.0.0", "6.3.0"],
-    "i18n-catalog": "smartslice"
+    "i18n-catalog": "smartslice",
+    "smartSliceApi": {
+        "url": "https://test.smartslice.xyz:443",
+        "cluster": null
+    }
 }

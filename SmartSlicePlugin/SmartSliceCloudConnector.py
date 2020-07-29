@@ -1,12 +1,13 @@
-import time
+from typing import Dict
+
 import os
-import io
 import uuid
 import json
 import tempfile
 import datetime
-from pathlib import Path
 from enum import Enum
+from pathlib import Path
+from urllib.parse import urlparse
 
 import pywim  # @UnresolvedImport
 
@@ -23,7 +24,6 @@ from UM.Message import Message
 from UM.PluginRegistry import PluginRegistry
 
 from UM.Signal import Signal
-from cura.UI.PrintInformation import PrintInformation
 
 from .SmartSliceCloudStatus import SmartSliceCloudStatus
 from .SmartSliceCloudProxy import SmartSliceCloudProxy
@@ -247,6 +247,8 @@ class SmartSliceAPIClient(QObject):
         self._login_password = ""
         self._badCredentials = False
 
+        self._apiData = PluginMetaData()
+
     # If the user has logged in before, we will hold on to the email. If they log out, or
     #   the login is unsuccessful, the email will not persist.
     def _usernamePreferenceExists(self):
@@ -262,10 +264,15 @@ class SmartSliceAPIClient(QObject):
     def openConnection(self):
         self._token_file_path = os.path.join(PluginRegistry.getInstance().getPluginPath("SmartSlicePlugin"), ".token")
 
-        # get connection settings from preferences
-        protocol = self._app_preferences.getValue(self.connector.http_protocol_preference)
-        hostname = self._app_preferences.getValue(self.connector.http_hostname_preference)
-        port = self._app_preferences.getValue(self.connector.http_port_preference)
+        url = urlparse(self._apiData.url)
+
+        protocol = url.scheme
+        hostname = url.hostname
+        if url.port:
+            port = url.port
+        else:
+            port = 443
+
         self._usernamePreferenceExists()
 
         if type(port) is not int:
@@ -525,11 +532,29 @@ class SmartSliceAPIClient(QObject):
         self.badCredentialsChanged.emit()
 
 
-class SmartSliceCloudConnector(QObject):
-    http_protocol_preference = "smartslice/http_protocol"
-    http_hostname_preference = "smartslice/http_hostname"
-    http_port_preference = "smartslice/http_port"
+class PluginMetaData:
+    def __init__(self):
+        self.url = None
+        self.setter()
 
+    @staticmethod
+    def _getMetadata() -> Dict[str, str]:
+        try:
+            plugin_json_path = os.path.dirname(os.path.abspath(__file__))
+            plugin_json_path = os.path.join(plugin_json_path, 'plugin.json')
+            with open(plugin_json_path, 'r') as f:
+                plugin_info = json.load(f)
+            return plugin_info["smartSliceApi"]
+        except:
+            return None
+
+    def setter(self):
+        data = self._getMetadata()
+        if data:
+            self.url = data["url"]
+
+
+class SmartSliceCloudConnector(QObject):
     debug_save_smartslice_package_preference = "smartslice/debug_save_smartslice_package"
     debug_save_smartslice_package_location = "smartslice/debug_save_smartslice_package_location"
 
@@ -556,13 +581,8 @@ class SmartSliceCloudConnector(QObject):
 
         self.extension = extension
 
-        # Application stuff
-        self.app_preferences = Application.getInstance().getPreferences()
-        self.app_preferences.addPreference(self.http_protocol_preference, "https")
-        self.app_preferences.addPreference(self.http_hostname_preference, "test.smartslice.xyz")
-        self.app_preferences.addPreference(self.http_port_preference, 443)
-
         # Debug stuff
+        self.app_preferences = Application.getInstance().getPreferences()
         self.app_preferences.addPreference(self.debug_save_smartslice_package_preference, False)
         default_save_smartslice_package_location = str(Path.home())
         self.app_preferences.addPreference(self.debug_save_smartslice_package_location, default_save_smartslice_package_location)

@@ -12,16 +12,13 @@ from UM.Message import Message
 from UM.Logger import Logger
 from UM.Operations.RemoveSceneNodeOperation import RemoveSceneNodeOperation
 from UM.Operations.GroupedOperation import GroupedOperation
-from UM.Workspace.WorkspaceMetadataStorage import WorkspaceMetadataStorage
-from UM.Scene import Scene
-from UM.Scene.SceneNode import SceneNode
 
 from cura.CuraApplication import CuraApplication
 
 from .SmartSliceCloudStatus import SmartSliceCloudStatus
 from .select_tool.SmartSliceSelectTool import SmartSliceSelectTool
 from .requirements_tool.SmartSliceRequirements import SmartSliceRequirements
-from .utils import getModifierMeshes, getPrintableNodes, findChildSceneNode
+from .utils import getModifierMeshes, getPrintableNodes
 from .stage.SmartSliceScene import Root
 
 from . import SmartSliceProperty
