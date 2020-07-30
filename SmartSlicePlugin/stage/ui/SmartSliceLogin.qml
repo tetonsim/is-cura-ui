@@ -209,13 +209,12 @@ MouseArea {
                             color: "#266faa"
                             text: "Forgot password?"
                             renderType: Text.NativeRendering
-                            onLinkActivated: Qt.openUrlExternally(link)
 
                             MouseArea {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: Qt.openUrlExternally('https://test.smartslice.xyz/static/account.html')
+                                onClicked: Qt.openUrlExternally(SmartSlice.API.smartSliceUrl + '/static/account.html#forgot-password')
                             }
                         }
 
@@ -228,13 +227,12 @@ MouseArea {
                             color: "#266faa"
                             text: "<b>Don't have an account?</b>"
                             renderType: Text.NativeRendering
-                            onLinkActivated: Qt.openUrlExternally(link)
 
                             MouseArea {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: Qt.openUrlExternally('https://test.smartslice.xyz/static/account.html')
+                                onClicked: Qt.openUrlExternally(SmartSlice.API.smartSliceUrl + '/static/account.html')
                             }
                         }
                     }

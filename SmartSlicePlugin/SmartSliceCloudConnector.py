@@ -131,7 +131,7 @@ class SmartSliceCloudJob(Job):
         mod_mesh = getModifierMeshes()
 
 
-        if len(mesh_nodes) is not 1:
+        if len(mesh_nodes) != 1:
             Logger.log("d", "Found {} meshes!".format(["no", "too many"][len(mesh_nodes) > 1]))
             return None
         for node in mod_mesh:
@@ -247,7 +247,7 @@ class SmartSliceAPIClient(QObject):
         self._login_password = ""
         self._badCredentials = False
 
-        self._apiData = PluginMetaData()
+        self._plugin_metadata = connector.extension.metadata
 
     # If the user has logged in before, we will hold on to the email. If they log out, or
     #   the login is unsuccessful, the email will not persist.
@@ -264,7 +264,7 @@ class SmartSliceAPIClient(QObject):
     def openConnection(self):
         self._token_file_path = os.path.join(PluginRegistry.getInstance().getPluginPath("SmartSlicePlugin"), ".token")
 
-        url = urlparse(self._apiData.url)
+        url = urlparse(self._plugin_metadata.url)
 
         protocol = url.scheme
         hostname = url.hostname
@@ -281,7 +281,8 @@ class SmartSliceAPIClient(QObject):
         self._client = pywim.http.thor.Client(
             protocol=protocol,
             hostname=hostname,
-            port=port
+            port=port,
+            cluster=self._plugin_metadata.cluster
         )
 
         # To ensure that the user is tracked and has a proper subscription, we let them login and then use the token we recieve
@@ -416,7 +417,7 @@ class SmartSliceAPIClient(QObject):
             cloud_job.api_job_id = task.id
             thor_status_code, task = self._client.smartslice_job_wait(task.id, callback=job_status_tracker)
 
-            if thor_status_code is not 200:
+            if thor_status_code != 200:
                 self._handleThorErrors(thor_status_code, task)
                 self.connector.cancelCurrentJob()
 
@@ -499,6 +500,10 @@ class SmartSliceAPIClient(QObject):
     def onLoginButtonClicked(self):
         self.openConnection()
 
+    @pyqtProperty(str, constant=True)
+    def smartSliceUrl(self):
+        return self._plugin_metadata.url
+
     badCredentialsChanged = pyqtSignal()
     loggedInChanged = pyqtSignal()
 
@@ -530,28 +535,6 @@ class SmartSliceAPIClient(QObject):
     def badCredentials(self, value):
         self._badCredentials = value
         self.badCredentialsChanged.emit()
-
-
-class PluginMetaData:
-    def __init__(self):
-        self.url = None
-        self.setter()
-
-    @staticmethod
-    def _getMetadata() -> Dict[str, str]:
-        try:
-            plugin_json_path = os.path.dirname(os.path.abspath(__file__))
-            plugin_json_path = os.path.join(plugin_json_path, 'plugin.json')
-            with open(plugin_json_path, 'r') as f:
-                plugin_info = json.load(f)
-            return plugin_info["smartSliceApi"]
-        except:
-            return None
-
-    def setter(self):
-        data = self._getMetadata()
-        if data:
-            self.url = data["url"]
 
 
 class SmartSliceCloudConnector(QObject):
@@ -842,14 +825,6 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.sliceStatusEnum = value
         self.updateSliceWidget()
 
-    @property
-    def token(self):
-        return Application.getInstance().getPreferences().getValue(self.token_preference)
-
-    @token.setter
-    def token(self, value):
-        Application.getInstance().getPreferences().setValue(self.token_preference, value)
-
     def _onApplicationActivityChanged(self):
         printable_nodes_count = len(getPrintableNodes())
 
@@ -998,10 +973,8 @@ class SmartSliceCloudConnector(QObject):
         notification_message.show()
 
     def _openSubscriptionPage(self, msg, action):
-        if action == "subscribe_link":
-            QDesktopServices.openUrl(QUrl('https://test.smartslice.xyz/static/account.html'))
-        if action == "more_products_link":
-            QDesktopServices.openUrl(QUrl('https://test.smartslice.xyz/static/account.html'))
+        if action in ("subscribe_link", "more_products_link"):
+            QDesktopServices.openUrl(QUrl('%s/static/account.html' % self.extension.metadata.url))
 
     '''
       Primary Button Actions:
