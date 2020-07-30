@@ -1,3 +1,5 @@
+from typing import Tuple, List
+
 import numpy
 
 import pywim
@@ -11,6 +13,7 @@ from UM.Logger import Logger
 from UM.Math.Matrix import Matrix
 from UM.Signal import Signal
 from UM.Tool import Tool
+from UM.Scene.SceneNode import SceneNode
 from UM.Scene.Selection import Selection
 from UM.Scene.Iterator.DepthFirstIterator import DepthFirstIterator
 
@@ -27,7 +30,6 @@ class SelectionMode:
     AnchorMode = 1
     LoadMode = 2
 
-
 class SmartSliceSelectTool(Tool):
     def __init__(self, extension: 'SmartSliceExtension'):
         super().__init__()
@@ -40,6 +42,7 @@ class SmartSliceSelectTool(Tool):
             "AnchorSelectionActive",
             "LoadSelectionActive",
             "SelectionMode",
+            "SurfaceType"
         )
 
         Selection.selectedFaceChanged.connect(self._onSelectedFaceChanged)
@@ -95,19 +98,13 @@ class SmartSliceSelectTool(Tool):
 
         return
 
-    def _onSelectedFaceChanged(self, curr_sf=None):
+    def _onSelectedFaceChanged(self, current_surface=None):
         """
         Gets face id and triangles from current face selection
         """
         if getPrintableNodes() and Selection.isSelected(getPrintableNodes()[0]): # Fixes bug for when scene is unselected
             if not self.getEnabled():
                 return
-
-            curr_sf = Selection.getSelectedFace()
-            if curr_sf is None:
-                return
-
-            node, face_id = curr_sf
 
             if self._bc_list is None:
                 return
@@ -117,15 +114,89 @@ class SmartSliceSelectTool(Tool):
             if bc_node is None:
                 return
 
-            smart_slice_node = findChildSceneNode(node, SmartSliceScene.Root)
+            selected_triangles, axis = self._getSelectedTriangles(current_surface, bc_node.surface_type)
 
-            selected_triangles = list(smart_slice_node.getInteractiveMesh().select_planar_face(face_id))
-
-            bc_node.setMeshDataFromPywimTriangles(selected_triangles)
+            if selected_triangles is not None:
+                bc_node.setMeshDataFromPywimTriangles(selected_triangles)
 
             self._connector.updateStatus()
 
             self.selectedFaceChanged.emit()
+
+    def _getSelectedTriangles(
+        self,
+        current_surface : Tuple[SceneNode, int],
+        surface_type : SmartSliceScene.SurfaceType
+    ) -> Tuple[List[pywim.geom.tri.Triangle], pywim.geom.Vector]:
+
+        if current_surface is None:
+            current_surface = Selection.getSelectedFace()
+
+        if current_surface is None:
+            return None, None
+
+        node, face_id = current_surface
+
+        smart_slice_node = findChildSceneNode(node, SmartSliceScene.Root)
+
+        if surface_type == SmartSliceScene.SurfaceType.Flat:
+            selected_triangles = smart_slice_node._interactive_mesh.select_planar_face(face_id)
+        elif surface_type == SmartSliceScene.SurfaceType.Concave:
+            selected_triangles = smart_slice_node._interactive_mesh.select_concave_face(face_id)
+        elif surface_type == SmartSliceScene.SurfaceType.Convex:
+            selected_triangles = smart_slice_node._interactive_mesh.select_convex_face(face_id)
+
+        selected_triangles = list(selected_triangles)
+        axis = None
+
+        if len(selected_triangles) > 0:
+            if surface_type == SmartSliceScene.SurfaceType.Flat:
+                # If the surface type is flat then the axis we care about for
+                # applying the load is just the surface normal
+                axis = selected_triangles[0].normal
+            elif len(selected_triangles) >= 2:
+                # For curved surfaces we want to find a constant axis of rotation.
+                # We start by computing a vector perpendicular to any two triangle
+                # normals.
+                normals = [t.normal for t in selected_triangles]
+
+                n0 = normals[0]
+                for n1 in normals[1:]:
+                    possible_cyl_axis = n0.cross(n1)
+
+                    # If the magnitude of the axis is very small then the two
+                    # triangles are likely co-planar so let's continue and try
+                    # a different combination.
+                    if possible_cyl_axis.magnitude() < 1.0E-4:
+                        continue
+
+                    # We now construct a Plane, that the computed axis is normal
+                    # to. We'll use this to compute an angle from the plane to each
+                    # triangle normal. If any triangle normal deviates from the plane
+                    # by more than our tolerance for a co-planar triangle then we'll
+                    # assume the selected curved surface does NOT have a constant axis
+                    # of rotation.
+
+                    plane = pywim.geom.Plane(possible_cyl_axis)
+
+                    max_angle = max([plane.vector_angle(n) for n in normals])
+
+                    if max_angle < pywim.geom.tri.Mesh._COPLANAR_ANGLE:
+                        axis = possible_cyl_axis.unit()
+
+                    break
+
+            if axis:
+                # Compute the origin of the axis from an average
+                # of the coordinates of all selected vertices.
+                verts = set()
+                for t in selected_triangles:
+                    verts.update(set([t.v1, t.v2, t.v3 ]))
+                axis.origin.x = sum([v.x for v in verts]) / len(verts)
+                axis.origin.y = sum([v.y for v in verts]) / len(verts)
+                axis.origin.z = sum([v.z for v in verts]) / len(verts)
+
+        return selected_triangles, axis
 
     def redraw(self):
         if not self.getEnabled():
@@ -171,3 +242,26 @@ class SmartSliceSelectTool(Tool):
 
     def getLoadSelectionActive(self):
         return self._selection_mode is SelectionMode.LoadMode
+
+    def getSurfaceType(self):
+        if self._bc_list:
+            bc_node = self._bc_list.getActiveNode()
+            if bc_node:
+                return bc_node.surface_type
+
+        return SmartSliceScene.SurfaceType.Flat
+
+    def setSurfaceType(self, surface_type : SmartSliceScene.SurfaceType):
+        if self._bc_list:
+            bc_node = self._bc_list.getActiveNode()
+            if bc_node:
+                bc_node.surface_type = surface_type
+
+    def setSurfaceTypeFlat(self):
+        self.setSurfaceType(SmartSliceScene.SurfaceType.Flat)
+
+    def setSurfaceTypeConcave(self):
+        self.setSurfaceType(SmartSliceScene.SurfaceType.Concave)
+
+    def setSurfaceTypeConvex(self):
+        self.setSurfaceType(SmartSliceScene.SurfaceType.Convex)

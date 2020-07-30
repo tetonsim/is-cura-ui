@@ -1,5 +1,7 @@
 from typing import List, Any
 
+import enum
+
 from UM.Logger import Logger
 from UM.Mesh.MeshBuilder import MeshBuilder
 from UM.Math.Color import Color
@@ -153,11 +155,19 @@ class Root(SceneNode):
         return transformation, rotation
 
 
+class SurfaceType(enum.Enum):
+    Flat = 1
+    Concave = 2
+    Convex = 3
+
 class HighlightFace(SceneNode):
+
     def __init__(self, name: str):
         super().__init__(name=name, visible=True)
 
         self._triangles = []
+
+        self.surface_type = SurfaceType.Flat
 
     def _annotatedMeshData(self, mb: MeshBuilder):
         pass
