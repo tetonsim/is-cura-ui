@@ -219,6 +219,7 @@ class JobStatusTracker:
 
     def __call__(self, job: pywim.http.thor.JobInfo) -> bool:
         Logger.log("d", "Current job status: {}".format(job.status))
+        self.connector._proxy.jobProgress = job.progress
         if job.status == pywim.http.thor.JobInfo.Status.queued and self.connector.status is not SmartSliceCloudStatus.Queued:
             self.connector.status = SmartSliceCloudStatus.Queued
             self.connector.updateSliceWidget()
@@ -702,6 +703,8 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.sliceButtonFillWidth = True
             self._proxy.secondaryButtonVisible = False
             self._proxy.sliceInfoOpen = False
+            self._proxy.progressBarVisible = False
+            self._proxy.jobProgress = 0
         elif self.status is SmartSliceCloudStatus.Cancelling:
             self._proxy.sliceStatus = ""
             self._proxy.sliceHint = ""
@@ -711,6 +714,8 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.sliceButtonFillWidth = True
             self._proxy.secondaryButtonVisible = False
             self._proxy.sliceInfoOpen = False
+            self._proxy.progressBarVisible = False
+            self._proxy.jobProgress = 0
         elif self.status is SmartSliceCloudStatus.ReadyToVerify:
             self._proxy.sliceStatus = ""
             self._proxy.sliceHint = ""
@@ -720,6 +725,8 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.sliceButtonFillWidth = True
             self._proxy.secondaryButtonVisible = False
             self._proxy.sliceInfoOpen = False
+            self._proxy.progressBarVisible = False
+            self._proxy.jobProgress = 0
         elif self.status is SmartSliceCloudStatus.BusyValidating:
             self._proxy.sliceStatus = "Validating requirements..."
             self._proxy.sliceHint = ""
@@ -728,6 +735,8 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.secondaryButtonVisible = True
             self._proxy.secondaryButtonFillWidth = True
             self._proxy.sliceInfoOpen = False
+            self._proxy.progressBarVisible = False
+            self._proxy.jobProgress = 0
         elif self.status is SmartSliceCloudStatus.Underdimensioned:
             self._proxy.sliceStatus = "Requirements not met!"
             self._proxy.sliceHint = "Optimize to meet requirements?"
@@ -739,6 +748,8 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.secondaryButtonVisible = True
             self._proxy.secondaryButtonFillWidth = False
             self._proxy.sliceInfoOpen = True
+            self._proxy.progressBarVisible = False
+            self._proxy.jobProgress = 0
         elif self.status is SmartSliceCloudStatus.Overdimensioned:
             self._proxy.sliceStatus = "Part appears overdesigned"
             self._proxy.sliceHint = "Optimize to reduce print time and material?"
@@ -750,6 +761,8 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.secondaryButtonVisible = True
             self._proxy.secondaryButtonFillWidth = False
             self._proxy.sliceInfoOpen = True
+            self._proxy.progressBarVisible = False
+            self._proxy.jobProgress = 0
         elif self.status is SmartSliceCloudStatus.BusyOptimizing:
             self._proxy.sliceStatus = "Optimizing..."
             self._proxy.sliceHint = ""
@@ -758,6 +771,7 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.secondaryButtonVisible = True
             self._proxy.secondaryButtonFillWidth = True
             self._proxy.sliceInfoOpen = False
+            self._proxy.progressBarVisible = True
         elif self.status is SmartSliceCloudStatus.Optimized:
             self._proxy.sliceStatus = ""
             self._proxy.sliceHint = ""
@@ -766,6 +780,8 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.secondaryButtonVisible = True
             self._proxy.secondaryButtonFillWidth = True
             self._proxy.sliceInfoOpen = True
+            self._proxy.progressBarVisible = False
+            self._proxy.jobProgress = 0
         elif self.status is SmartSliceCloudStatus.Queued:
             self._proxy.sliceStatus = "Queued..."
             self._proxy.sliceHint = ""
@@ -774,6 +790,8 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.secondaryButtonVisible = True
             self._proxy.secondaryButtonFillWidth = True
             self._proxy.sliceInfoOpen = False
+            self._proxy.progressBarVisible = False
+            self._proxy.jobProgress = 0
         elif self.status is SmartSliceCloudStatus.RemoveModMesh:
             self._proxy.sliceStatus = ""
             self._proxy.sliceHint = ""
@@ -782,6 +800,8 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.secondaryButtonVisible = True
             self._proxy.secondaryButtonFillWidth = True
             self._proxy.sliceInfoOpen = False
+            self._proxy.progressBarVisible = False
+            self._proxy.jobProgress = 0
         else:
             self._proxy.sliceStatus = "Unknown status"
             self._proxy.sliceHint = "Sorry, something went wrong!"
@@ -791,6 +811,8 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.secondaryButtonVisible = False
             self._proxy.secondaryButtonFillWidth = False
             self._proxy.sliceInfoOpen = False
+            self._proxy.progressBarVisible = False
+            self._proxy.jobProgress = 0
 
         # Setting icon path
         stage_path = PluginRegistry.getInstance().getPluginPath("SmartSlicePlugin")
@@ -1008,10 +1030,10 @@ class SmartSliceCloudConnector(QObject):
     '''
 
     def onSecondaryButtonClicked(self):
-        if self.status == SmartSliceCloudStatus.BusyOptimizing:
+        if self.status in SmartSliceCloudStatus.busy():
+            job_status = self._jobs[self._current_job].job_type
             self.cancelCurrentJob()
-            self.prepareOptimization()
-        elif self.status == SmartSliceCloudStatus.BusyValidating:
-            self.cancelCurrentJob()
+            if job_status == pywim.smartslice.job.JobType.optimization:
+                self.prepareOptimization()
         else:
             Application.getInstance().getController().setActiveStage("PreviewStage")

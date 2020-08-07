@@ -57,6 +57,9 @@ class SmartSliceCloudProxy(QObject):
         self._sliceInfoOpen = False
         self._errors = {}
 
+        self._job_progress = 0
+        self._progress_bar_visible = False
+
         # Secondary Button (Preview/Cancel)
         self._secondaryButtonText = "_SecondaryText"
         self._secondaryButtonFillWidth = False
@@ -143,6 +146,9 @@ class SmartSliceCloudProxy(QObject):
     sliceButtonEnabledChanged = pyqtSignal()
     sliceButtonTextChanged = pyqtSignal()
     sliceInfoOpenChanged = pyqtSignal()
+
+    progressBarVisibleChanged = pyqtSignal()
+    jobProgressChanged = pyqtSignal()
 
     secondaryButtonTextChanged = pyqtSignal()
     secondaryButtonVisibleChanged = pyqtSignal()
@@ -329,6 +335,26 @@ class SmartSliceCloudProxy(QObject):
         if self._resultSafetyFactor != value:
             self._resultSafetyFactor = value
             self.resultSafetyFactorChanged.emit()
+
+    @pyqtProperty(int, notify=jobProgressChanged)
+    def jobProgress(self):
+        return self._job_progress
+
+    @jobProgress.setter
+    def jobProgress(self, value):
+        if self._job_progress != value:
+            self._job_progress = value
+            self.jobProgressChanged.emit()
+
+    @pyqtProperty(bool, notify=progressBarVisibleChanged)
+    def progressBarVisible(self):
+        return self._progress_bar_visible
+
+    @progressBarVisible.setter
+    def progressBarVisible(self, value):
+        if self._progress_bar_visible is not value:
+            self._progress_bar_visible = value
+            self.progressBarVisibleChanged.emit()
 
     # Max Displacement
 

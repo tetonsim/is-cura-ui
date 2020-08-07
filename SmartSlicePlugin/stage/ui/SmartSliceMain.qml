@@ -16,12 +16,11 @@
 //  API Imports
 import QtQuick 2.7
 import QtQuick.Controls 2.2
-import QtQuick.Controls 1.4 as QQC1
 import QtQuick.Layouts 1.3
 import QtQuick.Controls.Styles 1.1
 import QtGraphicalEffects 1.0
 
-import UM 1.2 as UM
+import UM 1.3 as UM
 import Cura 1.0 as Cura
 
 import SmartSlice 1.0 as SmartSlice
@@ -104,6 +103,20 @@ Item {
                         renderType: Text.NativeRendering
 
                         text: SmartSlice.Cloud.sliceStatus
+                    }
+
+                    UM.ProgressBar {
+                        id: jobProgressBar
+                        width: mainColumn.width
+                        height: UM.Theme.getSize("progressbar").height
+
+                        Binding {
+                            target: jobProgressBar
+                            property: "value"
+                            value: SmartSlice.Cloud.jobProgress / 100.0
+                        }
+
+                        visible: SmartSlice.Cloud.progressBarVisible
                     }
 
                     // Secondary status message with hint
