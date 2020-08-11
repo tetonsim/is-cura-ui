@@ -52,7 +52,7 @@ def getMetaData():
             {
                 "name": i18n_catalog.i18nc("@label", "Smart Slice SelectTool"),
                 "description": i18n_catalog.i18nc("@info:tooltip", "Allows user to set boundaries on a model."),
-                "icon": "select_tool/tool_icon.svg",
+                "icon": "select_tool/media/tool_icon.svg",
                 "tool_panel": "select_tool/SmartSliceSelectTool.qml",
                 "weight": 10
             }
