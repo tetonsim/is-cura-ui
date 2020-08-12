@@ -193,7 +193,7 @@ class SmartSliceCloudJob(Job):
         except:
             Logger.log("w", "Unable to remove temporary 3MF {}".format(job))
 
-        if task and task.result and len(task.result.analyses) > 0:
+        if task and task.result:
             self._result = task.result
 
 class SmartSliceCloudVerificationJob(SmartSliceCloudJob):
@@ -875,20 +875,37 @@ class SmartSliceCloudConnector(QObject):
         self._proxy.shouldRaiseConfirmation = False
 
         if self._jobs[self._current_job].getResult():
-            self.processAnalysisResult()
-            if self._jobs[self._current_job].job_type == pywim.smartslice.job.JobType.optimization:
-                self.status = SmartSliceCloudStatus.Optimized
+            if len(self._jobs[self._current_job].getResult().analyses) > 0:
+                self.processAnalysisResult()
+                if self._jobs[self._current_job].job_type == pywim.smartslice.job.JobType.optimization:
+                    self.status = SmartSliceCloudStatus.Optimized
+                else:
+                    self.prepareOptimization()
+                self.saveSmartSliceJob.emit()
             else:
-                self.prepareOptimization()
-            self.saveSmartSliceJob.emit()
-        else:
-            if self.status != SmartSliceCloudStatus.ReadyToVerify and self.status != SmartSliceCloudStatus.Errors:
-                self.prepareOptimization() # Double Check Requirements
-                Message(
-                    title='SmartSlice',
-                    text=i18n_catalog.i18nc("@info:status", "SmartSlice was unable to find a solution")
-                ).show()
-
+                if self.status != SmartSliceCloudStatus.ReadyToVerify and self.status != SmartSliceCloudStatus.Errors:
+                    self.status = SmartSliceCloudStatus.ReadyToVerify
+                    results = self._jobs[self._current_job].getResult().feasibility_result['structural']
+                    Message(
+                        title="Smart Slice Error",
+                        text="<p>Smart Slice cannot find a solution for the problem, "
+                             "please check the setup for errors. </p>"
+                             "<p></p>"
+                             "<p>Alternatively, you may need to modify the geometry "
+                             "and/or try a different material:</p>"
+                             "<p></p>"
+                             "<p> <u>Solid Print:</u> </p>"
+                             "<p></p>"
+                             "<p style = 'margin-left:50px;'> <i> Minimum Safety Factor: "
+                             "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; %.2f </i> </p>"
+                             "<p></p>"
+                             "<p style = 'margin-left:50px;'> <i> Maximum Displacement: "
+                             "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; %.2f </i> </p>" %
+                             (results["min_safety_factor"], results["max_displacement"]),
+                        lifetime=1000,
+                        dismissable=True
+                    ).show()
+                
     def processAnalysisResult(self, selectedRow=0):
         job = self._jobs[self._current_job]
         active_extruder = getNodeActiveExtruder(getPrintableNodes()[0])
@@ -1006,22 +1023,22 @@ class SmartSliceCloudConnector(QObject):
     '''
 
     def onSliceButtonClicked(self):
-            if self.status in SmartSliceCloudStatus.busy():
-                self._jobs[self._current_job].cancel()
-                self._jobs[self._current_job] = None
+        if self.status in SmartSliceCloudStatus.busy():
+            self._jobs[self._current_job].cancel()
+            self._jobs[self._current_job] = None
+        else:
+            self._subscription = self.api_connection.getSubscription()
+            if self._subscription is not None:
+                if self.status is SmartSliceCloudStatus.ReadyToVerify:
+                    if self._checkSubscription(self._subscription, "validation") != 0:
+                        self.doVerification()
+                elif self.status in SmartSliceCloudStatus.optimizable():
+                    if self._checkSubscription(self._subscription, "optimization") != 0:
+                        self.doOptimization()
+                elif self.status is SmartSliceCloudStatus.Optimized:
+                    Application.getInstance().getController().setActiveStage("PreviewStage")
             else:
-                self._subscription = self.api_connection.getSubscription()
-                if self._subscription is not None:
-                    if self.status is SmartSliceCloudStatus.ReadyToVerify:
-                        if self._checkSubscription(self._subscription, "validation") != 0:
-                            self.doVerification()
-                    elif self.status in SmartSliceCloudStatus.optimizable():
-                        if self._checkSubscription(self._subscription, "optimization") != 0:
-                            self.doOptimization()
-                    elif self.status is SmartSliceCloudStatus.Optimized:
-                        Application.getInstance().getController().setActiveStage("PreviewStage")
-                else:
-                    self._subscriptionMessages(self.noSubscription)
+                self._subscriptionMessages(self.noSubscription)
 
     '''
       Secondary Button Actions:
