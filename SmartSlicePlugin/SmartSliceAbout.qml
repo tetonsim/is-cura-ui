@@ -12,65 +12,170 @@ UM.Dialog {
     id: aboutDialog
     title: "Smart Slice by Teton Simulation"
 
-    width: Math.floor(screenScaleFactor * 400);
-    minimumWidth: width;
-    maximumWidth: width;
+    width: Math.floor(screenScaleFactor * 450)
+    minimumWidth: width
+    maximumWidth: width
 
-    height: Math.floor(screenScaleFactor * 350);
-    minimumHeight: height;
-    maximumHeight: height;
+    height: Math.floor(screenScaleFactor * 500)
+    // height: mainColumn.height + closeButton.height + 4 * UM.Theme.getSize("thick_margin").height
+    minimumHeight: height
+    maximumHeight: height
 
-    ColumnLayout {
+    Column {
+        id: mainColumn
         UM.I18nCatalog{id: catalog; name: "smartslice"}
-        anchors.fill: parent
-        anchors.margins: UM.Theme.getSize("default_margin").width
+
+        height: childrenRect.height
+        width: parent.width
 
         spacing: UM.Theme.getSize("default_margin").height
 
+        Image {
+            // height: Math.floor(screenScaleFactor * 250)
+            height: aboutDialog.height - textColumn.height - closeButton.height - 6 * UM.Theme.getSize("default_margin").width
+            anchors.horizontalCenter: parent.horizontalCenter
+
+            fillMode: Image.PreserveAspectFit
+            source: "images/logo_vertical.png"
+            mipmap: true
+        }
+
         Column {
-            Layout.alignment: Qt.AlignCenter
-            Image {
-                width: Math.floor(screenScaleFactor * 300);
-                
-                fillMode: Image.PreserveAspectFit
-                source: "images/branding.png"
-                mipmap: true
+            id: textColumn
+
+            width: parent.width
+            height: childrenRect.height
+
+            spacing: UM.Theme.getSize("default_margin").height
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+
+                horizontalAlignment: Text.AlignHCenter
+
+                font.underline: true
+                color: '#0000ff'
+                text: 'Teton Simulation'
+                renderType: Text.NativeRendering
+                onLinkActivated: Qt.openUrlExternally(link)
+
+                MouseArea {
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: Qt.openUrlExternally('https://tetonsim.com')
+                }
+            }
+
+            Text {
+                id: statusText
+
+                anchors.horizontalCenter: parent.horizontalCenter
+
+                horizontalAlignment: Text.AlignHCenter
+
+                font: UM.Theme.getFont("default")
+                color: UM.Theme.getColor("text")
+
+                text: aboutText
+                renderType: Text.NativeRendering
+            }
+
+            Column {
+
+                height: childrenRect.height
+                width: parent.width
+
+                leftPadding: UM.Theme.getSize("thick_margin").height
+                topPadding: UM.Theme.getSize("thick_margin").height
+
+                spacing: UM.Theme.getSize("default_margin").height
+
+                Text {
+
+                    horizontalAlignment: Text.AlignLeft
+
+                    anchors.leftMargin: UM.Theme.getSize("thick_margin").width
+
+                    font.underline: true
+                    color: '#0000ff'
+                    text: 'End User License Agreement (EULA)'
+                    renderType: Text.NativeRendering
+                    onLinkActivated: Qt.openUrlExternally(link)
+
+                    MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: Qt.openUrlExternally('https://help.tetonsim.com/eula-end-user-license-agreement')
+                    }
+                }
+
+                Text {
+
+                    horizontalAlignment: Text.AlignLeft
+
+                    font.underline: true
+                    color: '#0000ff'
+                    text: 'Privacy Policy'
+                    renderType: Text.NativeRendering
+                    onLinkActivated: Qt.openUrlExternally(link)
+
+                    MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: Qt.openUrlExternally('https://help.tetonsim.com/privacy-policy')
+                    }
+                }
+
+                Text {
+
+                    horizontalAlignment: Text.AlignLeft
+
+                    font.underline: true
+                    color: '#0000ff'
+                    text: 'System Requirements'
+                    renderType: Text.NativeRendering
+                    onLinkActivated: Qt.openUrlExternally(link)
+
+                    MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: Qt.openUrlExternally('https://help.tetonsim.com/system-requirements')
+                    }
+                }
+
+                Text {
+
+                    horizontalAlignment: Text.AlignLeft
+
+                    font.underline: true
+                    color: '#0000ff'
+                    text: 'Open Source Licenses'
+                    renderType: Text.NativeRendering
+                    onLinkActivated: Qt.openUrlExternally(link)
+
+                    MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: Qt.openUrlExternally('https://help.tetonsim.com/open-source-licenses')
+                    }
+                }
             }
         }
+    }
 
-        Text {
-            Layout.alignment: Qt.AlignCenter
-            
-            //font: UM.Theme.getFont("default")
-            font.underline: true
-            color: '#0000ff'
-            text: 'Teton Simulation'
-            onLinkActivated: Qt.openUrlExternally(link)
+    Button {
+        id: closeButton
 
-            MouseArea {
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: Qt.openUrlExternally('https://tetonsim.com')
-            }
-        }
-        
-        Text {
-            id: statusText
-            
-            Layout.alignment: Qt.AlignCenter
-            
-            font: UM.Theme.getFont("default")
-            color: UM.Theme.getColor("text")
-            
-            text: aboutText
-        }
-        
-        Button {
-            Layout.alignment: Qt.AlignCenter
+        anchors.bottom: parent.bottom
+        anchors.right: parent.right
+        anchors.rightMargin: UM.Theme.getSize("thick_margin").height
 
-            text: catalog.i18nc("@action:button", "Close")
-            onClicked: aboutDialog.close()
-        }
+        text: catalog.i18nc("@action:button", "Close")
+        onClicked: aboutDialog.close()
     }
 }
