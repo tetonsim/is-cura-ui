@@ -435,7 +435,7 @@ class SmartSliceAPIClient(QObject):
                 error_message.show()
 
                 self.connector.cancelCurrentJob()
-                self.setError(SmartSliceCloudJob.JobException(error_message.getText()))
+                cloud_job.setError(SmartSliceCloudJob.JobException(error_message.getText()))
 
                 Logger.log(
                     "e",
@@ -455,7 +455,7 @@ class SmartSliceAPIClient(QObject):
                 error_message.show()
 
                 self.connector.cancelCurrentJob()
-                self.setError(SmartSliceCloudJob.JobException(error_message.getText()))
+                cloud_job.setError(SmartSliceCloudJob.JobException(error_message.getText()))
 
                 Logger.log(
                     "e",

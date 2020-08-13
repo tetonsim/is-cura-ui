@@ -1,15 +1,15 @@
 {
     "author": {
         "author_id": "tetonsim",
-        "display_name": "Teton Simulation",
+        "display_name": "Teton Simulation, Inc.",
         "email": "info@tetonsim.com",
         "website": "https://www.tetonsim.com/"
     },
-    "description": "Some description here",
-    "display_name": "SmartSlice plugin",
+    "description": "Optimize and validate slice parameters to minimize print time while meeting end-use requirements.",
+    "display_name": "Smart Slice",
     "package_id": "SmartSlicePlugin",
     "package_type": "plugin",
-    "package_version": "20.0.1.0",
+    "package_version": "20.1.19",
     "sdk_version": 7,
     "sdk_version_semver": "7.0.0",
     "website": "https://www.tetonsim.com/products"

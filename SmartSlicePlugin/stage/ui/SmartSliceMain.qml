@@ -37,15 +37,19 @@ Item {
     //  1.) Brand Logo
     Image {
         id: tetonBranding
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: parent.bottom
-        anchors.leftMargin: UM.Theme.getSize("thick_margin").width
-        anchors.bottomMargin: UM.Theme.getSize("thick_margin").height
+        anchors {
+            left: parent.left
+            top: parent.top
+            leftMargin: UM.Theme.getSize("thick_margin").width
+            topMargin: 3 * UM.Theme.getSize("thick_margin").height
+        }
 
-        width: 250
+        width: 200
         fillMode: Image.PreserveAspectFit
-        source: "../images/branding.png"
+        source: "../images/logo_faded.png"
         mipmap: true
+
+        visible: !loginDialog.visible
     }
 
     //  2.) Smart Slice window which holds all of the controls for validate / optimize, and results viewing

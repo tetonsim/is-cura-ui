@@ -202,6 +202,10 @@ class ResultTableData(QAbstractListModel):
             self.updateDisplaySignal.emit(self._resultsDict[row])
             QApplication.restoreOverrideCursor()
 
+            # This is needed to stop the cursor from rotating indefinitely in the table area
+            QApplication.setOverrideCursor(Qt.ArrowCursor)
+            QApplication.restoreOverrideCursor()
+
     @pyqtSlot()
     def previewClicked(self):
         Application.getInstance().getController().setActiveStage("PreviewStage")
