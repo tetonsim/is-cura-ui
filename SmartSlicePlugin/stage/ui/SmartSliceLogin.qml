@@ -5,7 +5,6 @@ import QtQuick.Controls.Styles 1.1
 
 import Cura 1.0 as Cura
 import UM 1.2 as UM
-import SmartSlice 1.0 as SmartSlice
 
 MouseArea {
     id: loginDialog
@@ -25,13 +24,13 @@ MouseArea {
 
     Keys.onEnterPressed: {
         if (username_input.acceptableInput && password_input.acceptableInput) {
-            SmartSlice.API.onLoginButtonClicked()
+            smartSliceMain.api.onLoginButtonClicked()
         }
     }
 
     Keys.onReturnPressed: {
         if (username_input.acceptableInput && password_input.acceptableInput) {
-            SmartSlice.API.onLoginButtonClicked()
+            smartSliceMain.api.onLoginButtonClicked()
         }
     }
 
@@ -47,13 +46,13 @@ MouseArea {
         states: [
             State {
                 name: "notLoggedIn"
-                when: SmartSlice.API.logged_in == false
+                when: smartSliceMain.api.logged_in == false
 
                 PropertyChanges { target: loginDialog; visible: true }
             },
             State {
                 name: "loggedIn"
-                when: SmartSlice.API.logged_in == true
+                when: smartSliceMain.api.logged_in == true
 
                 PropertyChanges { target: loginDialog; visible: false }
                 PropertyChanges { target: password_input; text: "" }
@@ -119,13 +118,13 @@ MouseArea {
                         states: [
                             State {
                                 name: "noStatus"
-                                when: SmartSlice.API.badCredentials == false
+                                when: smartSliceMain.api.badCredentials == false
 
                                 PropertyChanges { target: statusText; text: " "}
                             },
                             State {
                                 name: "badCredentials"
-                                when: SmartSlice.API.badCredentials == true
+                                when: smartSliceMain.api.badCredentials == true
 
                                 PropertyChanges { target: statusText; text: "Invalid email or password" }
                                 PropertyChanges { target: password_input; text: "" }
@@ -169,10 +168,10 @@ MouseArea {
                         }
 
                         font: UM.Theme.getFont("default")
-                        text: SmartSlice.API.loginUsername
+                        text: smartSliceMain.api.loginUsername
 
                         onTextChanged: {
-                            SmartSlice.API.loginUsername = text
+                            smartSliceMain.api.loginUsername = text
                         }
 
                         onAccepted: password_input.forceActiveFocus()
@@ -216,12 +215,12 @@ MouseArea {
                         }
 
                         font: UM.Theme.getFont("default")
-                        text: SmartSlice.API.loginPassword
+                        text: smartSliceMain.api.loginPassword
 
                         onTextChanged: {
-                            SmartSlice.API.loginPassword = text
+                            smartSliceMain.api.loginPassword = text
                             if (text != "") {
-                                SmartSlice.API.badCredentials = false;
+                                smartSliceMain.api.badCredentials = false;
                             }
                         }
 
@@ -253,7 +252,7 @@ MouseArea {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: Qt.openUrlExternally(SmartSlice.API.smartSliceUrl + '/static/account.html#forgot-password')
+                                onClicked: Qt.openUrlExternally(smartSliceMain.api.smartSliceUrl + '/static/account.html#forgot-password')
                             }
                         }
 
@@ -271,7 +270,7 @@ MouseArea {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: Qt.openUrlExternally(SmartSlice.API.smartSliceUrl + '/static/account.html')
+                                onClicked: Qt.openUrlExternally(smartSliceMain.api.smartSliceUrl + '/static/account.html')
                             }
                         }
                     }
@@ -302,7 +301,7 @@ MouseArea {
                         textDisabledColor: textColor
 
                         onClicked: {
-                            SmartSlice.API.onLoginButtonClicked()
+                            smartSliceMain.api.onLoginButtonClicked()
                         }
 
                         KeyNavigation.tab: username_input

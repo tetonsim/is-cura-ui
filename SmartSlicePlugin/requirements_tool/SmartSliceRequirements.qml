@@ -6,8 +6,6 @@ import QtQuick.Controls.Styles 1.1
 import UM 1.2 as UM
 import Cura 1.0 as Cura
 
-import SmartSlice 1.0 as SmartSlice
-
 Item {
     width: childrenRect.width
     height: childrenRect.height
@@ -78,7 +76,6 @@ Item {
             validator: DoubleValidator {bottom: 0.0}
             inputMethodHints: Qt.ImhFormattedNumbersOnly
 
-            //text: SmartSlice.Cloud.targetMaximalDisplacement
             placeholderText: ""
             property string unit: "[mm]";
         }

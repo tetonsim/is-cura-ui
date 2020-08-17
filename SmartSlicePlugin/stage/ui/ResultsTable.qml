@@ -8,8 +8,6 @@ import QtGraphicalEffects 1.0
 import UM 1.2 as UM
 import Cura 1.0 as Cura
 
-import SmartSlice 1.0 as SmartSlice
-
 Item {
     id: resultsTable
 
@@ -21,7 +19,7 @@ Item {
     property int centerX: 0.5 * (parent.width - width)
     property int centerY: 0.5 * (parent.height - height)
 
-    property var handler: SmartSlice.Cloud.resultsTableDialog
+    property var handler: smartSliceMain.proxy.resultsTableDialog
 
     property bool locationSet: handler.positionSet
 
@@ -134,7 +132,7 @@ Item {
 
             horizontalScrollBarPolicy: Qt.ScrollBarAlwaysOff
 
-            model: SmartSlice.Cloud.resultsTable
+            model: smartSliceMain.proxy.resultsTable
 
             property int selectedRow: model.selectedRow
 
