@@ -6,7 +6,6 @@ import QtQuick.Dialogs 1.1
 import QtQuick.Window 2.2
 
 import UM 1.2 as UM
-import SmartSlice 1.0 as SmartSlice
 
 UM.Dialog {
     id: aboutDialog

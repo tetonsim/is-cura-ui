@@ -121,7 +121,7 @@ Item {
         width: UM.Theme.getSize("action_panel_widget").width / 2 + 2 * UM.Theme.getSize("default_margin").width
         height: childrenRect.height
 
-        property var handler: SmartSlice.Cloud.loadDialog
+        property var handler: UM.Controller.activeStage.proxy.loadDialog
 
         property int xStart: constraintsTooltip.x + selectAnchorButton.width
         property int yStart: constraintsTooltip.y - 18 * UM.Theme.getSize("default_margin").height
