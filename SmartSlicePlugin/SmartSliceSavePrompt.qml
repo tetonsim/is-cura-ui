@@ -7,10 +7,11 @@ import QtQuick.Window 2.2
 
 import UM 1.2 as UM
 import Cura 1.1 as Cura
-import SmartSlice 1.0 as SmartSlice
 
 UM.Dialog {
     id: saveDialog
+
+    property var proxy: UM.Controller.activeStage.proxy
 
     title: "Smart Slice Warning"
 
@@ -86,14 +87,14 @@ UM.Dialog {
             Button {
                 text: catalog.i18nc("@action:button", "Don't Save")
                 onClicked: {
-                    SmartSlice.Cloud.closeSavePromptClicked()
+                    saveDialog.proxy.closeSavePromptClicked()
                 }
             }
 
             Button {
                 text: catalog.i18nc("@action:button", "Save")
                 onClicked: {
-                    SmartSlice.Cloud.savePromptClicked()
+                    saveDialog.proxy.savePromptClicked()
                 }
             }
         }

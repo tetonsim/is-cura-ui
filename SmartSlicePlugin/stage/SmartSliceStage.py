@@ -12,6 +12,9 @@
 
 import os.path
 
+from PyQt5.QtCore import pyqtProperty
+from PyQt5.QtCore import QObject
+
 from UM.i18n import i18nCatalog
 from UM.Logger import Logger
 from UM.Application import Application
@@ -66,6 +69,14 @@ class SmartSliceStage(CuraStage):
         return Application.getInstance().getController().getStage(
             "SmartSlicePlugin"
         )
+
+    @pyqtProperty(QObject)
+    def proxy(self):
+        return self._connector.getProxy()
+
+    @pyqtProperty(QObject)
+    def api(self):
+        return self._connector.getAPI()
 
     def _scene_not_ready(self, text):
         app = CuraApplication.getInstance()

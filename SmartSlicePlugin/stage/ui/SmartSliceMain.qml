@@ -29,6 +29,9 @@ import SmartSlice 1.0 as SmartSlice
 Item {
     id: smartSliceMain
 
+    property var proxy: UM.Controller.activeStage.proxy
+    property var api: UM.Controller.activeStage.api
+
     //  Main Stage Accessible Properties
     property int smartLoads : 0
     property int smartAnchors : 0
@@ -103,10 +106,10 @@ Item {
                     Label {
                         Layout.fillHeight: true
                         Layout.fillWidth: true
-                        font: SmartSlice.Cloud.isValidated ? UM.Theme.getFont("medium_bold") : UM.Theme.getFont("default")
+                        font: smartSliceMain.proxy.isValidated ? UM.Theme.getFont("medium_bold") : UM.Theme.getFont("default")
                         renderType: Text.NativeRendering
 
-                        text: SmartSlice.Cloud.sliceStatus
+                        text: smartSliceMain.proxy.sliceStatus
                     }
 
                     UM.ProgressBar {
@@ -117,10 +120,10 @@ Item {
                         Binding {
                             target: jobProgressBar
                             property: "value"
-                            value: SmartSlice.Cloud.jobProgress / 100.0
+                            value: smartSliceMain.proxy.jobProgress / 100.0
                         }
 
-                        visible: SmartSlice.Cloud.progressBarVisible
+                        visible: smartSliceMain.proxy.progressBarVisible
                     }
 
                     // Secondary status message with hint
@@ -130,7 +133,7 @@ Item {
                         font: UM.Theme.getFont("default")
                         renderType: Text.NativeRendering
 
-                        text: SmartSlice.Cloud.sliceHint
+                        text: smartSliceMain.proxy.sliceHint
                     }
 
                     // Optimized message
@@ -138,11 +141,11 @@ Item {
                         id: estimatedTime
                         width: parent.width
 
-                        text: Qt.formatTime(SmartSlice.Cloud.resultTimeTotal, "h") + " hours " + Qt.formatTime(SmartSlice.Cloud.resultTimeTotal, "m") + " minutes"
+                        text: Qt.formatTime(smartSliceMain.proxy.resultTimeTotal, "h") + " hours " + Qt.formatTime(smartSliceMain.proxy.resultTimeTotal, "m") + " minutes"
                         source: UM.Theme.getIcon("clock")
                         font: UM.Theme.getFont("medium_bold")
 
-                        visible: SmartSlice.Cloud.isOptimized
+                        visible: smartSliceMain.proxy.isOptimized
                     }
 
                     Cura.IconWithText {
@@ -153,10 +156,10 @@ Item {
                             var totalLengths = 0
                             var totalWeights = 0
                             var totalCosts = 0.0
-                            if (SmartSlice.Cloud.materialLength > 0) {
-                                totalLengths = SmartSlice.Cloud.materialLength
-                                totalWeights = SmartSlice.Cloud.materialWeight.toFixed(2)
-                                totalCosts = SmartSlice.Cloud.materialCost.toFixed(2)
+                            if (smartSliceMain.proxy.materialLength > 0) {
+                                totalLengths = smartSliceMain.proxy.materialLength
+                                totalWeights = smartSliceMain.proxy.materialWeight.toFixed(2)
+                                totalCosts = smartSliceMain.proxy.materialCost.toFixed(2)
                             }
                             if(totalCosts > 0)
                             {
@@ -168,7 +171,7 @@ Item {
                         source: UM.Theme.getIcon("spool")
                         font: UM.Theme.getFont("default")
 
-                        visible: SmartSlice.Cloud.isOptimized
+                        visible: smartSliceMain.proxy.isOptimized
                     }
                 }
 
@@ -190,22 +193,22 @@ Item {
                         fillMode: Image.PreserveAspectFit
                         mipmap: true
 
-                        source: SmartSlice.Cloud.sliceIconImage
-                        visible: SmartSlice.Cloud.sliceIconVisible
+                        source: smartSliceMain.proxy.sliceIconImage
+                        visible: smartSliceMain.proxy.sliceIconVisible
 
                         Connections {
-                            target: SmartSlice.Cloud
+                            target: smartSliceMain.proxy
                             onSliceIconImageChanged: {
-                                smartSliceInfoIcon.source = SmartSlice.Cloud.sliceIconImage
+                                smartSliceInfoIcon.source = smartSliceMain.proxy.sliceIconImage
                             }
                             onSliceIconVisibleChanged: {
-                                smartSliceInfoIcon.visible = SmartSlice.Cloud.sliceIconVisible
+                                smartSliceInfoIcon.visible = smartSliceMain.proxy.sliceIconVisible
                                 smartSliceInfoColumn.forceLayout()
                                 statusColumn.forceLayout()
                                 mainColumn.forceLayout()
                             }
                             onSliceInfoOpenChanged: {
-                                if (SmartSlice.Cloud.sliceInfoOpen) {
+                                if (smartSliceMain.proxy.sliceInfoOpen) {
                                     smartSlicePopup.open()
                                 }
                             }
@@ -301,7 +304,7 @@ Item {
                                                 width: parent.width
 
                                                 font: smartSlicePopupContents.description_font
-                                                color: SmartSlice.Cloud.safetyFactorColor
+                                                color: smartSliceMain.proxy.safetyFactorColor
                                                 renderType: Text.NativeRendering
                                                 textFormat: Text.RichText
 
@@ -313,7 +316,7 @@ Item {
                                                 width: parent.width
 
                                                 font: smartSlicePopupContents.description_font
-                                                color: SmartSlice.Cloud.maxDisplaceColor
+                                                color: smartSliceMain.proxy.maxDisplaceColor
                                                 renderType: Text.NativeRendering
                                                 textFormat: Text.RichText
 
@@ -340,18 +343,18 @@ Item {
 
                                                 horizontalAlignment: Text.AlignHCenter
                                                 font: smartSlicePopupContents.value_font
-                                                color: SmartSlice.Cloud.safetyFactorColor
+                                                color: smartSliceMain.proxy.safetyFactorColor
                                                 renderType: Text.NativeRendering
                                                 textFormat: Text.RichText
 
                                                 Connections {
-                                                    target: SmartSlice.Cloud
+                                                    target: smartSliceMain.proxy
                                                     onResultSafetyFactorChanged: {
-                                                        labelResultSafetyFactor.text = parseFloat(Math.round(SmartSlice.Cloud.resultSafetyFactor * 1000) / 1000).toFixed(1)
+                                                        labelResultSafetyFactor.text = parseFloat(Math.round(smartSliceMain.proxy.resultSafetyFactor * 1000) / 1000).toFixed(1)
                                                     }
                                                 }
 
-                                                text: parseFloat(Math.round(SmartSlice.Cloud.resultSafetyFactor * 1000) / 1000).toFixed(1)
+                                                text: parseFloat(Math.round(smartSliceMain.proxy.resultSafetyFactor * 1000) / 1000).toFixed(1)
                                             }
                                             Label {
                                                 id: labelResultMaximalDisplacement
@@ -360,18 +363,18 @@ Item {
 
                                                 horizontalAlignment: Text.AlignHCenter
                                                 font: smartSlicePopupContents.value_font
-                                                color: SmartSlice.Cloud.maxDisplaceColor
+                                                color: smartSliceMain.proxy.maxDisplaceColor
                                                 renderType: Text.NativeRendering
                                                 textFormat: Text.RichText
 
                                                 Connections {
-                                                    target: SmartSlice.Cloud
+                                                    target: smartSliceMain.proxy
                                                     onResultMaximalDisplacementChanged: {
-                                                        labelResultMaximalDisplacement.text = parseFloat(Math.round(SmartSlice.Cloud.resultMaximalDisplacement * 1000) / 1000).toFixed(2)
+                                                        labelResultMaximalDisplacement.text = parseFloat(Math.round(smartSliceMain.proxy.resultMaximalDisplacement * 1000) / 1000).toFixed(2)
                                                     }
                                                 }
 
-                                                text: parseFloat(Math.round(SmartSlice.Cloud.resultMaximalDisplacement * 1000) / 1000).toFixed(2)
+                                                text: parseFloat(Math.round(smartSliceMain.proxy.resultMaximalDisplacement * 1000) / 1000).toFixed(2)
                                             }
                                         }
                                         Column {
@@ -395,18 +398,18 @@ Item {
 
                                                 horizontalAlignment: Text.AlignRight
                                                 font: smartSlicePopupContents.value_font
-                                                color: SmartSlice.Cloud.safetyFactorColor
+                                                color: smartSliceMain.proxy.safetyFactorColor
                                                 renderType: Text.NativeRendering
                                                 textFormat: Text.RichText
 
                                                 Connections {
-                                                    target: SmartSlice.Cloud
+                                                    target: smartSliceMain.proxy
                                                     onTargetSafetyFactorChanged: {
-                                                        labelTargetSafetyFactor.text = parseFloat(Math.round(SmartSlice.Cloud.targetSafetyFactor * 1000) / 1000).toFixed(1)
+                                                        labelTargetSafetyFactor.text = parseFloat(Math.round(smartSliceMain.proxy.targetSafetyFactor * 1000) / 1000).toFixed(1)
                                                     }
                                                 }
 
-                                                text: parseFloat(Math.round(SmartSlice.Cloud.targetSafetyFactor * 1000) / 1000).toFixed(1)
+                                                text: parseFloat(Math.round(smartSliceMain.proxy.targetSafetyFactor * 1000) / 1000).toFixed(1)
                                             }
                                             Label {
                                                 id: labelTargetMaximalDisplacement
@@ -415,18 +418,18 @@ Item {
 
                                                 horizontalAlignment: Text.AlignRight
                                                 font: smartSlicePopupContents.value_font
-                                                color: SmartSlice.Cloud.maxDisplaceColor
+                                                color: smartSliceMain.proxy.maxDisplaceColor
                                                 renderType: Text.NativeRendering
                                                 textFormat: Text.RichText
 
                                                 Connections {
-                                                    target: SmartSlice.Cloud
+                                                    target: smartSliceMain.proxy
                                                     onTargetMaximalDisplacementChanged: {
-                                                        labelTargetMaximalDisplacement.text = parseFloat(Math.round(SmartSlice.Cloud.targetMaximalDisplacement * 1000) / 1000).toFixed(2)
+                                                        labelTargetMaximalDisplacement.text = parseFloat(Math.round(smartSliceMain.proxy.targetMaximalDisplacement * 1000) / 1000).toFixed(2)
                                                     }
                                                 }
 
-                                                text: parseFloat(Math.round(SmartSlice.Cloud.targetMaximalDisplacement * 1000) / 1000).toFixed(2)
+                                                text: parseFloat(Math.round(smartSliceMain.proxy.targetMaximalDisplacement * 1000) / 1000).toFixed(2)
                                             }
                                         }
                                     }
@@ -526,7 +529,7 @@ Item {
                                                 renderType: Text.NativeRendering
                                                 textFormat: Text.RichText
 
-                                                text: Qt.formatTime(SmartSlice.Cloud.resultTimeTotal, "hh:mm")
+                                                text: Qt.formatTime(smartSliceMain.proxy.resultTimeTotal, "hh:mm")
                                             }
                                             /*
                                             Label {
@@ -534,49 +537,49 @@ Item {
                                                 font: smartSlicePopupContents.value_font
                                                 color: smartSlicePopupContents.value_color
 
-                                                text: Qt.formatTime(SmartSlice.Cloud.resultTimeInfill, "hh:mm")
+                                                text: Qt.formatTime(smartSliceMain.proxy.resultTimeInfill, "hh:mm")
                                             }
                                             Label {
                                                 Layout.alignment: Qt.AlignRight
                                                 font: smartSlicePopupContents.value_font
                                                 color: smartSlicePopupContents.value_color
 
-                                                text: Qt.formatTime(SmartSlice.Cloud.resultTimeInnerWalls, "hh:mm")
+                                                text: Qt.formatTime(smartSliceMain.proxy.resultTimeInnerWalls, "hh:mm")
                                             }
                                             Label {
                                                 Layout.alignment: Qt.AlignRight
                                                 font: smartSlicePopupContents.value_font
                                                 color: smartSlicePopupContents.value_color
 
-                                                text: Qt.formatTime(SmartSlice.Cloud.resultTimeOuterWalls, "hh:mm")
+                                                text: Qt.formatTime(smartSliceMain.proxy.resultTimeOuterWalls, "hh:mm")
                                             }
                                             Label {
                                                 Layout.alignment: Qt.AlignRight
                                                 font: smartSlicePopupContents.value_font
                                                 color: smartSlicePopupContents.value_color
 
-                                                text: Qt.formatTime(SmartSlice.Cloud.resultTimeRetractions, "hh:mm")
+                                                text: Qt.formatTime(smartSliceMain.proxy.resultTimeRetractions, "hh:mm")
                                             }
                                             Label {
                                                 Layout.alignment: Qt.AlignRight
                                                 font: smartSlicePopupContents.value_font
                                                 color: smartSlicePopupContents.value_color
 
-                                                text: Qt.formatTime(SmartSlice.Cloud.resultTimeSkin, "hh:mm")
+                                                text: Qt.formatTime(smartSliceMain.proxy.resultTimeSkin, "hh:mm")
                                             }
                                             Label {
                                                 Layout.alignment: Qt.AlignRight
                                                 font: smartSlicePopupContents.value_font
                                                 color: smartSlicePopupContents.value_color
 
-                                                text: Qt.formatTime(SmartSlice.Cloud.resultTimeSkirt, "hh:mm")
+                                                text: Qt.formatTime(smartSliceMain.proxy.resultTimeSkirt, "hh:mm")
                                             }
                                             Label {
                                                 Layout.alignment: Qt.AlignRight
                                                 font: smartSlicePopupContents.value_font
                                                 color: smartSlicePopupContents.value_color
 
-                                                text: Qt.formatTime(SmartSlice.Cloud.resultTimeTravel, "hh:mm")
+                                                text: Qt.formatTime(smartSliceMain.proxy.resultTimeTravel, "hh:mm")
                                             }
                                             */
                                         }
@@ -602,49 +605,49 @@ Item {
                                                 font: smartSlicePopupContents.value_font
                                                 color: smartSlicePopupContents.value_color
 
-                                                text: SmartSlice.Cloud.percentageTimeInfill.toFixed(2) + " %"
+                                                text: smartSliceMain.proxy.percentageTimeInfill.toFixed(2) + " %"
                                             }
                                             Label {
                                                 Layout.alignment: Qt.AlignRight
                                                 font: smartSlicePopupContents.value_font
                                                 color: smartSlicePopupContents.value_color
 
-                                                text: SmartSlice.Cloud.percentageTimeInnerWalls.toFixed(2) + " %"
+                                                text: smartSliceMain.proxy.percentageTimeInnerWalls.toFixed(2) + " %"
                                             }
                                             Label {
                                                 Layout.alignment: Qt.AlignRight
                                                 font: smartSlicePopupContents.value_font
                                                 color: smartSlicePopupContents.value_color
 
-                                                text: SmartSlice.Cloud.percentageTimeOuterWalls.toFixed(2) + " %"
+                                                text: smartSliceMain.proxy.percentageTimeOuterWalls.toFixed(2) + " %"
                                             }
                                             Label {
                                                 Layout.alignment: Qt.AlignRight
                                                 font: smartSlicePopupContents.value_font
                                                 color: smartSlicePopupContents.value_color
 
-                                                text: SmartSlice.Cloud.percentageTimeRetractions.toFixed(2) + " %"
+                                                text: smartSliceMain.proxy.percentageTimeRetractions.toFixed(2) + " %"
                                             }
                                             Label {
                                                 Layout.alignment: Qt.AlignRight
                                                 font: smartSlicePopupContents.value_font
                                                 color: smartSlicePopupContents.value_color
 
-                                                text: SmartSlice.Cloud.percentageTimeSkin.toFixed(2) + " %"
+                                                text: smartSliceMain.proxy.percentageTimeSkin.toFixed(2) + " %"
                                             }
                                             Label {
                                                 Layout.alignment: Qt.AlignRight
                                                 font: smartSlicePopupContents.value_font
                                                 color: smartSlicePopupContents.value_color
 
-                                                text: SmartSlice.Cloud.percentageTimeSkirt.toFixed(2) + " %"
+                                                text: smartSliceMain.proxy.percentageTimeSkirt.toFixed(2) + " %"
                                             }
                                             Label {
                                                 Layout.alignment: Qt.AlignRight
                                                 font: smartSlicePopupContents.value_font
                                                 color: smartSlicePopupContents.value_color
 
-                                                text: SmartSlice.Cloud.percentageTimeTravel.toFixed(2) + " %"
+                                                text: smartSliceMain.proxy.percentageTimeTravel.toFixed(2) + " %"
                                             }
                                             */
                                         }
@@ -680,7 +683,7 @@ Item {
                                                 renderType: Text.NativeRendering
                                                 textFormat: Text.RichText
 
-                                                text: SmartSlice.Cloud.materialName
+                                                text: smartSliceMain.proxy.materialName
                                             }
                                         }
 
@@ -696,7 +699,7 @@ Item {
                                                 renderType: Text.NativeRendering
                                                 textFormat: Text.RichText
 
-                                                text: SmartSlice.Cloud.materialLength + " m"
+                                                text: smartSliceMain.proxy.materialLength + " m"
                                             }
                                         }
 
@@ -713,7 +716,7 @@ Item {
                                                 renderType: Text.NativeRendering
                                                 textFormat: Text.RichText
 
-                                                text: SmartSlice.Cloud.materialWeight.toFixed(2) + " g"
+                                                text: smartSliceMain.proxy.materialWeight.toFixed(2) + " g"
                                             }
                                         }
 
@@ -731,7 +734,7 @@ Item {
                                                 renderType: Text.NativeRendering
                                                 textFormat: Text.RichText
 
-                                                text: SmartSlice.Cloud.materialCost.toFixed(2) + " €"
+                                                text: smartSliceMain.proxy.materialCost.toFixed(2) + " €"
                                             }
                                         }
                                     }
@@ -768,7 +771,7 @@ Item {
                     anchors.fill: parent
                     hoverEnabled: true
                     onEntered: {
-                        if (SmartSlice.Cloud.errorsExist && !smartSliceButton.enabled && !smartSliceWarningPopup.opened) {
+                        if (smartSliceMain.proxy.errorsExist && !smartSliceButton.enabled && !smartSliceWarningPopup.opened) {
                             smartSliceWarningPopup.open();
                         }
                     }
@@ -784,15 +787,15 @@ Item {
                     anchors.right: parent.right
                     anchors.bottom: parent.bottom
 
-                    text: SmartSlice.Cloud.sliceButtonText
+                    text: smartSliceMain.proxy.sliceButtonText
 
-                    enabled: SmartSlice.Cloud.sliceButtonEnabled
-                    visible: SmartSlice.Cloud.sliceButtonVisible
+                    enabled: smartSliceMain.proxy.sliceButtonEnabled
+                    visible: smartSliceMain.proxy.sliceButtonVisible
 
                     Connections {
-                        target: SmartSlice.Cloud
-                        onSliceButtonEnabledChanged: { smartSliceButton.enabled = SmartSlice.Cloud.sliceButtonEnabled }
-                        onSliceButtonFillWidthChanged: { smartSliceButton.Layout.fillWidth = SmartSlice.Cloud.sliceButtonFillWidth }
+                        target: smartSliceMain.proxy
+                        onSliceButtonEnabledChanged: { smartSliceButton.enabled = smartSliceMain.proxy.sliceButtonEnabled }
+                        onSliceButtonFillWidthChanged: { smartSliceButton.Layout.fillWidth = smartSliceMain.proxy.sliceButtonFillWidth }
                     }
 
                     /*
@@ -800,7 +803,7 @@ Item {
                     */
                     onClicked: {
                         //  Show Validation Dialog
-                        SmartSlice.Cloud.sliceButtonClicked()
+                        smartSliceMain.proxy.sliceButtonClicked()
                     }
                 }
 
@@ -816,14 +819,14 @@ Item {
                     anchors.left: parent.left
                     anchors.bottom: parent.bottom
 
-                    text: SmartSlice.Cloud.secondaryButtonText
+                    text: smartSliceMain.proxy.secondaryButtonText
 
-                    visible: SmartSlice.Cloud.secondaryButtonVisible
+                    visible: smartSliceMain.proxy.secondaryButtonVisible
 
                     Connections {
-                        target: SmartSlice.Cloud
-                        onSecondaryButtonVisibleChanged: { smartSliceSecondaryButton.visible = SmartSlice.Cloud.secondaryButtonVisible }
-                        onSecondaryButtonFillWidthChanged: { smartSliceSecondaryButton.Layout.fillWidth = SmartSlice.Cloud.secondaryButtonFillWidth }
+                        target: smartSliceMain.proxy
+                        onSecondaryButtonVisibleChanged: { smartSliceSecondaryButton.visible = smartSliceMain.proxy.secondaryButtonVisible }
+                        onSecondaryButtonFillWidthChanged: { smartSliceSecondaryButton.Layout.fillWidth = smartSliceMain.proxy.secondaryButtonFillWidth }
                     }
 
                     /*
@@ -831,7 +834,7 @@ Item {
                     */
                     onClicked: {
                         //  Show Validation Dialog
-                        SmartSlice.Cloud.secondaryButtonClicked()
+                        smartSliceMain.proxy.secondaryButtonClicked()
                     }
                 }
 
@@ -841,7 +844,7 @@ Item {
                     samples: 17
                     color: smartSlicePopupContents.warningColor
                     source: smartSliceButton
-                    visible: SmartSlice.Cloud.errorsExist
+                    visible: smartSliceMain.proxy.errorsExist
                 }
 
                 // Popup message with warning / errors
@@ -917,7 +920,7 @@ Item {
                                     id: smartSliceErrors
 
                                     function getErrors() {
-                                        var errors = SmartSlice.Cloud.errors
+                                        var errors = smartSliceMain.proxy.errors
                                         var error_text = []
                                         for(var error in errors) {
                                             var error_resolution = []
@@ -1016,7 +1019,7 @@ Item {
                                     spacing: UM.Theme.getSize("thin_margin").width
 
                                     Connections {
-                                        target: SmartSlice.Cloud
+                                        target: smartSliceMain.proxy
                                         onSmartSliceErrorsChanged: {
                                             smartSliceErrors.forceLayout()
                                             smartSliceWarningContents.forceLayout()
@@ -1047,7 +1050,7 @@ Item {
         implicitHeight: 0.25 * smartSliceMain.height
         width: 0.4 * smartSliceMain.width
 
-        visible: SmartSlice.Cloud.isOptimized
+        visible: smartSliceMain.proxy.isOptimized
     }
 
     SmartSlice.SmartSliceLogin {

@@ -651,26 +651,10 @@ class SmartSliceCloudConnector(QObject):
     def getProxy(self, engine=None, script_engine=None):
         return self._proxy
 
-    def getAPI(self, engine, script_engine):
+    def getAPI(self, engine=None, script_engine=None):
         return self.api_connection
 
     def _onEngineCreated(self):
-        qmlRegisterSingletonType(
-            SmartSliceCloudProxy,
-            "SmartSlice",
-            1, 0,
-            "Cloud",
-            self.getProxy
-        )
-
-        qmlRegisterSingletonType(
-            SmartSliceAPIClient,
-            "SmartSlice",
-            1, 0,
-            "API",
-            self.getAPI
-        )
-
         self.activeMachine = Application.getInstance().getMachineManager().activeMachine
         self.propertyHandler = SmartSlicePropertyHandler(self)
         self.smartSliceJobHandle = SmartSliceJobHandler(self.propertyHandler)
