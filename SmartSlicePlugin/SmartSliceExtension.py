@@ -2,8 +2,8 @@ import os
 import json
 from typing import Dict
 
-from PyQt5.QtWidgets import QMessageBox
-from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtCore import QUrl
+from PyQt5.QtGui import QDesktopServices
 
 from UM.i18n import i18nCatalog
 from UM.Application import Application
@@ -15,7 +15,6 @@ from cura.CuraApplication import CuraApplication
 from .SmartSliceCloudConnector import SmartSliceCloudConnector
 from .SmartSliceCloudProxy import SmartSliceCloudProxy
 from .SmartSliceCloudStatus import SmartSliceCloudStatus
-from .stage.ui.ResultTable import ResultTableData
 from .utils import getPrintableNodes
 
 import pywim
@@ -35,6 +34,10 @@ class SmartSliceExtension(Extension):
         self.cloud = SmartSliceCloudConnector(self.proxy, self)
 
         #self.setMenuName(i18n_catalog.i18nc("@item:inmenu", "Smart Slice"))
+
+        # Help links
+        self.addMenuItem(i18n_catalog.i18n("Help"), self._openHelp)
+        self.addMenuItem(i18n_catalog.i18n("Contact"), self._contactHelp)
 
         # About Dialog
         self._about_dialog = None
@@ -70,6 +73,14 @@ class SmartSliceExtension(Extension):
         # The handle to the class which does all of the checks on application exit. Add our function to the callback list
         self._exitManager = CuraApplication.getInstance().getOnExitCallbackManager()
         self._exitManager.addCallback(self._saveOnExit)
+
+    @staticmethod
+    def _openHelp():
+        QDesktopServices.openUrl(QUrl("https://help.tetonsim.com"))
+
+    @staticmethod
+    def _contactHelp():
+        QDesktopServices.openUrl(QUrl("mailto:help@tetonsim.com?subject=Request for help with Smart Slice"))
 
     def _openAboutDialog(self):
         if not self._about_dialog:
@@ -239,7 +250,7 @@ class PluginMetaData:
         self.url = 'https://api.smartslice.xyz'
         self.cluster = None
 
-        pluginMetaData = PluginMetaData._getMetadata()
+        pluginMetaData = PluginMetaData.getMetadata()
 
         if pluginMetaData:
             self.name = pluginMetaData.get('name', self.name)
@@ -253,7 +264,7 @@ class PluginMetaData:
                 self.cluster = apiInfo.get('cluster', self.cluster)
 
     @staticmethod
-    def _getMetadata() -> Dict[str, str]:
+    def getMetadata() -> Dict[str, str]:
         try:
             plugin_json_path = os.path.dirname(os.path.abspath(__file__))
             plugin_json_path = os.path.join(plugin_json_path, 'plugin.json')
