@@ -98,9 +98,20 @@ Item {
             Rectangle {
                 id: topDragArea
                 width: parent.width
-                height: 2 * UM.Theme.getSize("default_margin").height
-                // color: UM.Theme.getColor("secondary")
-                color: "transparent"
+                height: UM.Theme.getSize("thick_margin").height
+                color: UM.Theme.getColor("secondary")
+                border.width: UM.Theme.getSize("default_lining").width
+                border.color: UM.Theme.getColor("lining")
+
+                UM.RecolorImage {
+                    height: parent.height - UM.Theme.getSize("thin_margin").height
+                    width: 2 * height
+
+                    anchors.centerIn: parent
+
+                    source: "../../images/draggable.png"
+                    color: UM.Theme.getColor("small_button_text")
+                }
             }
         }
 
@@ -182,6 +193,13 @@ Item {
                 incrementControl: Item { }
 
                 transientScrollBars: false
+
+                frame: Rectangle {
+                    border{
+                        width: UM.Theme.getSize("default_lining").width
+                        color: UM.Theme.getColor("lining")
+                    }
+                }
 
                 scrollBarBackground: Rectangle {
                     id: scrollViewBackground
@@ -428,14 +446,17 @@ Item {
 
             Rectangle {
                 width: parent.width
-                height: UM.Theme.getSize("narrow_margin").height
+                height: UM.Theme.getSize("narrow_margin").height + UM.Theme.getSize("default_lining").height
                 color: UM.Theme.getColor("secondary")
+
+                border.width: UM.Theme.getSize("default_lining").width
+                border.color: UM.Theme.getColor("lining")
 
                 Rectangle {
                     anchors.bottom: parent.top
                     width: parent.width
                     height: UM.Theme.getSize("default_lining").height
-                    color: UM.Theme.getColor("lining")
+                    color: UM.Theme.getColor("secondary")
                 }
 
                 UM.RecolorImage {
