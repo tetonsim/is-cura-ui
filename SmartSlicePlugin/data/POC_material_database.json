@@ -2,9 +2,12 @@
     "materials": [
         {
             "name": "ABS",
-            "cura-guid": [
+            "cura-tested-guid": [
                 "60636bb4-518f-42e7-8237-fe77b194ebe0",
                 "2780b345-577b-4a24-a2c5-12e6aad3e690"
+            ],
+            "cura-generic-guid": [
+                "2f9d2279-9b0e-4765-bf9b-d1e1e13f3c49"
             ],
             "density": 1.1e-9,
             "elastic": {

@@ -37,13 +37,6 @@ i18n_catalog = i18nCatalog("smartslice")
 """
 class SmartSlicePropertyHandler(QObject):
 
-    EXTRUDER_KEYS = [
-        "wall_extruder_nr",         # Both wall extruder drop down
-        "wall_0_extruder_nr",       # Outer wall extruder
-        "wall_x_extruder_nr",       # Inner wall extruder
-        "infill_extruder_nr"        # Infill extruder
-    ]
-
     def __init__(self, connector):
         super().__init__()
 

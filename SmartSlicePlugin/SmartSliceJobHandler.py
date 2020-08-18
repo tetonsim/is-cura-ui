@@ -10,21 +10,30 @@ from typing import Dict, Tuple
 import pywim
 import threemf
 
+from PyQt5.QtCore import QUrl
+from PyQt5.QtGui import QDesktopServices
+
+from UM.i18n import i18nCatalog
 from UM.PluginRegistry import PluginRegistry
 from UM.Application import Application
 from UM.Logger import Logger
+from UM.Message import Message
+from UM.Signal import Signal
 
 from cura.Settings.ExtruderManager import ExtruderManager
 
 from .requirements_tool.SmartSliceRequirements import SmartSliceRequirements
 from .select_tool.SmartSliceSelectTool import SmartSliceSelectTool
 from .SmartSlicePropertyHandler import SmartSlicePropertyHandler
+from .SmartSliceProperty import ExtruderProperty
 
 from .utils import getPrintableNodes
 from .utils import getModifierMeshes
 from .utils import getNodeActiveExtruder
 from .utils import findChildSceneNode
 from .stage.SmartSliceScene import Root
+
+i18n_catalog = i18nCatalog("smartslice")
 
 """
   SmartSliceJobHandler
@@ -33,6 +42,7 @@ from .stage.SmartSliceScene import Root
     from the Cura meshes, slice settings, and requirements / use cases.
 
 """
+
 class SmartSliceJobHandler:
 
     INFILL_CURA_SMARTSLICE = {
@@ -44,13 +54,25 @@ class SmartSliceJobHandler:
 
     INFILL_DIRECTION = 45
 
+    materialWarning = Signal()
+
     def __init__(self, handler: SmartSlicePropertyHandler):
         self._all_extruders_settings = None
         self._propertyHandler = handler
 
+        self._material_warning = Message(lifetime=0)
+        self._material_warning.addAction(
+            action_id="supported_materials_link",
+            name="<h4><b>Supported Materials</b></h4>",
+            icon="",
+            description="List of tested and supported materials",
+            button_style=Message.ActionButtonStyle.LINK
+        )
+        self._material_warning.actionTriggered.connect(self._openMaterialsPage)
+
     # Builds and checks a smart slice job for errors based on current setup defined by the property handler
     # Will return the job, and a dictionary of error keys and associated error resolutions
-    def checkJob(self, machine_name="printer") -> Tuple[pywim.smartslice.job.Job, Dict[str, str]]:
+    def checkJob(self, machine_name="printer", show_extruder_warnings=False) -> Tuple[pywim.smartslice.job.Job, Dict[str, str]]:
 
         if len(getPrintableNodes()) == 0:
             return None, {}
@@ -75,24 +97,8 @@ class SmartSliceJobHandler:
         # Normal mesh
         normal_mesh = getPrintableNodes()[0]
 
-        # Check the material
-        machine_extruder = getNodeActiveExtruder(normal_mesh)
-        guid = machine_extruder.material.getMetaData().get("GUID", "")
-        material = self._getMaterial(guid)
-
-        if not material:
-            errors.append(pywim.smartslice.val.InvalidSetup(
-                "Material <i>{}</i> is not currently characterized for Smart Slice".format(machine_extruder.material.name),
-                "Please select a characterized material."
-            ))
-        else:
-            job.bulk.add(
-                pywim.fea.model.Material.from_dict(material)
-            )
-
         # Get all nodes to cycle through
         nodes = [normal_mesh] + getModifierMeshes()
-
 
         # Cycle through all of the meshes and check extruder
         for node in nodes:
@@ -104,12 +110,38 @@ class SmartSliceJobHandler:
             job.chop.meshes.add(mesh)
 
             # Check the active extruder
-            any_individual_extruder = all(map(lambda k : (int(active_extruder.getProperty(k, "value")) <= 0), SmartSlicePropertyHandler.EXTRUDER_KEYS))
+            any_individual_extruder = all(map(lambda k : (int(active_extruder.getProperty(k, "value")) <= 0), ExtruderProperty.EXTRUDER_KEYS))
             if not ( int(active_extruder.getMetaDataEntry("position")) == 0 and int(emActive) == 0 and any_individual_extruder ):
                 errors.append(pywim.smartslice.val.InvalidSetup(
                     "Invalid extruder selected for <i>{}</i>".format(node.getName()),
                     "Change active extruder to Extruder 1"
                 ))
+                show_extruder_warnings = False # Turn the warnings off - we aren't on the right extruder
+
+        # Check the material
+        machine_extruder = getNodeActiveExtruder(normal_mesh)
+        guid = machine_extruder.material.getMetaData().get("GUID", "")
+        material, tested = self.getMaterial(guid)
+
+        if not material:
+            errors.append(pywim.smartslice.val.InvalidSetup(
+                "Material <i>{}</i> is not currently supported for Smart Slice".format(machine_extruder.material.name),
+                "Please select a supported material."
+            ))
+        else:
+            if not tested and show_extruder_warnings:
+                self._material_warning.setText(i18n_catalog.i18nc(
+                    "@info:status", "Material <b>{}</b> has not been tested for Smart Slice. A generic equivalent will be used.".format(machine_extruder.material.name)
+                ))
+                self._material_warning.show()
+
+                self.materialWarning.emit(guid)
+            elif tested:
+                self._material_warning.hide()
+
+            job.bulk.add(
+                pywim.fea.model.Material.from_dict(material)
+            )
 
         # Use Cases
         smart_sliceScene_node = findChildSceneNode(getPrintableNodes()[0], Root)
@@ -272,18 +304,29 @@ class SmartSliceJobHandler:
 
         return job_assets[0].content
 
-    def _getMaterial(self, guid):
+    @classmethod
+    def getMaterial(self, guid):
+        '''
+            Returns a dictionary of the material definition and whether the material is tested.
+            Will return a None material if it is not supported
+        '''
         this_dir = os.path.split(__file__)[0]
         database_location = os.path.join(this_dir, "data", "POC_material_database.json")
         jdata = json.loads(open(database_location).read())
 
         for material in jdata["materials"]:
-            if "cura-guid" not in material.keys():
-                continue
-            if guid in material["cura-guid"]:
-                return material
 
-        return None
+            if "cura-tested-guid" in material and guid in material["cura-tested-guid"]:
+                return material, True
+            elif "cura-generic-guid" in material and guid in material["cura-generic-guid"]:
+                return material, False
+            elif "cura-guid" in material and guid in material["cura-guid"]: # Backwards compatibility (don't think this should ever happen)
+                return material, True
+
+        return None, False
+
+    def _openMaterialsPage(self, msg, action):
+        QDesktopServices.openUrl(QUrl("https://help.tetonsim.com/supported-materials"))
 
     def _getAuxDict(self, stack):
         aux = {}

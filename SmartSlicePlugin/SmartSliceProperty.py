@@ -11,13 +11,11 @@ from cura.Scene.CuraSceneNode import CuraSceneNode
 from . utils import getPrintableNodes, findChildSceneNode
 from .stage.SmartSliceScene import HighlightFace, AnchorFace, LoadFace, Root
 
-
 class SmartSlicePropertyColor():
     SubheaderColor = "#A9A9A9"
     WarningColor = "#F3BA1A"
     ErrorColor = "#F15F63"
     SuccessColor = "#5DBA47"
-
 
 class TrackedProperty:
     def value(self):
@@ -84,23 +82,30 @@ class GlobalProperty(ContainerProperty):
 
 
 class ExtruderProperty(ContainerProperty):
-    NAMES = [
-        "line_width",                       #  Line Width
-        "wall_line_width",                  #  Wall Line Width
-        "wall_line_width_x",                #  Outer Wall Line Width
-        "wall_line_width_0",                #  Inner Wall Line Width
-        "wall_line_count",                  #  Wall Line Count
-        "wall_thickness",                   #  Wall Thickness
-        "skin_angles",                      #  Skin (Top/Bottom) Angles
-        "top_layers",                       #  Top Layers
-        "bottom_layers",                    #  Bottom Layers
-        "infill_pattern",                   #  Infill Pattern
-        "infill_sparse_density",            #  Infill Density
-        "infill_angles",                    #  Infill Angles
-        "infill_line_distance",             #  Infill Line Distance
-        "infill_sparse_thickness",          #  Infill Line Width
-        "infill_line_width",                #  Infill Line Width
-        "alternate_extra_perimeter",        #  Alternate Extra Walls
+    EXTRUDER_KEYS = [
+        "wall_extruder_nr",                 # Both wall extruder drop down
+        "wall_0_extruder_nr",               # Outer wall extruder
+        "wall_x_extruder_nr",               # Inner wall extruder
+        "infill_extruder_nr"                # Infill extruder
+    ]
+
+    NAMES = EXTRUDER_KEYS + [
+        "line_width",                       # Line Width
+        "wall_line_width",                  # Wall Line Width
+        "wall_line_width_x",                # Outer Wall Line Width
+        "wall_line_width_0",                # Inner Wall Line Width
+        "wall_line_count",                  # Wall Line Count
+        "wall_thickness",                   # Wall Thickness
+        "skin_angles",                      # Skin (Top/Bottom) Angles
+        "top_layers",                       # Top Layers
+        "bottom_layers",                    # Bottom Layers
+        "infill_pattern",                   # Infill Pattern
+        "infill_sparse_density",            # Infill Density
+        "infill_angles",                    # Infill Angles
+        "infill_line_distance",             # Infill Line Distance
+        "infill_sparse_thickness",          # Infill Line Width
+        "infill_line_width",                # Infill Line Width
+        "alternate_extra_perimeter",        # Alternate Extra Walls
         "initial_layer_line_width_factor",  # % Scale for the initial layer line width
         "top_bottom_pattern",               # Top / Bottom pattern
         "top_bottom_pattern_0",             # Initial top / bottom pattern

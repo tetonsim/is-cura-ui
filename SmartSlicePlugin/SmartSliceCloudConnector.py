@@ -889,7 +889,7 @@ class SmartSliceCloudConnector(QObject):
                         lifetime=1000,
                         dismissable=True
                     ).show()
-                
+
     def processAnalysisResult(self, selectedRow=0):
         job = self._jobs[self._current_job]
         active_extruder = getNodeActiveExtruder(getPrintableNodes()[0])
@@ -901,8 +901,8 @@ class SmartSliceCloudConnector(QObject):
         elif job.job_type == pywim.smartslice.job.JobType.optimization and active_extruder:
             self._proxy.resultsTable.setResults(job.getResult().analyses, selectedRow)
 
-    def updateStatus(self):
-        job, self._proxy.errors = self.smartSliceJobHandle.checkJob()
+    def updateStatus(self, show_warnings=False):
+        job, self._proxy.errors = self.smartSliceJobHandle.checkJob(show_extruder_warnings=show_warnings)
 
         if len(self._proxy.errors) > 0 or job is None:
             self.status = SmartSliceCloudStatus.Errors
