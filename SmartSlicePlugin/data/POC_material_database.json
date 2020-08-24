@@ -1,241 +1,716 @@
 {
-    "materials": [
-        {
-            "name": "ABS",
-            "cura-tested-guid": [
-                "60636bb4-518f-42e7-8237-fe77b194ebe0",
-                "2780b345-577b-4a24-a2c5-12e6aad3e690"
-            ],
-            "cura-generic-guid": [
-                "2f9d2279-9b0e-4765-bf9b-d1e1e13f3c49"
-            ],
-            "density": 1.1e-9,
-            "elastic": {
-                "type": "isotropic",
-                "E": 1619.0,
-                "nu": 0.35
-            },
-            "failure_yield": {
-                "type": "von_mises",
-                "Sy": 39.0
-            },
-            "fracture": {
-                "KIc": 7.42
-            }
-        },
-        {
-            "name": "CPE",
-            "cura-guid": [
-                "12f41353-1a33-415e-8b4f-a775a6c70cc6",
-                "da1872c1-b991-4795-80ad-bdac0f131726"
-            ],
-            "density": 1.27e-9,
-            "elastic": {
-                "type": "isotropic",
-                "E": 1538.0,
-                "nu": 0.33
-            },
-            "failure_yield": {
-                "type": "von_mises",
-                "Sy": 41.1
-            },
-            "fracture": {
-                "KIc": 7.84
-            }
-        },
-        {
-            "name": "CPE+",
-            "cura-guid": [
-                "e2409626-b5a0-4025-b73e-b58070219259"
-            ],
-            "density": 1.18e-9,
-            "elastic": {
-                "type": "isotropic",
-                "E": 1129.0,
-                "nu": 0.33
-            },
-            "failure_yield": {
-                "type": "von_mises",
-                "Sy": 35.2
-            },
-            "fracture": {
-                "KIc": 6.7
-            }
-        },
-        {
-            "name": "Nylon",
-            "cura-guid": [
-                "28fb4162-db74-49e1-9008-d05f1e8bef5c",
-                "283d439a-3490-4481-920c-c51d8cdecf9c"
-            ],
-            "density": 1.14e-9,
-            "elastic": {
-                "type": "isotropic",
-                "E": 579.0,
-                "nu": 0.39
-            },
-            "failure_yield": {
-                "type": "von_mises",
-                "Sy": 27.8
-            },
-            "fracture": {
-                "KIc": 5.29
-            }
-        },
-        {
-            "name": "PC",
-            "cura-guid": [
-                "98c05714-bf4e-4455-ba27-57d74fe331e4",
-                "62414577-94d1-490d-b1e4-7ef3ec40db02"
-            ],
-            "density": 1.19e-9,
-            "elastic": {
-                "type": "isotropic",
-                "E": 1904.0,
-                "nu": 0.37
-            },
-            "failure_yield": {
-                "type": "von_mises",
-                "Sy": 40.2
-            },
-            "fracture": {
-                "KIc": 7.65
-            }
-        },
-        {
-            "name": "PLA",
-            "cura-guid": [
-                "506c9f0d-e3aa-4bd4-b2d2-23e2425b1aa9",
-                "0ff92885-617b-4144-a03c-9989872454bc"
-            ],
-            "density": 1.24e-9,
-            "elastic": {
-                "type": "isotropic",
-                "E": 2347.0,
-                "nu": 0.34
-            },
-            "failure_yield": {
-                "type": "von_mises",
-                "Sy": 49.5
-            },
-            "fracture": {
-                "KIc": 9.44
-            }
-        },
-        {
-            "name": "Tough PLA",
-            "cura-guid": [
-                "9d5d2d7c-4e77-441c-85a0-e9eefd4aa68c"
-            ],
-            "density": 1.22e-9,
-            "elastic": {
-                "type": "isotropic",
-                "E": 1820.0,
-                "nu": 0.34
-            },
-            "failure_yield": {
-                "type": "von_mises",
-                "Sy": 37.0
-            },
-            "fracture": {
-                "KIc": 7.04
-            }
-        },
-        {
-            "name": "CFF CPE",
-            "cura-guid": [
-                "f8e496d6-7599-4015-9fac-c7ce53f6633c"
-            ],
-            "density": 1.35e-9,
-            "elastic": {
-                "type": "transverse_isotropic",
-                "Ea": 5698.0,
-                "Et": 1818.0,
-                "nuat": 0.32,
-                "nutt": 0.46,
-                "Gat": 634.0
-            },
-            "failure_yield": {
-                "type": "isotropic",
-                "T": 82.2,
-                "C": 82.2,
-                "S": 47.5
-            },
-            "fracture": {
-                "KIc": 7.84
-            }
-        },
-        {
-            "name": "CFF PA",
-            "cura-guid": [
-                "bd66b243-9d50-4e12-bfc3-51c874fca16a"
-            ],
-            "density": 1.35e-9,
-            "elastic": {
-                "type": "transverse_isotropic",
-                "Ea": 4443.0,
-                "Et": 731.0,
-                "nuat": 0.38,
-                "nutt": 0.61,
-                "Gat": 230.0
-            },
-            "failure_yield": {
-                "type": "isotropic",
-                "T": 55.6,
-                "C": 55.6,
-                "S": 32.1
-            },
-            "fracture": {
-                "KIc": 5.29
-            }
-        },
-        {
-            "name": "GFF CPE",
-            "cura-guid": [
-                "d4b786bb-e5d2-481b-b3ab-0be976d36af8"
-            ],
-            "density": 1.35e-9,
-            "elastic": {
-                "type": "transverse_isotropic",
-                "Ea": 2608.0,
-                "Et": 1797.0,
-                "nuat": 0.32,
-                "nutt": 0.43,
-                "Gat": 637.0
-            },
-            "failure_yield": {
-                "type": "isotropic",
-                "T": 74.0,
-                "C": 74.0,
-                "S": 42.7
-            },
-            "fracture": {
-                "KIc": 7.84
-            }
-        },
-        {
-            "name": "GFF PA",
-            "cura-guid": [
-                "837cf11b-6b1e-48dc-94dc-4a2b4888648e"
-            ],
-            "density": 1.35e-9,
-            "elastic": {
-                "type": "transverse_isotropic",
-                "Ea": 2025.0,
-                "Et": 723.0,
-                "nuat": 0.38,
-                "nutt": 0.59,
-                "Gat": 230.0
-            },
-            "failure_yield": {
-                "type": "isotropic",
-                "T": 50.0,
-                "C": 50.0,
-                "S": 28.9
-            },
-            "fracture": {
-                "KIc": 5.29
-            }
-        }
-    ]
+  "materials": [
+    {
+      "name": "3D Universe Nylon CF_bulk",
+      "density": 1.01e-09,
+      "elastic": {
+        "type": "transverse_isotropic",
+        "Ea": 3028.9513770952253,
+        "Et": 1327.2663862075822,
+        "nuat": 0.35,
+        "nutt": 0.45,
+        "Gat": 514.5218518862085
+      },
+      "failure_yield": {
+        "type": "isotropic",
+        "T": 28.031581825333486,
+        "C": 28.031581825333486,
+        "S": 25.393408981857863
+      },
+      "fracture": {
+        "KIc": 7.186584225028593
+      },
+      "cura-tested-guid": [
+        "cb976f0f-6245-46be-a7bc-a42821a3f7eb"
+      ],
+      "cura-generic-guid": []
+    },
+    {
+      "name": "3DXTech CarbonX CF Nylon_bulk",
+      "density": 1.17e-09,
+      "elastic": {
+        "type": "transverse_isotropic",
+        "Ea": 4800.326342295657,
+        "Et": 3446.4967055296347,
+        "nuat": 0.35,
+        "nutt": 0.45,
+        "Gat": 1359.4602109176703
+      },
+      "failure_yield": {
+        "type": "isotropic",
+        "T": 39.21681025820958,
+        "C": 39.21681025820958,
+        "S": 47.036204696078705
+      },
+      "fracture": {
+        "KIc": 11.012409826494553
+      },
+      "cura-tested-guid": [
+        "b4c827f1-5983-4ff7-932c-6baa53e4b70a"
+      ],
+      "cura-generic-guid": []
+    },
+    {
+      "name": "BASF PAHT CF15_bulk",
+      "density": 1.234e-09,
+      "elastic": {
+        "type": "transverse_isotropic",
+        "Ea": 15048.192093573558,
+        "Et": 4286.860262522066,
+        "nuat": 0.35,
+        "nutt": 0.45,
+        "Gat": 2383.419567328618
+      },
+      "failure_yield": {
+        "type": "isotropic",
+        "T": 96.75215487058105,
+        "C": 96.75215487058105,
+        "S": 63.688782128634394
+      },
+      "fracture": {
+        "KIc": 14.096831165441747
+      },
+      "cura-tested-guid": [
+        "b31fdd34-6dca-4288-b300-0b19f3d89f32"
+      ],
+      "cura-generic-guid": []
+    },
+    {
+      "name": "BASF PET_bulk",
+      "density": 1.329e-09,
+      "elastic": {
+        "type": "isotropic",
+        "E": 2491.228986467399,
+        "nu": 0.35
+      },
+      "failure_yield": {
+        "type": "von_mises",
+        "Sy": 44.01634727055967
+      },
+      "fracture": {
+        "KIc": 6.539303084353733
+      },
+      "cura-tested-guid": [
+        "b550ae7d-ae8a-4c3d-99c3-9cf54420a1df",
+        "58396bd5-f532-471e-9da9-fc07c5313e57"
+      ],
+      "cura-generic-guid": []
+    },
+    {
+      "name": "Essentium PCTG+_bulk",
+      "density": 1.23e-09,
+      "elastic": {
+        "type": "isotropic",
+        "E": 1776.3681709251996,
+        "nu": 0.35
+      },
+      "failure_yield": {
+        "type": "von_mises",
+        "Sy": 28.28310375725828
+      },
+      "fracture": {
+        "KIc": 8.870026000121433
+      },
+      "cura-tested-guid": [
+        "22ff30d2-9d63-49a8-bf26-c74039ee76b3",
+        "22ff30d2-9d63-49a8-bf26-c74039ee76b3"
+      ],
+      "cura-generic-guid": []
+    },
+    {
+      "name": "Jabil PA CF 4035_bulk",
+      "density": 1.17e-09,
+      "elastic": {
+        "type": "transverse_isotropic",
+        "Ea": 7006.765045787498,
+        "Et": 1575.5948181579874,
+        "nuat": 0.35,
+        "nutt": 0.45,
+        "Gat": 916.6991112065251
+      },
+      "failure_yield": {
+        "type": "isotropic",
+        "T": 28.44226206395838,
+        "C": 28.44226206395838,
+        "S": 23.041800589501534
+      },
+      "fracture": {
+        "KIc": 4.0557220481731235
+      },
+      "cura-tested-guid": [
+        "84edf204-ea30-4c8a-b973-ebe6990741f4"
+      ],
+      "cura-generic-guid": []
+    },
+    {
+      "name": "Jabil PETg_bulk",
+      "density": 1.24e-09,
+      "elastic": {
+        "type": "isotropic",
+        "E": 1864.4422421567945,
+        "nu": 0.35
+      },
+      "failure_yield": {
+        "type": "von_mises",
+        "Sy": 30.47839715578538
+      },
+      "fracture": {
+        "KIc": 5.136757993840788
+      },
+      "cura-tested-guid": [
+        "7d390cd6-bca3-44a2-9755-ff4bd7bc3ad7",
+        "a01f593a-066b-45a9-b0d8-5b109dd98e71"
+      ],
+      "cura-generic-guid": [
+        "8f04964c-6b4e-4108-abf3-e4b6e2d3efe9",
+        "24e7f5e4-ee4a-46b8-8671-953334553ea0",
+        "89b7f66c-cc94-458b-8ac9-0250a0d321e0",
+        "f4176e46-e0af-4379-9851-3e295b2db713",
+        "014aa1f7-6857-43ae-8471-e9c7f6a9d803",
+        "b4cd8cf7-2e98-44bd-9e4c-600b5d339e54",
+        "d4d215e9-0344-4caf-a5d5-d2dda7b57e2e",
+        "35162ee9-b39f-4747-b915-d867a93cc7ba",
+        "5c4e29a1-0722-4cfa-b147-338924afc075",
+        "061cc7c6-77b1-4d76-996f-d049546b41d2",
+        "859e93ed-6222-4ae5-bf70-f7418644034b",
+        "eeccf18f-a636-3db8-a4fb-f885f3285fb5",
+        "7975517c-d99a-4a00-8a2a-e27e5d1bdd88",
+        "1cbfaeb3-1906-4b26-b2e7-6f777a8c197a",
+        "69386c85-5b6c-421a-bec5-aeb1fb33f060",
+        "255d0c5b-25c8-46ff-ad71-6d389790f50a",
+        "d2d1c86f-641a-44d5-873a-e2d405f939e5",
+        "d5aeb0f0-cce5-3c3a-9feb-03551fa99468",
+        "95b51816-6749-4366-9f6a-1d95518cbbb5",
+        "5b29ab7e-2fbd-454c-b1a2-ba47a2c3220d",
+        "a37db29f-c289-4e44-817a-52b1f016e898",
+        "0e20a24a-3248-4b9f-96f9-69ee388abd0c"
+      ]
+    },
+    {
+      "name": "LehmannVoss PAHT 9825_bulk",
+      "density": 1.2e-09,
+      "elastic": {
+        "type": "isotropic",
+        "E": 2919.7328827177557,
+        "nu": 0.35
+      },
+      "failure_yield": {
+        "type": "von_mises",
+        "Sy": 45.855459047187196
+      },
+      "fracture": {
+        "KIc": 13.548323603378089
+      },
+      "cura-tested-guid": [
+        "4cfdf4b9-fcdd-4e3c-9021-b68626e5e4c6"
+      ],
+      "cura-generic-guid": []
+    },
+    {
+      "name": "LehmannVoss PAHT 9936_bulk",
+      "density": 1.14e-09,
+      "elastic": {
+        "type": "transverse_isotropic",
+        "Ea": 2878.723849383928,
+        "Et": 2598.2685831716976,
+        "nuat": 0.35,
+        "nutt": 0.45,
+        "Gat": 1070.0369143248604
+      },
+      "failure_yield": {
+        "type": "isotropic",
+        "T": 42.63157848512778,
+        "C": 42.63157848512778,
+        "S": 53.50089633677272
+      },
+      "fracture": {
+        "KIc": 13.163176016212665
+      },
+      "cura-tested-guid": [
+        "2a492952-f6e4-49c9-a41d-a648fe36b05e"
+      ],
+      "cura-generic-guid": []
+    },
+    {
+      "name": "LehmannVoss PAHT CF 9742_bulk",
+      "density": 1.25e-09,
+      "elastic": {
+        "type": "transverse_isotropic",
+        "Ea": 11790.81291221881,
+        "Et": 1470.1886209650172,
+        "nuat": 0.35,
+        "nutt": 0.45,
+        "Gat": 1120.3423698282481
+      },
+      "failure_yield": {
+        "type": "isotropic",
+        "T": 59.38727351162078,
+        "C": 59.38727351162078,
+        "S": 37.61779407052248
+      },
+      "fracture": {
+        "KIc": 2.4140188744969313
+      },
+      "cura-tested-guid": [
+        "06f703a9-c9b6-40fd-8165-788f5b7f822f"
+      ],
+      "cura-generic-guid": []
+    },
+    {
+      "name": "LehmannVoss PET CF 9780_bulk",
+      "density": 1.4e-09,
+      "elastic": {
+        "type": "transverse_isotropic",
+        "Ea": 8073.752858256195,
+        "Et": 1759.5618919992978,
+        "nuat": 0.35,
+        "nutt": 0.45,
+        "Gat": 747.1875300075307
+      },
+      "failure_yield": {
+        "type": "isotropic",
+        "T": 39.40769792306836,
+        "C": 39.40769792306836,
+        "S": 24.6054013167757
+      },
+      "fracture": {
+        "KIc": 1.9915896783815918
+      },
+      "cura-tested-guid": [
+        "81cafa0e-239a-4e2c-9ea9-f433938cc6e9"
+      ],
+      "cura-generic-guid": []
+    },
+    {
+      "name": "Polymaker PolyMide CoPA_bulk",
+      "density": 1.12e-09,
+      "elastic": {
+        "type": "isotropic",
+        "E": 2575.9229885665513,
+        "nu": 0.35
+      },
+      "failure_yield": {
+        "type": "von_mises",
+        "Sy": 42.41948107972913
+      },
+      "fracture": {
+        "KIc": 11.838470723716586
+      },
+      "cura-tested-guid": [
+        "e63ed133-40a1-427a-bb80-d567d1c7e2d4"
+      ],
+      "cura-generic-guid": []
+    },
+    {
+      "name": "Ultimaker ABS_bulk",
+      "density": 1.1e-09,
+      "elastic": {
+        "type": "isotropic",
+        "E": 1897.2112912908854,
+        "nu": 0.35
+      },
+      "failure_yield": {
+        "type": "von_mises",
+        "Sy": 26.109190604573282
+      },
+      "fracture": {
+        "KIc": 6.777291197765712
+      },
+      "cura-tested-guid": [
+        "60636bb4-518f-42e7-8237-fe77b194ebe0",
+        "2780b345-577b-4a24-a2c5-12e6aad3e690",
+        "0e720dc6-45c4-4f6e-aa55-86d632005fe5",
+        "2f9d2279-9b0e-4765-bf9b-d1e1e13f3c49",
+        "7c9575a6-c8d6-40ec-b3dd-18d7956bfaae",
+        "3400c0d1-a4e3-47de-a444-7b704f287171",
+        "8b75b775-d3f2-4d0f-8fb2-2a3dd53cf673",
+        "0b4ca6ef-eac8-4b23-b3ca-5f21af00e54f",
+        "7cbdb9ca-081a-456f-a6ba-f73e4e9cb856",
+        "5df7afa6-48bd-4c19-b314-839fe9f08f1f",
+        "763c926e-a5f7-4ba0-927d-b4e038ea2735",
+        "5253a75a-27dc-4043-910f-753ae11bc417",
+        "e873341d-d9b8-45f9-9a6f-5609e1bcff68"
+      ],
+      "cura-generic-guid": [
+        "e27533a5-7a39-4fc2-a930-c868d4e6de02",
+        "33f18c01-d31e-4262-99ae-fe998a754d80",
+        "275b0004-b390-4456-9553-b67dba75e3ff",
+        "68580441-5997-45ed-b999-1084eaf57726",
+        "eaf45b63-e5f4-4c55-8ab2-59d0eba2f15a",
+        "6039cd0c-dff1-4c51-9849-1cce0161430b",
+        "94ec3ed1-27b4-4eb8-9e6a-783a47c168fd",
+        "956b9054-e5e8-4852-8f5b-1332b73fcd07",
+        "efb78d1c-c7d8-4ce7-a788-6ec8422ed029",
+        "09240e52-7300-4403-b0b6-2eaebed4de88",
+        "8d1ed672-7d2b-4ea2-a0b1-5bea52748214",
+        "59ea72c2-2b38-47e5-9fde-6a3530c14787",
+        "86667456-5ced-3d22-a0fd-0985274b1892",
+        "5a716a8c-022e-4354-bad1-ae5bad11470a",
+        "4fe9c869-7580-4de3-80fd-031cfe47901b",
+        "ae03b4fd-2aa6-4957-aaea-b7ca0bbf0370",
+        "4edd8fce-0851-43e5-808a-970b4bfe8b10",
+        "fc0ab80d-a6ea-442d-a3dd-1af9af1031a1"
+      ]
+    },
+    {
+      "name": "Ultimaker CFF CPE_bulk",
+      "density": 1.35e-09,
+      "elastic": {
+        "type": "transverse_isotropic",
+        "Ea": 7375.855507401154,
+        "Et": 1672.7225465479517,
+        "nuat": 0.35,
+        "nutt": 0.45,
+        "Gat": 1096.8666300907676
+      },
+      "failure_yield": {
+        "type": "isotropic",
+        "T": 41.11576242483003,
+        "C": 41.11576242483003,
+        "S": 28.167834817241502
+      },
+      "fracture": {
+        "KIc": 5.953227294415506
+      },
+      "cura-tested-guid": [
+        "f8e496d6-7599-4015-9fac-c7ce53f6633c"
+      ],
+      "cura-generic-guid": [
+        "09424c90-d15a-4f0a-8d5d-b102739279c5",
+        "6a89bf2a-59c4-4c00-b86f-9dae73bd902e",
+        "ab63df08-4a47-4c19-b960-b098e5e666de",
+        "4b79828b-5df8-4e9c-977f-4ff8a637a58a"
+      ]
+    },
+    {
+      "name": "Ultimaker CFF PA_bulk",
+      "density": 1.2e-09,
+      "elastic": {
+        "type": "transverse_isotropic",
+        "Ea": 8248.134214034257,
+        "Et": 2229.402618171568,
+        "nuat": 0.35,
+        "nutt": 0.45,
+        "Gat": 1199.9435474276204
+      },
+      "failure_yield": {
+        "type": "isotropic",
+        "T": 49.85936759871793,
+        "C": 49.85936759871793,
+        "S": 34.097905305080545
+      },
+      "fracture": {
+        "KIc": 7.2093611342847925
+      },
+      "cura-tested-guid": [
+        "bd66b243-9d50-4e12-bfc3-51c874fca16a"
+      ],
+      "cura-generic-guid": [
+        "24f5da3f-2c86-4c37-9ecd-e1e575999db4",
+        "55317359-2538-4b89-855d-e74d3c3d5916",
+        "f102c9ba-6db9-4f07-8846-3200e81d7f66",
+        "4d042f7c-bf63-48ae-8ed2-e5152e2c247a",
+        "9237f6a4-fecb-45da-b274-695dadf873b0",
+        "043cb26b-09a6-4eb4-add5-366035c8ff54",
+        "7ec9d805-6aaa-403b-a51d-25cb06b909e7",
+        "de364911-9b10-4c32-96e4-58177c217163",
+        "0f08e4bd-b0c5-30fb-980e-b956e7840ba9",
+        "82a44e16-6c2a-4df7-ac06-01ca3f4107c7",
+        "48aaaf9a-cd37-4125-90bb-d9ef9674f3fe",
+        "7b55261a-e424-4a04-82c6-203cf2c3b231"
+      ]
+    },
+    {
+      "name": "Ultimaker CPE_bulk",
+      "density": 1.27e-09,
+      "elastic": {
+        "type": "isotropic",
+        "E": 1935.082706117895,
+        "nu": 0.35
+      },
+      "failure_yield": {
+        "type": "von_mises",
+        "Sy": 32.11107521414827
+      },
+      "fracture": {
+        "KIc": 10.45393478217462
+      },
+      "cura-tested-guid": [
+        "12f41353-1a33-415e-8b4f-a775a6c70cc6",
+        "da1872c1-b991-4795-80ad-bdac0f131726",
+        "a8955dc3-9d7e-404d-8c03-0fd6fee7f22d",
+        "4d816290-ce2e-40e0-8dc8-3f702243131e",
+        "10961c00-3caf-48e9-a598-fa805ada1e8d",
+        "7ff6d2c8-d626-48cd-8012-7725fa537cc9",
+        "173a7bae-5e14-470e-817e-08609c61e12b",
+        "00181d6c-7024-479a-8eb7-8a2e38a2619a",
+        "bd0d9eb3-a920-4632-84e8-dcd6086746c5",
+        "881c888e-24fb-4a64-a4ac-d5c95b096cd7",
+        "b9176a2a-7a0f-4821-9f29-76d882a88682"
+      ],
+      "cura-generic-guid": [
+        "2f474d7e-cf5c-42a0-bf29-d68848919cc3",
+        "239c985f-48f5-4ee7-bc75-78a1d6c411ce"
+      ]
+    },
+    {
+      "name": "Ultimaker CPE plus_bulk",
+      "density": 1.18e-09,
+      "elastic": {
+        "type": "isotropic",
+        "E": 1490.6940919367526,
+        "nu": 0.35
+      },
+      "failure_yield": {
+        "type": "von_mises",
+        "Sy": 27.340409143025642
+      },
+      "fracture": {
+        "KIc": 8.524353335701665
+      },
+      "cura-tested-guid": [
+        "e2409626-b5a0-4025-b73e-b58070219259",
+        "1aca047a-42df-497c-abfb-0e9cb85ead52",
+        "a9c340fe-255f-4914-87f5-ec4fcb0c11ef",
+        "6df69b13-2d96-4a69-a297-aedba667e710"
+      ],
+      "cura-generic-guid": []
+    },
+    {
+      "name": "Ultimaker GFF CPE_bulk",
+      "density": 1.37e-09,
+      "elastic": {
+        "type": "transverse_isotropic",
+        "Ea": 3583.8372159161972,
+        "Et": 1699.5053331373217,
+        "nuat": 0.35,
+        "nutt": 0.45,
+        "Gat": 1257.497773976152
+      },
+      "failure_yield": {
+        "type": "isotropic",
+        "T": 32.68442886429526,
+        "C": 32.68442886429526,
+        "S": 23.084917256237407
+      },
+      "fracture": {
+        "KIc": 7.1321023652910505
+      },
+      "cura-tested-guid": [
+        "d4b786bb-e5d2-481b-b3ab-0be976d36af8"
+      ],
+      "cura-generic-guid": []
+    },
+    {
+      "name": "Ultimaker GFF PA_bulk",
+      "density": 1.22e-09,
+      "elastic": {
+        "type": "transverse_isotropic",
+        "Ea": 4008.526610076467,
+        "Et": 2203.5237930695084,
+        "nuat": 0.35,
+        "nutt": 0.45,
+        "Gat": 1334.8618128709115
+      },
+      "failure_yield": {
+        "type": "isotropic",
+        "T": 39.65849489584871,
+        "C": 39.65849489584871,
+        "S": 28.16783481724099
+      },
+      "fracture": {
+        "KIc": 8.405610221631582
+      },
+      "cura-tested-guid": [
+        "837cf11b-6b1e-48dc-94dc-4a2b4888648e"
+      ],
+      "cura-generic-guid": [
+        "2e7ae759-5cc1-4c33-ad3f-f6fd05330af6",
+        "719397ce-ac35-4c46-b9d5-ed42a6e55f58",
+        "5d30ff2b-922e-41aa-a3cb-2a86a6db4dd9",
+        "6c2aa252-7ad6-48ba-8b0e-b1e4337034d4",
+        "1e31b0c3-9770-4acc-8f94-6cb55de87051",
+        "c8a0a426-03e0-4073-84fe-97f40424ec71",
+        "ba103ba6-35fa-491e-be7e-0854ffa9c4a4",
+        "dad3af8c-01cb-4a7b-bbb1-cdda868ee82e",
+        "ef9364c1-1358-4f98-b0fc-79ce3f915cb8",
+        "8b13f1f5-dd32-42d7-b2f7-a761a5429724",
+        "1fe5a59a-cfd3-441d-9445-0c01b1ffb429",
+        "2b8a5e88-af10-3f2e-b11d-13ade652b1a2",
+        "3cfb8aa0-0227-41dc-8395-f93700131dbd",
+        "efbc209c-14ec-4671-acca-93eef5a207f8",
+        "5a120a63-8dec-3e0c-91de-37604702123e"
+      ]
+    },
+    {
+      "name": "Ultimaker Nylon_bulk",
+      "density": 1.14e-09,
+      "elastic": {
+        "type": "isotropic",
+        "E": 2145.5455384018896,
+        "nu": 0.35
+      },
+      "failure_yield": {
+        "type": "von_mises",
+        "Sy": 38.644147263633236
+      },
+      "fracture": {
+        "KIc": 10.736248289738784
+      },
+      "cura-tested-guid": [
+        "28fb4162-db74-49e1-9008-d05f1e8bef5c",
+        "283d439a-3490-4481-920c-c51d8cdecf9c",
+        "c64c2dbe-5691-4363-a7d9-66b2dc12837f",
+        "e256615d-a04e-4f53-b311-114b90560af9"
+      ],
+      "cura-generic-guid": [
+        "0025ae11-0a8d-40bd-a713-0670bc967bef",
+        "edcde954-ee11-4a23-9f11-56d2aa03284b",
+        "f8562d03-b966-4186-983d-754af4e2bb25",
+        "e3dcd401-36c9-4d81-80a2-632388ecdd50",
+        "039b8d63-c7ba-4e9f-a111-459052b83194",
+        "b69828d8-aaba-4e81-b6a9-86e218ef1535",
+        "312248c2-eafa-4dd4-a261-37b19594ce62",
+        "68c674d6-1289-4a44-8d69-e8a2b1a49855",
+        "0a1234a7-64f3-45e1-a0f2-7b6d7f37d5ad",
+        "385120d7-b860-45a1-bfe2-f9199d004c3b",
+        "791f960f-23d5-4ac9-b88b-c69d9c4c20a4",
+        "d965dc10-89fe-49ed-91c0-612224eba9ff",
+        "4b845a6d-7192-4f8a-8930-568b556d7aad",
+        "685c64f9-8cc5-49fe-bba3-40c30302e082",
+        "1f221d1a-5201-45f6-b143-d1f678224254"
+      ]
+    },
+    {
+      "name": "Ultimaker PC_bulk",
+      "density": 1.19e-09,
+      "elastic": {
+        "type": "isotropic",
+        "E": 2775.5756594912846,
+        "nu": 0.35
+      },
+      "failure_yield": {
+        "type": "von_mises",
+        "Sy": 37.75885926247281
+      },
+      "fracture": {
+        "KIc": 13.329436746389261
+      },
+      "cura-tested-guid": [
+        "98c05714-bf4e-4455-ba27-57d74fe331e4",
+        "62414577-94d1-490d-b1e4-7ef3ec40db02",
+        "e92b1f0b-a069-4969-86b4-30127cfb6f7b",
+        "8a38a3e9-ecf7-4a7d-a6a9-e7ac35102968",
+        "5e786b05-a620-4a87-92d0-f02becc1ff98"
+      ],
+      "cura-generic-guid": [
+        "8bc159df-f8f3-4f8e-beaa-fca3d68f31f9",
+        "3a458fa3-5f69-4ab8-b182-12364bb08369",
+        "f7ff7d73-3e6f-4f91-8926-e65e4967a1b8",
+        "17fe9531-b758-4347-9c0c-7ef99afd0b9b",
+        "903de4d3-2673-4667-a1a3-b627e5a743f4"
+      ]
+    },
+    {
+      "name": "Ultimaker PLA_bulk",
+      "density": 1.24e-09,
+      "elastic": {
+        "type": "isotropic",
+        "E": 3643.4304151290944,
+        "nu": 0.35
+      },
+      "failure_yield": {
+        "type": "von_mises",
+        "Sy": 37.47005212363804
+      },
+      "fracture": {
+        "KIc": 11.441942258468924
+      },
+      "cura-tested-guid": [
+        "506c9f0d-e3aa-4bd4-b2d2-23e2425b1aa9",
+        "0ff92885-617b-4144-a03c-9989872454bc",
+        "3ee70a86-77d8-4b87-8005-e4a1bc57d2ce",
+        "44a029e6-e31b-4c9e-a12f-9282e29a92ff",
+        "2433b8fb-dcd6-4e36-9cd5-9f4ee551c04c",
+        "fe3982c8-58f4-4d86-9ac0-9ff7a3ab9cbc",
+        "d9549dba-b9df-45b9-80a5-f7140a9a2f34",
+        "d9fc79db-82c3-41b5-8c99-33b3747b8fb3",
+        "9cfe5bf1-bdc5-4beb-871a-52c70777842d",
+        "0e01be8c-e425-4fb1-b4a3-b79f255f1db9",
+        "532e8b3d-5fd4-4149-b936-53ada9bd6b85",
+        "e509f649-9fe6-4b14-ac45-d441438cb4ef",
+        "9c1959d0-f597-46ec-9131-34020c7a54fc"
+      ],
+      "cura-generic-guid": [
+        "79897d37-2817-4307-b298-addc5a55ccdd",
+        "32c69f10-75f2-4eaa-8c70-6efc3a1240f8",
+        "fed10fa3-1fd1-4462-aced-14b41f113713",
+        "e5e1e268-8690-41af-be46-e45e07ef61a5",
+        "69fd1f24-f411-470e-8158-9e5552f36147",
+        "49827222-8753-4e5e-ab67-7253466561b8",
+        "b90b7a41-5825-4129-b983-44952f5ab6e2",
+        "a1e2ac73-09a6-4017-ad7a-107f8908931b",
+        "99b895c2-5c41-48cc-b3b9-d9113e8c6a45",
+        "ae0c8895-b4b3-4a12-a5a5-3ae754940ced",
+        "832e163d-db99-4a58-80b9-f82073ae0a9b",
+        "2adcb50b-94b5-4393-bcc8-e6d4e45d8a87",
+        "932431e8-da46-4639-9646-0d2b1e835581",
+        "78f8b7d3-e129-4ba3-bdb1-1c9eed8a923f",
+        "f1674a4d-38fe-46e7-b268-bb88d4bb6267",
+        "31864468-6dd6-3462-809e-62b52521f24a",
+        "cf078efd-d15d-4e6d-8f00-401b5e3f6d19",
+        "6a738af3-55ce-4467-b7e2-231a2db58bce",
+        "92652f77-93fb-4139-abca-30658ec9e0f9",
+        "88fe7d45-8c0b-3549-9959-e2de4e911209",
+        "e7cda2de-0ad6-441e-9340-6d408c98def2",
+        "460297e4-d193-443e-940d-1a4d263ffa83",
+        "98d4d76c-3b31-46be-979b-72166fce5938",
+        "d8f5e222-fd2c-47ab-8436-b1ce2959d2ca",
+        "f7aaa835-b1ca-44b1-a35a-746031d3076f",
+        "1f8aac3b-4d6f-35cb-a7ce-5e0fd88bd2ae",
+        "88924e7b-a124-418f-a9b5-9fa56dbc47a3",
+        "4cf5cf01-76b2-43d9-93f0-3b713d5730a8",
+        "5b4745da-5b2e-4f3c-bd6c-3d760b9aaef8",
+        "adda5a78-f1e8-42e5-8837-6d6e6297dfa9",
+        "ec8321a4-a798-4983-bc4f-72aef80daf9f",
+        "e0ad7796-698f-4b8f-af66-2a67f7a1ff64",
+        "390dcfdd-b615-41b9-b524-8c24eaae3456",
+        "fdaa8917-ddbf-4c34-a493-a1bfa4df9a06",
+        "0526b3f6-3452-4554-8f15-9de224445581",
+        "35833778-de92-4da0-8520-93948c38ad1d",
+        "2b61d300-bf30-4780-a9ae-40c86d865f87",
+        "60e6c0e4-b22f-42d7-9807-aef7f0c6fee7",
+        "8d2731c8-b209-4202-b5d0-0d2d57070736",
+        "29e505c5-a092-4c4f-bf17-725b6c82fd42",
+        "13256f8c-b72d-401d-afad-89a5b59eaac3",
+        "8a73c724-a1d6-40ec-af71-17a6fbe9b019",
+        "340127b7-2361-4d08-8cea-4a170a9bdbe7",
+        "cece7f55-2ccc-4807-bbb6-4a5df9c9df81"
+      ]
+    },
+    {
+      "name": "Ultimaker Tough PLA_bulk",
+      "density": 1.22e-09,
+      "elastic": {
+        "type": "isotropic",
+        "E": 3007.070626108405,
+        "nu": 0.35
+      },
+      "failure_yield": {
+        "type": "von_mises",
+        "Sy": 34.03645613971346
+      },
+      "fracture": {
+        "KIc": 11.211513252553326
+      },
+      "cura-tested-guid": [
+        "9d5d2d7c-4e77-441c-85a0-e9eefd4aa68c",
+        "03f24266-0291-43c2-a6da-5211892a2699",
+        "6d71f4ad-29ab-4b50-8f65-22d99af294dd",
+        "2db25566-9a91-4145-84a5-46c90ed22bdf",
+        "851427a0-0c9a-4d7c-a9a8-5cc92f84af1f"
+      ],
+      "cura-generic-guid": []
+    }
+  ]
 }
