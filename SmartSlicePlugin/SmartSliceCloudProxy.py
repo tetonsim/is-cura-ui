@@ -6,7 +6,7 @@ import numpy
 from typing import Dict, List
 
 from PyQt5.QtCore import pyqtSignal, pyqtProperty, pyqtSlot
-from PyQt5.QtCore import QObject, QTime, QUrl, QAbstractListModel
+from PyQt5.QtCore import QObject, QUrl, QAbstractListModel
 
 from cura.Scene.CuraSceneNode import CuraSceneNode
 from cura.Scene.BuildPlateDecorator import BuildPlateDecorator
@@ -23,6 +23,7 @@ from UM.Settings.SettingInstance import SettingInstance
 from UM.Scene.SceneNode import SceneNode
 from UM.Operations.AddSceneNodeOperation import AddSceneNodeOperation
 from UM.Math.Matrix import Matrix
+from UM.Qt.Duration import Duration
 
 from .SmartSliceCloudStatus import SmartSliceCloudStatus
 from .SmartSliceProperty import SmartSlicePropertyColor
@@ -86,14 +87,14 @@ class SmartSliceCloudProxy(QObject):
         # Properties (mainly) for the sliceinfo widget
         self._resultSafetyFactor = 0.0 #copy.copy(self._targetFactorOfSafety)
         self._resultMaximalDisplacement = 0.0 #copy.copy(self._targetMaximalDisplacement)
-        self._resultTimeTotal = QTime(0, 0, 0, 1)
-        self._resultTimeInfill = QTime(0, 0, 0, 1)
-        self._resultTimeInnerWalls = QTime(0, 0, 0, 1)
-        self._resultTimeOuterWalls = QTime(0, 0, 0, 1)
-        self._resultTimeRetractions = QTime(0, 0, 0, 1)
-        self._resultTimeSkin = QTime(0, 0, 0, 1)
-        self._resultTimeSkirt = QTime(0, 0, 0, 1)
-        self._resultTimeTravel = QTime(0, 0, 0, 1)
+        self._resultTimeTotal = Duration()
+        self._resultTimeInfill = Duration()
+        self._resultTimeInnerWalls = Duration()
+        self._resultTimeOuterWalls = Duration()
+        self._resultTimeRetractions = Duration()
+        self._resultTimeSkin = Duration()
+        self._resultTimeSkirt = Duration()
+        self._resultTimeTravel = Duration()
         self._resultTimes = (
             self._resultTimeInfill,
             self._resultTimeInnerWalls,
@@ -388,97 +389,97 @@ class SmartSliceCloudProxy(QObject):
 
     resultTimeTotalChanged = pyqtSignal()
 
-    @pyqtProperty(QTime, notify=resultTimeTotalChanged)
+    @pyqtProperty(QObject, notify=resultTimeTotalChanged)
     def resultTimeTotal(self):
         return self._resultTimeTotal
 
     @resultTimeTotal.setter
-    def resultTimeTotal(self, value: QTime):
-        if self._resultTimeTotal is not value:
+    def resultTimeTotal(self, value):
+        if self._resultTimeTotal != value:
             self._resultTimeTotal = value
             self.resultTimeTotalChanged.emit()
 
     resultTimeInfillChanged = pyqtSignal()
 
-    @pyqtProperty(QTime, notify=resultTimeInfillChanged)
+    @pyqtProperty(QObject, notify=resultTimeInfillChanged)
     def resultTimeInfill(self):
         return self._resultTimeInfill
 
     @resultTimeInfill.setter
-    def resultTimeInfill(self, value: QTime):
-        if self._resultTimeInfill is not value:
+    def resultTimeInfill(self, value):
+        if self._resultTimeInfill != value:
             self._resultTimeInfill = value
             self.resultTimeInfillChanged.emit()
 
     resultTimeInnerWallsChanged = pyqtSignal()
 
-    @pyqtProperty(QTime, notify=resultTimeInnerWallsChanged)
+    @pyqtProperty(QObject, notify=resultTimeInnerWallsChanged)
     def resultTimeInnerWalls(self):
         return self._resultTimeInnerWalls
 
     @resultTimeInnerWalls.setter
-    def resultTimeInnerWalls(self, value: QTime):
-        if self._resultTimeInnerWalls is not value:
+    def resultTimeInnerWalls(self, value):
+        if self._resultTimeInnerWalls != value:
             self._resultTimeInnerWalls = value
             self.resultTimeInnerWallsChanged.emit()
 
     resultTimeOuterWallsChanged = pyqtSignal()
 
-    @pyqtProperty(QTime, notify=resultTimeOuterWallsChanged)
+    @pyqtProperty(QObject, notify=resultTimeOuterWallsChanged)
     def resultTimeOuterWalls(self):
         return self._resultTimeOuterWalls
 
     @resultTimeOuterWalls.setter
-    def resultTimeOuterWalls(self, value: QTime):
-        if self._resultTimeOuterWalls is not value:
+    def resultTimeOuterWalls(self, value):
+        if self._resultTimeOuterWalls !=value:
             self._resultTimeOuterWalls = value
             self.resultTimeOuterWallsChanged.emit()
 
     resultTimeRetractionsChanged = pyqtSignal()
 
-    @pyqtProperty(QTime, notify=resultTimeRetractionsChanged)
+    @pyqtProperty(QObject, notify=resultTimeRetractionsChanged)
     def resultTimeRetractions(self):
         return self._resultTimeRetractions
 
     @resultTimeRetractions.setter
-    def resultTimeRetractions(self, value: QTime):
-        if self._resultTimeRetractions is not value:
+    def resultTimeRetractions(self, value):
+        if self._resultTimeRetractions != value:
             self._resultTimeRetractions = value
             self.resultTimeRetractionsChanged.emit()
 
     resultTimeSkinChanged = pyqtSignal()
 
-    @pyqtProperty(QTime, notify=resultTimeSkinChanged)
+    @pyqtProperty(QObject, notify=resultTimeSkinChanged)
     def resultTimeSkin(self):
         return self._resultTimeSkin
 
     @resultTimeSkin.setter
-    def resultTimeSkin(self, value: QTime):
-        if self._resultTimeSkin is not value:
+    def resultTimeSkin(self, value):
+        if self._resultTimeSkin != value:
             self._resultTimeSkin = value
             self.resultTimeSkinChanged.emit()
 
     resultTimeSkirtChanged = pyqtSignal()
 
-    @pyqtProperty(QTime, notify=resultTimeSkirtChanged)
+    @pyqtProperty(QObject, notify=resultTimeSkirtChanged)
     def resultTimeSkirt(self):
         return self._resultTimeSkirt
 
     @resultTimeSkirt.setter
-    def resultTimeSkirt(self, value: QTime):
-        if self._resultTimeSkirt is not value:
+    def resultTimeSkirt(self, value):
+        if self._resultTimeSkirt != value:
             self._resultTimeSkirt = value
             self.resultTimeSkirtChanged.emit()
 
     resultTimeTravelChanged = pyqtSignal()
 
-    @pyqtProperty(QTime, notify=resultTimeTravelChanged)
+    @pyqtProperty(QObject, notify=resultTimeTravelChanged)
     def resultTimeTravel(self):
         return self._resultTimeTravel
 
     @resultTimeTravel.setter
-    def resultTimeTravel(self, value: QTime):
-        if self._resultTimeTravel is not value:
+    def resultTimeTravel(self, value):
+        if self._resultTimeTravel != value:
             self._resultTimeTravel = value
             self.resultTimeTravelChanged.emit()
 
@@ -572,21 +573,21 @@ class SmartSliceCloudProxy(QObject):
         #for result_time in self._resultTimes:
         #    total_time += result_time.msecsSinceStartOfDay()
 
-        total_time += self.resultTimeInfill.msecsSinceStartOfDay()
-        total_time += self.resultTimeInnerWalls.msecsSinceStartOfDay()
-        total_time += self.resultTimeOuterWalls.msecsSinceStartOfDay()
-        total_time += self.resultTimeRetractions.msecsSinceStartOfDay()
-        total_time += self.resultTimeSkin.msecsSinceStartOfDay()
-        total_time += self.resultTimeSkirt.msecsSinceStartOfDay()
-        total_time += self.resultTimeTravel.msecsSinceStartOfDay()
+        total_time += self.resultTimeInfill
+        total_time += self.resultTimeInnerWalls
+        total_time += self.resultTimeOuterWalls
+        total_time += self.resultTimeRetractions
+        total_time += self.resultTimeSkin
+        total_time += self.resultTimeSkirt
+        total_time += self.resultTimeTravel
 
-        self.percentageTimeInfill = 100.0 / total_time * self.resultTimeInfill.msecsSinceStartOfDay()
-        self.percentageTimeInnerWalls = 100.0 / total_time * self.resultTimeInnerWalls.msecsSinceStartOfDay()
-        self.percentageTimeOuterWalls = 100.0 / total_time * self.resultTimeOuterWalls.msecsSinceStartOfDay()
-        self.percentageTimeRetractions = 100.0 / total_time * self.resultTimeRetractions.msecsSinceStartOfDay()
-        self.percentageTimeSkin = 100.0 / total_time * self.resultTimeSkin.msecsSinceStartOfDay()
-        self.percentageTimeSkirt = 100.0 / total_time * self.resultTimeSkirt.msecsSinceStartOfDay()
-        self.percentageTimeTravel = 100.0 / total_time * self.resultTimeTravel.msecsSinceStartOfDay()
+        self.percentageTimeInfill = 100.0 / total_time * self.resultTimeInfill
+        self.percentageTimeInnerWalls = 100.0 / total_time * self.resultTimeInnerWalls
+        self.percentageTimeOuterWalls = 100.0 / total_time * self.resultTimeOuterWalls
+        self.percentageTimeRetractions = 100.0 / total_time * self.resultTimeRetractions
+        self.percentageTimeSkin = 100.0 / total_time * self.resultTimeSkin
+        self.percentageTimeSkirt = 100.0 / total_time * self.resultTimeSkirt
+        self.percentageTimeTravel = 100.0 / total_time * self.resultTimeTravel
 
     materialNameChanged = pyqtSignal()
 
@@ -705,9 +706,9 @@ class SmartSliceCloudProxy(QObject):
 
         self.resultSafetyFactor = result[ResultsTableHeader.Strength.value]
         self.resultMaximalDisplacement = result[ResultsTableHeader.Displacement.value]
-        self.resultTimeTotal = result[ResultsTableHeader.Time.value]
+        self.resultTimeTotal = Duration(result[ResultsTableHeader.Time.value])
 
-        # TODO: Reactivate the block as soon as we have the single print times again!
+        # TODO: Modify the block as soon as we have the single print times again!
         #self.resultTimeInfill = QTime(1, 0, 0, 0)
         #self.resultTimeInnerWalls = QTime(0, 20, 0, 0)
         #self.resultTimeOuterWalls = QTime(0, 15, 0, 0)

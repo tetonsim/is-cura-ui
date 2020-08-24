@@ -141,7 +141,8 @@ Item {
                         id: estimatedTime
                         width: parent.width
 
-                        text: Qt.formatTime(smartSliceMain.proxy.resultTimeTotal, "h") + " hours " + Qt.formatTime(smartSliceMain.proxy.resultTimeTotal, "m") + " minutes"
+                        text: smartSliceMain.proxy.resultTimeTotal.getDisplayString(UM.DurationFormat.Long)
+
                         source: UM.Theme.getIcon("clock")
                         font: UM.Theme.getFont("medium_bold")
 
@@ -529,7 +530,7 @@ Item {
                                                 renderType: Text.NativeRendering
                                                 textFormat: Text.RichText
 
-                                                text: Qt.formatTime(smartSliceMain.proxy.resultTimeTotal, "hh:mm")
+                                                text: smartSliceMain.proxy.resultTimeTotal.getDisplayString(UM.DurationFormat.ISO8601).slice(0,-3)
                                             }
                                             /*
                                             Label {
@@ -537,49 +538,49 @@ Item {
                                                 font: smartSlicePopupContents.value_font
                                                 color: smartSlicePopupContents.value_color
 
-                                                text: Qt.formatTime(smartSliceMain.proxy.resultTimeInfill, "hh:mm")
+                                                text: smartSliceMain.proxy.resultTimeInfill.getDisplayString(UM.DurationFormat.ISO8601).slice(0,-3)
                                             }
                                             Label {
                                                 Layout.alignment: Qt.AlignRight
                                                 font: smartSlicePopupContents.value_font
                                                 color: smartSlicePopupContents.value_color
 
-                                                text: Qt.formatTime(smartSliceMain.proxy.resultTimeInnerWalls, "hh:mm")
+                                                text: smartSliceMain.proxy.resultTimeInnerWalls.getDisplayString(UM.DurationFormat.ISO8601).slice(0,-3)
                                             }
                                             Label {
                                                 Layout.alignment: Qt.AlignRight
                                                 font: smartSlicePopupContents.value_font
                                                 color: smartSlicePopupContents.value_color
 
-                                                text: Qt.formatTime(smartSliceMain.proxy.resultTimeOuterWalls, "hh:mm")
+                                                text: smartSliceMain.proxy.resultTimeOuterWalls.getDisplayString(UM.DurationFormat.ISO8601).slice(0,-3)
                                             }
                                             Label {
                                                 Layout.alignment: Qt.AlignRight
                                                 font: smartSlicePopupContents.value_font
                                                 color: smartSlicePopupContents.value_color
 
-                                                text: Qt.formatTime(smartSliceMain.proxy.resultTimeRetractions, "hh:mm")
+                                                text: smartSliceMain.proxy.resultTimeRetractions.getDisplayString(UM.DurationFormat.ISO8601).slice(0,-3)
                                             }
                                             Label {
                                                 Layout.alignment: Qt.AlignRight
                                                 font: smartSlicePopupContents.value_font
                                                 color: smartSlicePopupContents.value_color
 
-                                                text: Qt.formatTime(smartSliceMain.proxy.resultTimeSkin, "hh:mm")
+                                                text: smartSliceMain.proxy.resultTimeSkin.getDisplayString(UM.DurationFormat.ISO8601).slice(0,-3)
                                             }
                                             Label {
                                                 Layout.alignment: Qt.AlignRight
                                                 font: smartSlicePopupContents.value_font
                                                 color: smartSlicePopupContents.value_color
 
-                                                text: Qt.formatTime(smartSliceMain.proxy.resultTimeSkirt, "hh:mm")
+                                                text: smartSliceMain.proxy.resultTimeSkirt.getDisplayString(UM.DurationFormat.ISO8601).slice(0,-3)
                                             }
                                             Label {
                                                 Layout.alignment: Qt.AlignRight
                                                 font: smartSlicePopupContents.value_font
-                                                color: smartSlicePopupContents.value_color
+                                                color: smartSlicePopupContents.value_color.getDisplayString(UM.DurationFormat.ISO8601).slice(0,-3)
 
-                                                text: Qt.formatTime(smartSliceMain.proxy.resultTimeTravel, "hh:mm")
+                                                smartSliceMain.proxy.resultTimeTravel
                                             }
                                             */
                                         }

@@ -7,13 +7,13 @@ from datetime import time
 
 from PyQt5.QtCore import QAbstractListModel, QObject, QModelIndex
 from PyQt5.QtCore import pyqtProperty, pyqtSignal, pyqtSlot
-from PyQt5.QtCore import QTime
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QApplication
 
 from UM.Logger import Logger
 from UM.Signal import Signal
 from UM.Application import Application
+from UM.Qt.Duration import Duration
 
 import pywim
 
@@ -140,8 +140,7 @@ class ResultTableData(QAbstractListModel):
                 value = self._resultsDict[index.row()][role]
 
                 if role == ResultsTableHeader.Time.value:
-                    pytime = value.toPyTime()
-                    return "{}h {}m".format(pytime.hour, pytime.minute)
+                    return Duration(value).getDisplayString()
 
                 elif role == ResultsTableHeader.Mass.value:
                     return "{}g".format(round(value, 0))
@@ -213,11 +212,10 @@ class ResultTableData(QAbstractListModel):
     @classmethod
     def analysisToResultDict(self, rank, result: pywim.smartslice.result.Analysis):
         material_data = self.calculateAdditionalMaterialInfo(result)
-        qprint_time = QTime(0, 0, 0, 0)
 
         return {
             ResultsTableHeader.Rank.value: rank,
-            ResultsTableHeader.Time.value: qprint_time.addSecs(result.print_time),
+            ResultsTableHeader.Time.value: result.print_time,
             ResultsTableHeader.Strength.value: result.structural.min_safety_factor,
             ResultsTableHeader.Displacement.value: result.structural.max_displacement,
             ResultsTableHeader.Length.value: material_data[0][0],
