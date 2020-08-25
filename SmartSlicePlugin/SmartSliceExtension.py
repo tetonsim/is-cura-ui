@@ -122,10 +122,17 @@ class SmartSliceExtension(Extension):
             self._exitManager.onCurrentCallbackFinished(should_proceed=True)
             return
 
-        # The user hasn't saved results - prompt them to save
+        # The user hasn't saved results - switch to the Smart Slice stage and prompt them to save
         else:
+            controller = Application.getInstance().getController()
+            active_stage = controller.getActiveStage()
+
+            if not active_stage or active_stage.getPluginId() != self.metadata.id:
+                controller.setActiveStage(self.metadata.id)
+
             if not self._save_prompt:
                 self._save_prompt = self._createQmlDialog("SmartSliceSavePrompt.qml")
+
             self._save_prompt.show()
 
     def onCloseSavePromptClicked(self):

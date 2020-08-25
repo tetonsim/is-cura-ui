@@ -181,6 +181,12 @@ class SmartSlicePropertyHandler(QObject):
 
         self._root.cache()
 
+    def getProperty(self, key, property_name, context = None):
+        for p in self._properties:
+            if p.name == key:
+                return p.value()
+        return None
+
     def getGlobalProperty(self, key):
         for p in self._global_properties:
             if p.name == key:

@@ -18,6 +18,7 @@ from UM.PluginRegistry import PluginRegistry
 from UM.Application import Application
 from UM.Logger import Logger
 from UM.Message import Message
+from UM.Settings.SettingFunction import SettingFunction
 from UM.Signal import Signal
 
 from cura.Settings.ExtruderManager import ExtruderManager
@@ -164,7 +165,7 @@ class SmartSliceJobHandler:
         # > https://github.com/Ultimaker/CuraEngine/blob/master/src/FffGcodeWriter.cpp#L402
         skin_angles = self._propertyHandler.getExtruderProperty("skin_angles")
         if type(skin_angles) is str:
-            skin_angles = eval(skin_angles)
+            skin_angles = SettingFunction(skin_angles)(self._propertyHandler)
         if len(skin_angles) > 0:
             print_config.skin_orientations.extend(tuple(skin_angles))
         else:
@@ -180,8 +181,8 @@ class SmartSliceJobHandler:
         # > https://github.com/Ultimaker/CuraEngine/blob/master/src/FffGcodeWriter.cpp#L366
         infill_angles = self._propertyHandler.getExtruderProperty("infill_angles")
         if type(infill_angles) is str:
-            infill_angles = eval(infill_angles)
-        if not len(infill_angles):
+            infill_angles = SettingFunction(infill_angles)(self._propertyHandler)
+        if len(infill_angles) == 0:
             print_config.infill.orientation = self.INFILL_DIRECTION
         else:
             if len(infill_angles) > 1:
@@ -438,8 +439,8 @@ class SmartSliceJobHandler:
         for key, value in settings.items():
             if key == "infill_angles":
                 if type(value) is str:
-                    value = eval(value)
-                if len(value) is 0:
+                    value = SettingFunction(value)(self._propertyHandler)
+                if len(value) == 0:
                     settings[key] = [self.INFILL_DIRECTION]
                 else:
                     settings[key] = [value[0]]
