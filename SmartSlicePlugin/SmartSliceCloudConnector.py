@@ -254,7 +254,7 @@ class SmartSliceAPIClient(QObject):
     #   the login is unsuccessful, the email will not persist.
     def _usernamePreferenceExists(self):
         username = self._app_preferences.getValue(self._username_preference)
-        if username is not None and username != "":
+        if username is not None and username != "" and self._login_username == "":
             self._login_username = username
         else:
             self._app_preferences.addPreference(self._username_preference, "")

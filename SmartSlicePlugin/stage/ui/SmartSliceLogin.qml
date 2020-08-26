@@ -252,7 +252,7 @@ MouseArea {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: Qt.openUrlExternally(smartSliceMain.api.smartSliceUrl + '/static/account.html#forgot-password')
+                                onClicked: Qt.openUrlExternally('https://www.tetonsim.com/forgot-password')
                             }
                         }
 
@@ -270,7 +270,7 @@ MouseArea {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: Qt.openUrlExternally(smartSliceMain.api.smartSliceUrl + '/static/account.html')
+                                onClicked: Qt.openUrlExternally('https://www.tetonsim.com/trial-registration')
                             }
                         }
                     }

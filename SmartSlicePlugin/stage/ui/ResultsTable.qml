@@ -13,7 +13,7 @@ Item {
 
     property int implicitHeight: 200
 
-    width: 400
+    width: 0.6 * smartSliceMain.width
     height: tableArea.height + draggableArea.height + topDragArea.height
 
     property int centerX: 0.5 * (parent.width - width)
@@ -281,10 +281,11 @@ Item {
                     height: UM.Theme.getSize("default_arrow").height + 2 * UM.Theme.getSize("default_margin").height
 
                     background: Rectangle {
+                        anchors.fill: parent
                         color: UM.Theme.getColor("main_window_header_background")
                     }
 
-                    text: styleData.value
+                    text: ""
                     readOnly: true
                     renderType: Text.NativeRendering
                     font: UM.Theme.getFont("medium_bold")
@@ -331,7 +332,7 @@ Item {
 
                                 width: UM.Theme.getSize("default_arrow").width
                                 height: UM.Theme.getSize("default_arrow").height
-                                visible: tableArea.sortOrder == Qt.DescendingOrder
+                                visible: styleData.column < tableArea.columnCount - 1 && styleData.column == tableArea.sortColumn && tableArea.sortOrder == Qt.DescendingOrder
                             }
 
                             UM.RecolorImage {
@@ -349,14 +350,14 @@ Item {
 
                                 width: UM.Theme.getSize("default_arrow").width
                                 height: UM.Theme.getSize("default_arrow").height
-                                visible: tableArea.sortOrder == Qt.AscendingOrder
+                                visible: tableArea.sortOrder == styleData.column < tableArea.columnCount - 1 && styleData.column == tableArea.sortColumn && Qt.AscendingOrder
                             }
                         }
 
                         Text {
                             text: styleData.value
                             renderType: Text.NativeRendering
-                            font: UM.Theme.getFont("medium_bold")
+                            font: UM.Theme.getFont("default_bold")
                             color: UM.Theme.getColor("main_background")
                             horizontalAlignment: TextInput.AlignLeft
                             verticalAlignment: TextInput.AlignVCenter
