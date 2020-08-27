@@ -1,8 +1,9 @@
-from typing import Dict
+from typing import Dict, Tuple, Callable
 
 import os
 import uuid
 import json
+import time
 import tempfile
 import datetime
 from enum import Enum
@@ -219,6 +220,7 @@ class JobStatusTracker:
 
     def __call__(self, job: pywim.http.thor.JobInfo) -> bool:
         Logger.log("d", "Current job status: {}".format(job.status))
+        self.connector.api_connection.clearErrorMessage()
         self.connector._proxy.jobProgress = job.progress
         if job.status == pywim.http.thor.JobInfo.Status.queued and self.connector.status is not SmartSliceCloudStatus.Queued:
             self.connector.status = SmartSliceCloudStatus.Queued
@@ -232,6 +234,10 @@ class JobStatusTracker:
 # This class defines and contains our API connection. API errors, login and token
 #   checking is all handled here.
 class SmartSliceAPIClient(QObject):
+    class ConnectionErrorCodes(Enum):
+        genericInternetConnectionError = 1
+        loginCredentialsError = 2
+
     def __init__(self, connector):
         super().__init__()
         self._client = None
@@ -239,6 +245,10 @@ class SmartSliceAPIClient(QObject):
         self.extension = connector.extension
         self._token_file_path = ""
         self._token = None
+        self._error_message = None
+
+        self._number_of_timeouts = 20
+        self._timeout_sleep = 3
 
         self._username_preference = "smartslice/username"
         self._app_preferences = Application.getInstance().getPreferences()
@@ -304,6 +314,47 @@ class SmartSliceAPIClient(QObject):
 
         Logger.log("d", "SmartSlice HTTP Client: {}".format(self._client.address))
 
+    def _connectionCheck(self):
+        try:
+            self._client.info()
+        except Exception as error:
+            Logger.log("e", "An error has occured checking the internet connection: {}".format(error))
+            return (self.ConnectionErrorCodes.genericInternetConnectionError)
+
+        return None
+
+    # API calls need to be executed through this function using a lambda passed in, as well as a failure code.
+    #  This prevents a fatal crash of Cura in some circumstances, as well as allows for a timeout/retry system.
+    #  The failure codes give us better control over the messages that come from an internet disconnect issue.
+    def executeApiCall(self, endpoint: Callable[[], Tuple[int, object]], failure_code):
+        api_code = self._connectionCheck()
+        timeout_counter = 0
+        self.clearErrorMessage()
+
+        if api_code is not None:
+            return api_code, None
+
+        while api_code is None and timeout_counter < self._number_of_timeouts:
+            try:
+                api_code, api_result = endpoint()
+            except Exception as error:
+                # If this error occurs, there was a connection issue
+                Logger.log("e", "An error has occured with an API call: {}".format(error))
+                timeout_counter += 1
+                time.sleep(self._timeout_sleep)
+
+            if timeout_counter == self._number_of_timeouts:
+                return failure_code, None
+
+        self.clearErrorMessage()
+
+        return api_code, api_result
+
+    def clearErrorMessage(self):
+        if self._error_message is not None:
+            self._error_message.hide()
+            self._error_message = None
+
     # Login is fairly simple, the email and password is pulled from the Login popup that is displayed
     #   on the Cura stage, and then sent to the API.
     def _login(self):
@@ -314,15 +365,14 @@ class SmartSliceAPIClient(QObject):
             self.loggedInChanged.emit()
 
         if password != "":
-            try:
-                apiCode, userAuth = self._client.basic_auth_login(username, password)
-            except:
-                # If this error occurs, the API was not sure how to handle what happened.
-                apiCode, userAuth = 501, None
+            api_code, user_auth = self.executeApiCall(
+                lambda: self._client.basic_auth_login(username, password),
+                self.ConnectionErrorCodes.loginCredentialsError
+            )
 
-            if apiCode != 200:
+            if api_code != 200:
                 # If we get bad login credentials, this will set the flag that alerts the user on the popup
-                if apiCode == 400:
+                if api_code == 400:
                     Logger.log("d", "API Code 400")
                     self.badCredentials = True
                     self._login_password = ""
@@ -330,10 +380,11 @@ class SmartSliceAPIClient(QObject):
                     self._token = None
 
                 else:
-                    self._handleThorErrors(apiCode, userAuth)
+                    self._handleThorErrors(api_code, user_auth)
 
             # If all goes well, we will be able to store the login token for the user
             else:
+                self.clearErrorMessage()
                 self.badCredentials = False
                 self._login_password = ""
                 self._app_preferences.setValue(self._username_preference, username)
@@ -368,8 +419,12 @@ class SmartSliceAPIClient(QObject):
     # Once we have pulled the token, we want to check with the API to make sure the token is valid.
     def _checkToken(self):
         self._client.set_token(self._token)
-        apiCode, apiResult = self._client.whoami()
-        if apiCode != 200:
+        api_code, api_result = self.executeApiCall(
+            lambda: self._client.whoami(),
+            self.ConnectionErrorCodes.loginCredentialsError
+        )
+
+        if api_code != 200:
             self._token = None
             self._createTokenFile()
 
@@ -379,21 +434,33 @@ class SmartSliceAPIClient(QObject):
             json.dump(self._token, token_file)
 
     def getSubscription(self):
-        apiCode, apiResult = self._client.smartslice_subscription()
+        api_code, api_result = self.executeApiCall(
+            lambda: self._client.smartslice_subscription(),
+            self.ConnectionErrorCodes.genericInternetConnectionError
+        )
 
-        if apiCode != 200:
-            self._handleThorErrors(apiCode, apiResult)
+        if api_code != 200:
+            self._handleThorErrors(api_code, api_result)
             return None
 
-        return apiResult
+        return api_result
 
     def cancelJob(self, job_id):
-        self._client.smartslice_job_abort(job_id)
+        api_code, api_result = self.executeApiCall(
+            lambda: self._client.smartslice_job_abort(job_id),
+            self.ConnectionErrorCodes.genericInternetConnectionError
+        )
+
+        if api_code != 200:
+            self._handleThorErrors(api_code, api_result)
 
     # If the user is correctly logged in, and has a valid token, we can use the 3mf data from
     #    the plugin to submit a job to the API, and the results will be handled when they are returned.
     def submitSmartSliceJob(self, cloud_job, threemf_data):
-        thor_status_code, task = self._client.new_smartslice_job(threemf_data)
+        thor_status_code, task = self.executeApiCall(
+            lambda: self._client.new_smartslice_job(threemf_data),
+            self.ConnectionErrorCodes.genericInternetConnectionError
+        )
 
         job_status_tracker = JobStatusTracker(self.connector, self.connector.status)
 
@@ -408,17 +475,29 @@ class SmartSliceAPIClient(QObject):
 
         # While the task status is not finished/failed/crashed/aborted continue to
         # wait on the status using the API.
-        while not cloud_job.canceled and task.status not in (pywim.http.thor.JobInfo.Status.failed,
-                                                        pywim.http.thor.JobInfo.Status.crashed,
-                                                        pywim.http.thor.JobInfo.Status.aborted,
-                                                        pywim.http.thor.JobInfo.Status.finished
-                                                        ):
+        thor_status_code = None
+        while thor_status_code != 1 and not cloud_job.canceled and task.status not in (
+            pywim.http.thor.JobInfo.Status.failed,
+            pywim.http.thor.JobInfo.Status.crashed,
+            pywim.http.thor.JobInfo.Status.aborted,
+            pywim.http.thor.JobInfo.Status.finished
+        ):
 
             self.job_status = task.status
             cloud_job.api_job_id = task.id
-            thor_status_code, task = self._client.smartslice_job_wait(task.id, callback=job_status_tracker)
 
-            if thor_status_code != 200:
+            thor_status_code, task = self.executeApiCall(
+                lambda: self._client.smartslice_job_wait(task.id, callback=job_status_tracker),
+                self.ConnectionErrorCodes.genericInternetConnectionError
+            )
+
+            if thor_status_code == 200:
+                thor_status_code, task = self.executeApiCall(
+                    lambda: self._client.smartslice_job_wait(task.id, callback=job_status_tracker),
+                    self.ConnectionErrorCodes.genericInternetConnectionError
+                )
+
+            if thor_status_code not in (200, None):
                 self._handleThorErrors(thor_status_code, task)
                 self.connector.cancelCurrentJob()
 
@@ -468,30 +547,38 @@ class SmartSliceAPIClient(QObject):
     # When something goes wrong with the API, the errors are sent here. The http_error_code is an int that indicates
     #   the problem that has occurred. The returned object may hold additional information about the error, or it may be None.
     def _handleThorErrors(self, http_error_code, returned_object):
-        error_message = Message()
-        error_message.setTitle("Smart Slice API")
+        if self._error_message is not None:
+            self._error_message.hide()
+
+        self._error_message = Message(lifetime= 180)
+        self._error_message.setTitle("Smart Slice API")
+
         if http_error_code == 400:
             if returned_object.error.startswith('User\'s maximum job queue count reached'):
-                print(error_message.getActions())
-                error_message.setTitle("")
-                error_message.setText("You have exceeded the maximum allowable "
+                print(self._error_message.getActions())
+                self._error_message.setTitle("")
+                self._error_message.setText("You have exceeded the maximum allowable "
                                       "number of queued\n jobs. Please cancel a "
                                       "queued job or wait for your queue to clear.")
-                error_message.addAction(
+                self._error_message.addAction(
                     "continue",
                     i18n_catalog.i18nc("@action", "Ok"),
                     "", ""
                 )
-                error_message.actionTriggered.connect(self.errorMessageAction)
+                self._error_message.actionTriggered.connect(self.errorMessageAction)
             else:
-                error_message.setText(i18n_catalog.i18nc("@info:status", "SmartSlice Server Error (400: Bad Request):\n{}".format(returned_object.error)))
+                self._error_message.setText(i18n_catalog.i18nc("@info:status", "SmartSlice Server Error (400: Bad Request):\n{}".format(returned_object.error)))
         elif http_error_code == 401:
-            error_message.setText(i18n_catalog.i18nc("@info:status", "SmartSlice Server Error (401: Unauthorized):\nAre you logged in?"))
+            self._error_message.setText(i18n_catalog.i18nc("@info:status", "SmartSlice Server Error (401: Unauthorized):\nAre you logged in?"))
         elif http_error_code == 429:
-            error_message.setText(i18n_catalog.i18nc("@info:status", "SmartSlice Server Error (429: Too Many Attempts):\nToo many login attempts, please wait and try again."))
+            self._error_message.setText(i18n_catalog.i18nc("@info:status", "SmartSlice Server Error (429: Too Many Attempts)"))
+        elif http_error_code == self.ConnectionErrorCodes.genericInternetConnectionError:
+            self._error_message.setText(i18n_catalog.i18nc("@info:status", "Internet connection issue:\nPlease check your connection and try again."))
+        elif http_error_code == self.ConnectionErrorCodes.loginCredentialsError:
+            self._error_message.setText(i18n_catalog.i18nc("@info:status", "Internet connection issue:\nCould not verify your login credentials."))
         else:
-            error_message.setText(i18n_catalog.i18nc("@info:status", "SmartSlice Server Error (HTTP Error: {})".format(http_error_code)))
-        error_message.show()
+            self._error_message.setText(i18n_catalog.i18nc("@info:status", "SmartSlice Server Error (HTTP Error: {})".format(http_error_code)))
+        self._error_message.show()
 
     @staticmethod
     def errorMessageAction(msg, action):
@@ -1022,7 +1109,7 @@ class SmartSliceCloudConnector(QObject):
                 elif self.status is SmartSliceCloudStatus.Optimized:
                     Application.getInstance().getController().setActiveStage("PreviewStage")
             else:
-                self._subscriptionMessages(self.noSubscription)
+                self._subscriptionMessages(self.SubscriptionTypes.noSubscription)
 
     '''
       Secondary Button Actions:
