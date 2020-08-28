@@ -632,8 +632,6 @@ class SmartSliceCloudConnector(QObject):
     class SubscriptionTypes(Enum):
         subscriptionExpired = 0
         trialExpired = 1
-        outOfUses = 2
-        noSubscription = 3
 
     def __init__(self, proxy: SmartSliceCloudProxy, extension):
         super().__init__()
@@ -973,7 +971,7 @@ class SmartSliceCloudConnector(QObject):
                              "<p style = 'margin-left:50px;'> <i> Maximum Displacement: "
                              "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; %.2f </i> </p>" %
                              (results["min_safety_factor"], results["max_displacement"]),
-                        lifetime=1000,
+                        lifetime=0,
                         dismissable=True
                     ).show()
 
@@ -1020,64 +1018,36 @@ class SmartSliceCloudConnector(QObject):
             self.addJob(pywim.smartslice.job.JobType.optimization)
             self._jobs[self._current_job].start()
 
-    def _checkSubscription(self, subscription, product):
-        if subscription.status in (pywim.http.thor.Subscription.Status.active, pywim.http.thor.Subscription.Status.trial):
-            for prod in subscription.products:
-                if prod.name == product:
-                    if prod.usage_type == pywim.http.thor.Product.UsageType.unlimited:
-                        return -1
-                    elif prod.used < prod.total:
-                        return prod.total - prod.used
-                    else:
-                        self._subscriptionMessages(self.SubscriptionTypes.outOfUses, prod)
-
-        elif subscription.status == pywim.http.thor.Subscription.Status.inactive:
+    def _checkSubscription(self, subscription):
+        if subscription.status == pywim.http.thor.Subscription.Status.inactive:
             if subscription.trial_end > datetime.datetime(1900, 1, 1):
                 self._subscriptionMessages(self.SubscriptionTypes.trialExpired)
+                return False
             else:
                 self._subscriptionMessages(self.SubscriptionTypes.subscriptionExpired)
+                return False
 
-        else:
-            self._subscriptionMessages(self.SubscriptionTypes.noSubscription)
-
-        return 0
+        return True
 
     def _subscriptionMessages(self, messageCode, prod=None):
         notification_message = Message(lifetime=0)
 
-        if messageCode == self.SubscriptionTypes.outOfUses:
+        if messageCode == self.SubscriptionTypes.trialExpired:
             notification_message.setText(
-                i18n_catalog.i18nc("@info:status", "You are out of {}s! Please purchase more to continue.".format(prod.name))
+                i18n_catalog.i18nc("@info:status", "Your free trial has expired! Please subscribe to submit jobs.")
             )
-            notification_message.addAction(
-                action_id="more_products_link",
-                name="<b>Purchase {}s</b>".format(prod.name),
-                icon="",
-                description="Click here to get more {}s!".format(prod.name),
-                button_style=Message.ActionButtonStyle.LINK
+        elif messageCode == self.SubscriptionTypes.subscriptionExpired:
+            notification_message.setText(
+                i18n_catalog.i18nc("@info:status", "Your subscription has expired! Please renew your subscription to submit jobs.")
             )
 
-        else:
-            if messageCode == self.SubscriptionTypes.trialExpired:
-                notification_message.setText(
-                    i18n_catalog.i18nc("@info:status", "Your free trial has expired! Please subscribe to submit jobs.")
-                )
-            elif messageCode == self.SubscriptionTypes.subscriptionExpired:
-                notification_message.setText(
-                    i18n_catalog.i18nc("@info:status", "Your subscription has expired! Please renew your subscription to submit jobs.")
-                )
-            elif messageCode == self.SubscriptionTypes.noSubscription:
-                notification_message.setText(
-                    i18n_catalog.i18nc("@info:status", "You do not have a subscription! Please subscribe to submit jobs.")
-                )
-
-            notification_message.addAction(
-                action_id="subscribe_link",
-                name="<h3><b>Manage Subscription</b></h3>",
-                icon="",
-                description="Click here to subscribe!",
-                button_style=Message.ActionButtonStyle.LINK
-            )
+        notification_message.addAction(
+            action_id="subscribe_link",
+            name="<h3><b>Manage Subscription</b></h3>",
+            icon="",
+            description="Click here to subscribe!",
+            button_style=Message.ActionButtonStyle.LINK
+        )
 
         notification_message.actionTriggered.connect(self._openSubscriptionPage)
         notification_message.show()
@@ -1101,15 +1071,13 @@ class SmartSliceCloudConnector(QObject):
             self._subscription = self.api_connection.getSubscription()
             if self._subscription is not None:
                 if self.status is SmartSliceCloudStatus.ReadyToVerify:
-                    if self._checkSubscription(self._subscription, "validation") != 0:
+                    if self._checkSubscription(self._subscription):
                         self.doVerification()
                 elif self.status in SmartSliceCloudStatus.optimizable():
-                    if self._checkSubscription(self._subscription, "optimization") != 0:
+                    if self._checkSubscription(self._subscription):
                         self.doOptimization()
                 elif self.status is SmartSliceCloudStatus.Optimized:
                     Application.getInstance().getController().setActiveStage("PreviewStage")
-            else:
-                self._subscriptionMessages(self.SubscriptionTypes.noSubscription)
 
     '''
       Secondary Button Actions:
