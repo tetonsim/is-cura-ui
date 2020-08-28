@@ -10,13 +10,11 @@ from cura.CuraApplication import CuraApplication
 from ..utils import findChildSceneNode, getPrintableNodes
 from ..stage import SmartSliceScene
 
-
 class BoundaryConditionListModel(QAbstractListModel):
     Anchor = 0
     Force = 1
 
-    loadDirectionChanged = pyqtSignal(SmartSliceScene.LoadFace)
-    loadMagnitudeChanged = pyqtSignal(SmartSliceScene.LoadFace)
+    propertyChanged = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -30,9 +28,17 @@ class BoundaryConditionListModel(QAbstractListModel):
         self._smart_slice_scene_node = None
         self._active_node = None
 
+        SmartSliceScene.Force.loadChanged.connect(self._propertyChanged)
+        SmartSliceScene.HighlightFace.surfaceTypeChanged.connect(self._propertyChanged)
+
+    @property
+    def bcs(self):
+        return self._bcs
+
     def _setup(self):
         # scene = CuraApplication.getInstance().getController().getScene().getRoot()
         selected_node = Selection.getSelectedObject(0)
+        Selection.setFaceSelectMode(True)
 
         if not selected_node:
             Logger.warning("No node selected for creating boundary conditions")
@@ -89,7 +95,7 @@ class BoundaryConditionListModel(QAbstractListModel):
         self._bc_type = value
         self._setup()
 
-    @pyqtProperty(bool, notify=loadDirectionChanged)
+    @pyqtProperty(bool, notify=propertyChanged)
     def loadDirection(self) -> bool:
         if isinstance(self._active_node, SmartSliceScene.LoadFace):
             return self._active_node.force.pull
@@ -97,11 +103,12 @@ class BoundaryConditionListModel(QAbstractListModel):
 
     @loadDirection.setter
     def loadDirection(self, value: bool):
-        if isinstance(self._active_node, SmartSliceScene.LoadFace):
-            self._active_node.setArrowDirection(value)
-            self._smart_slice_scene_node.magnitudeChanged()
+        if isinstance(self._active_node, SmartSliceScene.LoadFace) and self._active_node.force.pull != value:
+            self._active_node.force.pull = value
+            self._active_node.flipArrow()
+            self._active_node.facePropertyChanged.emit(self._active_node)
 
-    @pyqtProperty(float, notify=loadMagnitudeChanged)
+    @pyqtProperty(float, notify=propertyChanged)
     def loadMagnitude(self) -> float:
         if isinstance(self._active_node, SmartSliceScene.LoadFace):
             return self._active_node.force.magnitude
@@ -109,9 +116,42 @@ class BoundaryConditionListModel(QAbstractListModel):
 
     @loadMagnitude.setter
     def loadMagnitude(self, value: float):
-        if isinstance(self._active_node, SmartSliceScene.LoadFace):
+        if isinstance(self._active_node, SmartSliceScene.LoadFace) and self._active_node.force.magnitude != value:
             self._active_node.force.magnitude = value
-            self._smart_slice_scene_node.magnitudeChanged()
+            self._active_node.facePropertyChanged.emit(self._active_node)
+
+    @pyqtProperty(int, notify=propertyChanged)
+    def loadType(self) -> int:
+        if isinstance(self._active_node, SmartSliceScene.LoadFace):
+                return self._active_node.force.direction_type.value
+        return SmartSliceScene.Force.DirectionType.Normal.value
+
+    @loadType.setter
+    def loadType(self, value: int):
+        if isinstance(self._active_node, SmartSliceScene.LoadFace) and self._active_node.force.direction_type.value != value:
+            self._active_node.force.direction_type = SmartSliceScene.Force.DirectionType(value)
+            self._active_node.setMeshDataFromPywimTriangles(self._active_node.face, self._active_node.axis)
+            self._active_node.facePropertyChanged.emit(self._active_node)
+
+    @pyqtProperty(int, notify=propertyChanged)
+    def surfaceType(self) -> int:
+        if self._active_node:
+            return self._active_node.surface_type.value
+        return SmartSliceScene.HighlightFace.SurfaceType.Flat.value
+
+    @surfaceType.setter
+    def surfaceType(self, value: int):
+        if self._active_node.surface_type.value != value:
+            self._active_node.surface_type = SmartSliceScene.HighlightFace.SurfaceType(value)
+            # self._active_node.facePropertyChanged.emit() # This will get emitted by connections to Selection.selectedFaceChange
+            if self._active_node.selection:
+                node = self._active_node.selection[0] if self._active_node.selection[0] else Selection.getSelectedObject(0)
+                if node:
+                    Selection.setFace(node, self._active_node.selection[1])
+                else:
+                    Selection.clearFace()
+            else:
+                Selection.clearFace()
 
     @pyqtSlot(QObject, result=int)
     def rowCount(self, parent=None) -> int:
@@ -125,6 +165,7 @@ class BoundaryConditionListModel(QAbstractListModel):
 
     @pyqtSlot(int)
     def activate(self, index=0):
+
         for n in self._bcs:
             n.setVisible(False)
 
@@ -134,7 +175,7 @@ class BoundaryConditionListModel(QAbstractListModel):
             self.select(0)
 
         if isinstance(self._active_node, SmartSliceScene.LoadFace):
-            self.loadMagnitudeChanged.emit(self._active_node)
+            self.propertyChanged.emit()
 
         active_tool = CuraApplication.getInstance().getController().getActiveTool()
 
@@ -151,6 +192,10 @@ class BoundaryConditionListModel(QAbstractListModel):
 
     @pyqtSlot()
     def add(self):
+        Selection.clearFace()
+        if not Selection.getFaceSelectMode():
+            Selection.setFaceSelectMode(True)
+
         if len(self._bcs) == 0:
             N = 1
         else:
@@ -158,9 +203,12 @@ class BoundaryConditionListModel(QAbstractListModel):
 
         if self._bc_type == BoundaryConditionListModel.Anchor:
             bc = SmartSliceScene.AnchorFace('Anchor ' + str(N))
+            bc.surface_type = SmartSliceScene.HighlightFace.SurfaceType.Flat
         else:
             bc = SmartSliceScene.LoadFace('Load ' + str(N))
             bc.force.magnitude = 10.0
+            bc.force.direction_type = SmartSliceScene.Force.DirectionType.Normal
+            bc.surface_type = SmartSliceScene.HighlightFace.SurfaceType.Flat
 
         self._smart_slice_scene_node.addFace(bc)
 
@@ -184,3 +232,13 @@ class BoundaryConditionListModel(QAbstractListModel):
             CuraApplication.getInstance().getController().getScene().sceneChanged.emit(
                 self._smart_slice_scene_node
             )
+
+    def _propertyChanged(self):
+        if self._active_node:
+            if isinstance(self._active_node, SmartSliceScene.LoadFace):
+                self.loadMagnitude = self._active_node.force.magnitude
+                self.loadDirection = self._active_node.force.pull
+                self.loadType = self._active_node.force.direction_type.value
+
+            self.surfaceType = self._active_node.surface_type.value
+            self.propertyChanged.emit()

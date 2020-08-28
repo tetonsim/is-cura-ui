@@ -11,7 +11,7 @@ import SmartSlice 1.0  as SmartSlice
 
 Item {
     id: constraintsTooltip
-    width: selectAnchorButton.width * 3 - 2*UM.Theme.getSize("default_margin").width
+    width: selectAnchorButton.width * 3 - 2 * UM.Theme.getSize("default_margin").width
     height: {
         if (selectAnchorButton.checked) {
             return selectAnchorButton.height + UM.Theme.getSize("default_margin").width + bcListAnchors.height
@@ -40,8 +40,10 @@ Item {
     }
 
     Component.onCompleted: {
-        selectAnchorButton.checked = UM.ActiveTool.properties.getValue("AnchorSelectionActive")
-        selectLoadButton.checked = UM.ActiveTool.properties.getValue("LoadSelectionActive")
+        selectAnchorButton.checked = UM.ActiveTool.properties.getValue("AnchorSelectionActive");
+        selectLoadButton.checked = UM.ActiveTool.properties.getValue("LoadSelectionActive");
+        faceDialog.comboboxElements();
+        loadColumn.iconsEnabled();
     }
 
     MouseArea {
@@ -66,7 +68,9 @@ Item {
                 UM.ActiveTool.triggerAction("setAnchorSelection");
                 selectAnchorButton.checked = true;
                 selectLoadButton.checked = false;
+                faceDialog.comboboxElements();
                 bcListForces.model.loadMagnitude = textLoadDialogMagnitude.text;
+                loadColumn.iconsEnabled();
             }
         }
 
@@ -86,6 +90,8 @@ Item {
                 UM.ActiveTool.triggerAction("setLoadSelection");
                 selectAnchorButton.checked = false;
                 selectLoadButton.checked = true;
+                faceDialog.comboboxElements();
+                loadColumn.iconsEnabled();
             }
         }
 
@@ -96,6 +102,10 @@ Item {
 
             anchors.left: selectAnchorButton.left
             anchors.top: selectAnchorButton.bottom
+
+            onSelectionChanged: {
+                loadColumn.iconsEnabled();
+            }
         }
 
         SmartSlice.BoundaryConditionList {
@@ -107,24 +117,24 @@ Item {
             anchors.top: selectAnchorButton.bottom
 
             onSelectionChanged: {
-                checkboxLoadDialogFlipDirection.checked = model.loadDirection;
                 textLoadDialogMagnitude.text = model.loadMagnitude;
+                loadColumn.iconsEnabled();
             }
         }
     }
 
     Item {
-        id: applyLoadDialog
+        id: faceDialog
 
-        visible: (selectLoadButton.checked) ? true : false
+        visible: true
 
-        width: UM.Theme.getSize("action_panel_widget").width / 2 + 2 * UM.Theme.getSize("default_margin").width
+        width: UM.Theme.getSize("action_panel_widget").width / 2 + 3 * UM.Theme.getSize("default_margin").width
         height: childrenRect.height
 
         property var handler: UM.Controller.activeStage.proxy.loadDialog
 
-        property int xStart: constraintsTooltip.x + selectAnchorButton.width
-        property int yStart: constraintsTooltip.y - 18 * UM.Theme.getSize("default_margin").height
+        property int xStart: constraintsTooltip.x + constraintsTooltip.width + 2 * UM.Theme.getSize("default_margin").width
+        property int yStart: constraintsTooltip.y - 1.5 * UM.Theme.getSize("default_margin").height
 
         property bool positionSet: handler.positionSet
         property int xPosition: handler.xPosition
@@ -162,22 +172,87 @@ Item {
             var margin = UM.Theme.getSize("narrow_margin");
             var minPt = base.mapFromItem(null, margin.width, margin.height);
             var maxPt = base.mapFromItem(null,
-                CuraApplication.appWidth() - (2 * applyLoadDialog.width),
-                CuraApplication.appHeight() - (2 * applyLoadDialog.height)
+                CuraApplication.appWidth() - (2 * faceDialog.width),
+                CuraApplication.appHeight() - (2 * faceDialog.height)
             );
             var initialY = minPt.y + 100 * screenScaleFactor
             var finalY = maxPt.y - 200 * screenScaleFactor
 
-            applyLoadDialog.x = Math.max(minPt.x, Math.min(maxPt.x, posNewX));
-            applyLoadDialog.y = Math.max(initialY, Math.min(finalY, posNewY));
+            faceDialog.x = Math.max(minPt.x, Math.min(maxPt.x, posNewX));
+            faceDialog.y = Math.max(initialY, Math.min(finalY, posNewY));
 
-            applyLoadDialog.handler.setPosition(applyLoadDialog.x, applyLoadDialog.y)
+            faceDialog.handler.setPosition(faceDialog.x, faceDialog.y)
+        }
+
+        function comboboxElements() {
+            if (selectLoadButton.checked) {
+                comboDialogType.model = ["Push / Pull"];
+            }
+            if (selectAnchorButton.checked) {
+                comboDialogType.model = ["Fixed"];
+            }
+        }
+
+        Connections {
+            target: bcListForces.model, bcListAnchors.model
+            onPropertyChanged: {
+                loadColumn.iconsEnabled()
+            }
         }
 
         Column {
             id: loadColumn
 
             anchors.fill: parent
+
+            function iconsEnabled()
+            {
+                if (selectLoadButton.checked) {
+                    if (bcListForces.model.surfaceType === 1) {
+                        flatFace.color = UM.Theme.getColor("action_button_text");
+                        concaveFace.color = UM.Theme.getColor("text_inactive");
+                        convexFace.color = UM.Theme.getColor("text_inactive");
+                    } else if (bcListForces.model.surfaceType === 2) {
+                        flatFace.color = UM.Theme.getColor("text_inactive");
+                        concaveFace.color = UM.Theme.getColor("action_button_text");
+                        convexFace.color = UM.Theme.getColor("text_inactive");
+                    } else if (bcListForces.model.surfaceType === 3) {
+                        flatFace.color = UM.Theme.getColor("text_inactive");
+                        concaveFace.color = UM.Theme.getColor("text_inactive");
+                        convexFace.color = UM.Theme.getColor("action_button_text");
+                    }
+                }
+
+                if (selectAnchorButton.checked) {
+                    if (bcListAnchors.model.surfaceType === 1) {
+                        flatFace.color = UM.Theme.getColor("action_button_text");
+                        concaveFace.color = UM.Theme.getColor("text_inactive");
+                        convexFace.color = UM.Theme.getColor("text_inactive");
+                    } else if (bcListAnchors.model.surfaceType === 2) {
+                        flatFace.color = UM.Theme.getColor("text_inactive");
+                        concaveFace.color = UM.Theme.getColor("action_button_text");
+                        convexFace.color = UM.Theme.getColor("text_inactive");
+                    } else if (bcListAnchors.model.surfaceType === 3) {
+                        flatFace.color = UM.Theme.getColor("text_inactive");
+                        concaveFace.color = UM.Theme.getColor("text_inactive");
+                        convexFace.color = UM.Theme.getColor("action_button_text");
+                    }
+                }
+
+                if (bcListForces.model.loadType === 1) {
+                    normalLoad.color  =UM.Theme.getColor("action_button_text");
+                    parallelLoad.color = UM.Theme.getColor("text_inactive");
+                } else {
+                    normalLoad.color = UM.Theme.getColor("text_inactive");
+                    parallelLoad.color = UM.Theme.getColor("action_button_text");
+                }
+
+                if (bcListForces.model.loadDirection) {
+                    flipIcon.color = UM.Theme.getColor("action_button_text");
+                } else {
+                    flipIcon.color = UM.Theme.getColor("text_inactive");
+                }
+            }
 
             MouseArea {
                 cursorShape: Qt.SizeAllCursor
@@ -197,7 +272,7 @@ Item {
                     if(dragging) {
                         var delta = Qt.point(mouse.x - clickPos.x, mouse.y - clickPos.y);
                         if (delta.x !== 0 || delta.y !== 0) {
-                            applyLoadDialog.trySetPosition(applyLoadDialog.x + delta.x, applyLoadDialog.y + delta.y);
+                            faceDialog.trySetPosition(faceDialog.x + delta.x, faceDialog.y + delta.y);
                         }
                     }
                 }
@@ -206,9 +281,9 @@ Item {
                 }
                 onDoubleClicked: {
                     dragging = false
-                    applyLoadDialog.x = applyLoadDialog.xStart
-                    applyLoadDialog.y = applyLoadDialog.yStart
-                    applyLoadDialog.handler.setPosition(applyLoadDialog.x, applyLoadDialog.y)
+                    faceDialog.x = faceDialog.xStart
+                    faceDialog.y = faceDialog.yStart
+                    faceDialog.handler.setPosition(faceDialog.x, faceDialog.y)
                 }
 
                 Rectangle {
@@ -220,319 +295,555 @@ Item {
             }
 
             Rectangle {
+                id: contentRectangle
+
                 color: UM.Theme.getColor("main_background")
                 border.width: UM.Theme.getSize("default_lining").width
                 border.color: UM.Theme.getColor("lining")
                 radius: UM.Theme.getSize("default_radius").width
 
-                height: childrenRect.height
+                height: contentColumn.height //- UM.Theme.getSize("default_margin").width
                 width: parent.width
 
-                Column {
-                    id: contentColumn
+                MouseArea {
+                    id: loadDialogMouseArea
+                    propagateComposedEvents: false
+                    anchors.fill: parent
 
-                    width: parent.width
-                    height: childrenRect.height + 2 * UM.Theme.getSize("default_margin").width
+                    ColumnLayout {
+                        id: contentColumn
 
-                    anchors.top: parent.top
+                        width: parent.width
 
-                    anchors.topMargin: UM.Theme.getSize("default_margin").width
-                    anchors.bottomMargin: UM.Theme.getSize("default_margin").width / 2
-
-                    spacing: UM.Theme.getSize("default_margin").width
-
-                    Row {
-                        anchors.left: parent.left
-                        anchors.topMargin: UM.Theme.getSize("default_margin").width
-                        anchors.leftMargin: UM.Theme.getSize("default_margin").width
-
-                        width: childrenRect.width
-                        height: childrenRect.height
+                        anchors {
+                            top: parent.top
+                            topMargin: UM.Theme.getSize("default_margin").width
+                        }
 
                         spacing: UM.Theme.getSize("default_margin").width
 
-                        Label {
-                            id: labelLoadDialogType
-
-                            height: parent.height
-                            verticalAlignment: Text.AlignVCenter
-
-                            font.bold: true
-
-                            text: "Type:"
-                        }
-
-                        ComboBox {
-                            id: comboLoadDialogType
-
-                            style: UM.Theme.styles.combobox
-
-                            width: UM.Theme.getSize("action_panel_widget").width / 3
-                            anchors.verticalCenter: parent.verticalCenter
-
-                            model: ["Push / Pull"]
-                        }
-                    }
-
-                    CheckBox {
-                        id: checkboxLoadDialogFlipDirection
-
-                        anchors.left: parent.left
-                        anchors.leftMargin: 2 * UM.Theme.getSize("default_margin").width
-
-                        text: "Flip Direction"
-
-                        checked: bcListForces.model.loadDirection
-                        onCheckedChanged: {
-                            bcListForces.model.loadDirection = checked
-                        }
-                    }
-
-                    Label {
-                        id: labelLoadDialogMagnitude
-
-                        anchors.left: parent.left
-                        anchors.leftMargin: UM.Theme.getSize("default_margin").width
-
-                        font.bold: true
-
-                        text: "Magnitude:"
-                    }
-
-                    TextField {
-                        id: textLoadDialogMagnitude
-                        style: UM.Theme.styles.text_field
-
-                        function loadHelperStep(value) {
-                            for (var i = 0; i < loadHelperData.textLoadDialogConverter.length - 1; i++){
-                                if (value >= loadHelperData.textLoadDialogConverter[i] && value <= loadHelperData.textLoadDialogConverter[i + 1]) {
-                                    return value * loadHelperData.textLoadMultiplier[i] + loadHelperData.textLoadOffset[i];
-                                }
-                            }
-                            return value;
-                        }
-
-                        anchors.left: parent.left
-                        anchors.leftMargin: 2 * UM.Theme.getSize("default_margin").width
-
-                        onTextChanged: {
-                            var value = parseFloat(text)
-                            if (value >= 0.0) {
-                                bcListForces.model.loadMagnitude = text;
-                                loadHelper.value = loadHelperStep(text);
-                            }
-                        }
-
-                        onEditingFinished: {
-                            bcListForces.model.loadMagnitude = text;
-                        }
-
-                        validator: DoubleValidator {bottom: 0.0}
-                        inputMethodHints: Qt.ImhFormattedNumbersOnly
-                        text: bcListForces.model.loadMagnitude
-
-                        property string unit: "[N]";
-                    }
-
-                    Rectangle {
-                        anchors {
-                            left: parent.left
-                            right: parent.right
-                            top: textLoadDialogMagnitude.bottom
-                            rightMargin: UM.Theme.getSize("default_margin").width
-                            leftMargin: UM.Theme.getSize("default_margin").width
-                            topMargin: UM.Theme.getSize("default_margin").width
-                        }
-
-
-                        QTC.Slider {
-                            id: loadHelper
-                            from: 0
-                            to: loadHelperData.maxValue
-                            stepSize: 1
+                        Row {
+                            id: typeRow
 
                             anchors {
                                 left: parent.left
-                                right: parent.right
-                                top: textLoadDialogMagnitude.bottom
                                 topMargin: UM.Theme.getSize("default_margin").width
+                                leftMargin: UM.Theme.getSize("default_margin").width
                             }
 
+                            width: childrenRect.width
 
-                            background:
-                                Rectangle {
-                                    id: bar
-                                    x: loadHelper.leftPadding
-                                    y: loadHelper.topPadding + loadHelper.availableHeight / 2 - height / 2
-                                    height: UM.Theme.getSize("print_setup_slider_groove").height
-                                    width: loadHelper.width - UM.Theme.getSize("print_setup_slider_handle").width
-                                    color: loadHelper.enabled ? UM.Theme.getColor("quality_slider_available") : UM.Theme.getColor("quality_slider_unavailable")
+                            spacing: UM.Theme.getSize("default_margin").width
+
+                            Label {
+                                id: labelLoadDialogType
+
+                                height: parent.height
+                                verticalAlignment: Text.AlignVCenter
+
+                                font.bold: true
+                                renderType: Text.NativeRendering
+
+                                text: "Type:"
+                            }
+
+                            ComboBox {
+                                id: comboDialogType
+
+                                style: UM.Theme.styles.combobox
+
+                                width: contentColumn.width - labelLoadDialogType.width - 3 * UM.Theme.getSize("default_margin").width
+                                anchors.verticalCenter: parent.verticalCenter
+
+                                model: faceDialog.comboboxElements()
+                            }
+                        }
+
+                        Column {
+                            id: labelsColumn
+
+                            anchors {
+                                top: typeRow.bottom
+                                left: parent.left
+                                bottom: iconsColumn.bottom
+                                leftMargin: UM.Theme.getSize("default_margin").width
+                                topMargin: UM.Theme.getSize("default_margin").height * 1.4
+                            }
+
+                            height: iconsColumn.height
+
+                            spacing: UM.Theme.getSize("default_margin").height * 1.8
+
+                            Label {
+                                id: labelDialogSelection
+
+                                verticalAlignment: Text.AlignVCenter
+
+                                font.bold: true
+                                renderType: Text.NativeRendering
+
+                                text: "Selection:"
+                            }
+
+                            Label {
+                                id: labelLoadDialogDirection
+
+                                visible: selectLoadButton.checked
+
+                                verticalAlignment: Text.AlignVCenter
+
+                                font.bold: true
+                                renderType: Text.NativeRendering
+
+                                text: "Direction:"
+                            }
+                        }
+
+                        Column {
+                            id: iconsColumn
+
+                            anchors {
+                                top: labelsColumn.top
+                                left: labelsColumn.right
+                                right: parent.right
+                                topMargin: -(UM.Theme.getSize("default_margin").height * 0.395)
+                            }
+
+                            spacing: UM.Theme.getSize("default_margin").width
+
+                            Row {
+                                anchors {
+                                    left: parent.left
+                                    topMargin: UM.Theme.getSize("default_margin").width
+                                    leftMargin: UM.Theme.getSize("default_margin").width
+                                }
+
+                                width: childrenRect.width
+                                spacing: UM.Theme.getSize("default_margin").width
+
+                                UM.SimpleButton {
+                                    id: flatFace
+                                    width: height
+                                    height: comboDialogType.height
+
+                                    iconSource: "media/flat.png"
+                                    visible: true
+                                    enabled: true
+
+                                    hoverColor: UM.Theme.getColor("setting_category_hover_border")
+
+                                    onClicked: {
+                                        if (selectAnchorButton.checked) {
+                                            bcListAnchors.model.surfaceType = 1;
+                                            loadColumn.iconsEnabled();
+                                        }
+                                        if (selectLoadButton.checked) {
+                                            bcListForces.model.surfaceType = 1;
+                                            loadColumn.iconsEnabled();
+                                        }
+                                    }
+                                }
+
+                                UM.SimpleButton {
+                                    id: concaveFace
+                                    width: height
+                                    height: comboDialogType.height
+
+                                    iconSource: "media/concave.png"
+                                    visible: true
+                                    enabled: true
+
+                                    hoverColor: UM.Theme.getColor("setting_category_hover_border")
+
+                                    onClicked: {
+                                        if (selectAnchorButton.checked) {
+                                            bcListAnchors.model.surfaceType = 2;
+                                            loadColumn.iconsEnabled();
+                                        }
+                                        if (selectLoadButton.checked) {
+                                            bcListForces.model.surfaceType = 2;
+                                            loadColumn.iconsEnabled();
+                                        }
+                                    }
+                                }
+
+                                UM.SimpleButton {
+                                    id: convexFace
+                                    width: height
+                                    height: comboDialogType.height
+
+                                    iconSource: "media/convex.png"
+                                    visible: true
+                                    enabled: true
+
+                                    hoverColor: UM.Theme.getColor("setting_category_hover_border")
+
+                                    onClicked: {
+                                        if (selectAnchorButton.checked) {
+                                            bcListAnchors.model.surfaceType = 3;
+                                            loadColumn.iconsEnabled();
+                                        }
+                                        if (selectLoadButton.checked) {
+                                            bcListForces.model.surfaceType = 3;
+                                            loadColumn.iconsEnabled();
+                                        }
+                                    }
+                                }
+                            }
+
+                            Row {
+                                visible: selectLoadButton.checked
+
+                                anchors {
+                                    left: parent.left
+                                    topMargin: UM.Theme.getSize("default_margin").width
+                                    leftMargin: UM.Theme.getSize("default_margin").width
+                                }
+
+                                width: childrenRect.width
+                                spacing: UM.Theme.getSize("default_margin").width
+
+                                UM.SimpleButton {
+                                    id: normalLoad
+                                    width: height
+                                    height: comboDialogType.height
+
+                                    iconSource: "media/load_normal.png"
+                                    visible: true
+                                    enabled: true
+
+                                    hoverColor: UM.Theme.getColor("setting_category_hover_border")
+
+                                    onClicked: {
+                                        bcListForces.model.loadType = 1;
+                                        loadColumn.iconsEnabled();
+                                    }
+                                }
+
+                                UM.SimpleButton {
+                                    id: parallelLoad
+                                    width: height
+                                    height: comboDialogType.height
+
+                                    iconSource: "media/load_parallel.png"
+                                    visible: true
+                                    enabled: true
+
+                                    hoverColor: UM.Theme.getColor("setting_category_hover_border")
+
+                                    onClicked: {
+                                        bcListForces.model.loadType = 2;
+                                        loadColumn.iconsEnabled();
+                                    }
+                                }
+                            }
+
+                            Row {
+                                visible: selectLoadButton.checked
+
+                                anchors {
+                                    left: parent.left
+                                    topMargin: UM.Theme.getSize("default_margin").width
+                                    leftMargin: UM.Theme.getSize("default_margin").width
+                                }
+
+                                width: childrenRect.width
+                                height: childrenRect.height
+                                spacing: UM.Theme.getSize("default_margin").width
+
+                                UM.SimpleButton {
+                                    id: flipIcon
+                                    width: height
+                                    height: comboDialogType.height
+
+                                    iconSource: "media/flip.png"
+                                    visible: true
+                                    enabled: true
+
+                                    hoverColor: UM.Theme.getColor("setting_category_hover_border")
+
+                                    onClicked: {
+                                        bcListForces.model.loadDirection = !bcListForces.model.loadDirection;
+                                        loadColumn.iconsEnabled();
+                                    }
+                                }
+                            }
+                        }
+
+                        Column {
+                            anchors {
+                                    left: contentColumn.left
+                                    right: contentColumn.right
+                                    top: iconsColumn.bottom
+                                    margins: UM.Theme.getSize("default_margin").width
+                                }
+
+                                width: contentColumn.width
+
+                                visible: selectLoadButton.checked
+
+                                spacing: UM.Theme.getSize("default_margin").width
+
+                            Label {
+                                id: labelLoadDialogMagnitude
+
+                                visible: selectLoadButton.checked
+
+                                font.bold: true
+                                renderType: Text.NativeRendering
+
+                                text: "Magnitude:"
+                            }
+
+                            TextField {
+                                id: textLoadDialogMagnitude
+
+                                visible: selectLoadButton.checked
+
+                                style: UM.Theme.styles.text_field
+
+                                function loadHelperStep(value) {
+                                    for (var i = 0; i < loadHelperData.textLoadDialogConverter.length - 1; i++){
+                                        if (value >= loadHelperData.textLoadDialogConverter[i] && value <= loadHelperData.textLoadDialogConverter[i + 1]) {
+                                            return value * loadHelperData.textLoadMultiplier[i] + loadHelperData.textLoadOffset[i];
+                                        }
+                                    }
+                                    return value;
+                                }
+
+                                anchors {
+                                    left: parent.left
+                                    topMargin: UM.Theme.getSize("default_margin").height
+                                    leftMargin: UM.Theme.getSize("default_margin").width
+                                }
+
+                                onTextChanged: {
+                                    var value = parseFloat(text)
+                                    if (value >= 0.0) {
+                                        bcListForces.model.loadMagnitude = text;
+                                        loadHelper.value = loadHelperStep(text)
+                                    }
+                                }
+
+                                onEditingFinished: {
+                                    bcListForces.model.loadMagnitude = text;
+                                }
+
+                                validator: DoubleValidator {bottom: 0.0}
+                                inputMethodHints: Qt.ImhFormattedNumbersOnly
+                                text:  bcListForces.model.loadMagnitude
+
+                                property string unit: "[N]";
+                            }
+
+                            Rectangle {
+                                id: sliderRect
+
+                                visible: selectLoadButton.checked
+
+                                anchors {
+                                    left: parent.left
+                                    right: parent.right
+                                    top: textLoadDialogMagnitude.bottom
+                                    topMargin: UM.Theme.getSize("default_margin").width
+                                }
+
+                                QTC.Slider {
+                                    id: loadHelper
+                                    from: 0
+                                    to: loadHelperData.maxValue
+                                    stepSize: 1
+
                                     anchors {
-                                        horizontalCenter: parent.horizontalCenter
-                                        verticalCenter: parent.verticalCenter
+                                        left: parent.left
+                                        right: parent.right
+                                        topMargin: UM.Theme.getSize("default_margin").width
                                     }
 
-                                Repeater {
-                                    id: tickmarks
-                                    model: loadHelperData.maxValue / loadHelperData.stepSize -1
-                                    Rectangle {
-                                        function indexHelper(index) {
-                                            console.log(model)
-                                            if (index === 3) {
-                                                return loadHelper.availableWidth * (index + 1) / (tickmarks.model + 1) - 3;
-                                            };
-                                            return loadHelper.availableWidth * (index + 1) / (tickmarks.model + 1);
+
+                                    background:
+                                        Rectangle {
+                                            function indexHelper(index) {
+                                                if (index === 3) {
+                                                    return loadHelper.availableWidth * (index + 1) / (tickmarks.model + 1) - 3;
+                                                };
+                                                return loadHelper.availableWidth * (index + 1) / (tickmarks.model + 1);
+                                            }
+                                            x: indexHelper(index)
+                                            y: loadHelper.topPadding + loadHelper.availableHeight / 2 - height / 2
+                                            height: UM.Theme.getSize("print_setup_slider_groove").height
+                                            width: loadHelper.width - UM.Theme.getSize("print_setup_slider_handle").width
+                                            color: loadHelper.enabled ? UM.Theme.getColor("quality_slider_available") : UM.Theme.getColor("quality_slider_unavailable")
+                                            anchors {
+                                                horizontalCenter: parent.horizontalCenter
+                                                verticalCenter: parent.verticalCenter
+                                            }
+
+                                        Repeater {
+                                            id: tickmarks
+                                            model: loadHelperData.maxValue / loadHelperData.stepSize -1
+                                            Rectangle {
+                                                function indexHelper(index) {
+                                                    if (index === 3) {
+                                                        return loadHelper.availableWidth * (index + 1) / (tickmarks.model + 1) - 3;
+                                                    };
+                                                    return loadHelper.availableWidth * (index + 1) / (tickmarks.model + 1);
+                                                }
+                                                x: indexHelper(index)
+                                                y: loadHelper.topPadding + loadHelper.availableHeight / 2 - height / 2
+                                                color: loadHelper.enabled ? UM.Theme.getColor("quality_slider_available") : UM.Theme.getColor("quality_slider_unavailable")
+                                                implicitWidth: UM.Theme.getSize("print_setup_slider_tickmarks").width
+                                                implicitHeight: UM.Theme.getSize("print_setup_slider_tickmarks").height
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                radius: Math.round(implicitWidth / 2)
+                                            }
                                         }
-                                        x: indexHelper(index)
+                                    }
+
+                                    handle: Rectangle {
+                                        id: handleButton
+                                        x: loadHelper.leftPadding + loadHelper.visualPosition * (loadHelper.availableWidth - width)
                                         y: loadHelper.topPadding + loadHelper.availableHeight / 2 - height / 2
-                                        color: loadHelper.enabled ? UM.Theme.getColor("quality_slider_available") : UM.Theme.getColor("quality_slider_unavailable")
-                                        implicitWidth: UM.Theme.getSize("print_setup_slider_tickmarks").width
-                                        implicitHeight: UM.Theme.getSize("print_setup_slider_tickmarks").height
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        radius: Math.round(implicitWidth / 2)
+                                        color: loadHelper.enabled ? UM.Theme.getColor("primary") : UM.Theme.getColor("quality_slider_unavailable")
+                                        implicitWidth: UM.Theme.getSize("print_setup_slider_handle").width
+                                        implicitHeight: implicitWidth
+                                        radius: Math.round(implicitWidth)
                                     }
-                                }
-                            }
 
-                            handle: Rectangle {
-                                id: handleButton
-                                x: loadHelper.leftPadding + loadHelper.visualPosition * (loadHelper.availableWidth - width)
-                                y: loadHelper.topPadding + loadHelper.availableHeight / 2 - height / 2
-                                color: loadHelper.enabled ? UM.Theme.getColor("primary") : UM.Theme.getColor("quality_slider_unavailable")
-                                implicitWidth: UM.Theme.getSize("print_setup_slider_handle").width
-                                implicitHeight: implicitWidth
-                                radius: Math.round(implicitWidth)
-                            }
-
-                            onMoved: {
-                                function loadMagnitudeStep(value){
-                                    for (var i = 0; i < loadHelperData.loadStepFunction.length; i++) {
-                                        if (loadHelperData.loadStepFunction[i] === value) {
-                                            return value / loadHelperData.loadStepDivision[i];
+                                    onMoved: {
+                                        function loadMagnitudeStep(value){
+                                            for (var i = 0; i < loadHelperData.loadStepFunction.length; i++) {
+                                                if (loadHelperData.loadStepFunction[i] === value) {
+                                                    return value / loadHelperData.loadStepDivision[i];
+                                                }
+                                            }
                                         }
+                                        var roundedSliderValue = Math.round(loadHelper.value / loadHelperData.stepSize) * loadHelperData.stepSize
+                                        loadHelper.value = roundedSliderValue
+                                        textLoadDialogMagnitude.text = loadMagnitudeStep(roundedSliderValue)
                                     }
                                 }
-                                var roundedSliderValue = Math.round(loadHelper.value / loadHelperData.stepSize) * loadHelperData.stepSize
-                                loadHelper.value = roundedSliderValue
-                                textLoadDialogMagnitude.text = loadMagnitudeStep(roundedSliderValue)
                             }
                         }
                     }
-                }
-                Rectangle {
-                    id: loadHelperImageRect
-
-                    function isVis() {
-                        for (var i = 1; i < loadHelperData.loadStepFunction.length - 1; i++) {
-                            if (loadHelperData.loadStepFunction[i] === loadHelper.value) {
-                                return true;
-                            }
-                        }
-                        return false;
-                    }
-
-                    function imageData(image) {
-                        for (var i = 1; i < loadHelperData.loadStepFunction.length - 1; i++) {
-                            if (loadHelperData.loadStepFunction[i] === loadHelper.value) {
-                                return image[i - 1];
-                            }
-                        }
-                        return "";
-                    }
-
-                    color: UM.Theme.getColor("main_background")
-                    border.width: UM.Theme.getSize("default_lining").width
-                    border.color: UM.Theme.getColor("lining")
-                    anchors.left: contentColumn.right
-                    anchors.leftMargin: UM.Theme.getSize("default_margin").width
-                    radius: UM.Theme.getSize("default_radius").width
-
-                    height: contentColumn.height + UM.Theme.getSize("default_margin").width * 2
-                    width: contentColumn.width
-
-                    anchors.top: contentColumn.top
-                    anchors.topMargin: - UM.Theme.getSize("default_margin").width
-                    visible: isVis()
-
-                    Label {
-                        id: topText
-                        anchors {
-                            top:parent.top
-                            topMargin: UM.Theme.getSize("default_margin").width
-                            left: parent.left
-                            leftMargin: UM.Theme.getSize("default_margin").width
-                        }
-                        renderType: Text.NativeRendering
-                        font: UM.Theme.getFont("default")
-                        text: "<b>Example:</b>"
-                    }
-
-                    Image {
-                        id: loadHelperImage
-                        mipmap: true
-
-                        anchors {
-                            top: topText.bottom
-                            right: parent.right
-                            rightMargin: UM.Theme.getSize("default_margin").width
-                            left: parent.left
-                            leftMargin: UM.Theme.getSize("default_margin").width
-                            bottom: loadHelperSeparator.top
-                        }
-
-                        fillMode: Image.PreserveAspectFit
-                        source: loadHelperImageRect.imageData(loadHelperData.imageLocation)
-                    }
-
                     Rectangle {
-                        id: loadHelperSeparator
+                        id: loadHelperImageRect
+
+                        function isVis() {
+                            if (selectLoadButton.checked) {
+                                for (var i = 1; i < loadHelperData.loadStepFunction.length - 1; i++) {
+                                    if (loadHelperData.loadStepFunction[i] === loadHelper.value) {
+                                        return true;
+                                    }
+                                }
+                            }
+                            return false;
+                        }
+
+                        function imageData(image) {
+                            if (selectLoadButton.checked) {
+                                for (var i = 1; i < loadHelperData.loadStepFunction.length - 1; i++) {
+                                    if (loadHelperData.loadStepFunction[i] === loadHelper.value) {
+                                        return image[i - 1];
+                                    }
+                                }
+                            }
+                            return "";
+                        }
+
+                        color: UM.Theme.getColor("main_background")
+                        border.width: UM.Theme.getSize("default_lining").width
                         border.color: UM.Theme.getColor("lining")
-                        color: UM.Theme.getColor("lining")
+                        anchors.left: contentColumn.right
+                        anchors.leftMargin: UM.Theme.getSize("default_margin").width
+                        radius: UM.Theme.getSize("default_radius").width
 
-                        anchors {
-                            bottom: imageType.top
-                            bottomMargin: UM.Theme.getSize("default_margin").width / 2
-                            right: parent.right
-                            left: parent.left
+                        height: contentColumn.height //- UM.Theme.getSize("default_margin").width
+                        width: contentColumn.width
+
+                        anchors.top: contentColumn.top
+                        anchors.topMargin: - UM.Theme.getSize("default_margin").width
+                        visible: isVis()
+
+                        Label {
+                            id: topText
+                            anchors {
+                                top:parent.top
+                                topMargin: UM.Theme.getSize("default_margin").width
+                                left: parent.left
+                                leftMargin: UM.Theme.getSize("default_margin").width
+                            }
+                            renderType: Text.NativeRendering
+                            font: UM.Theme.getFont("default")
+                            text: "<b>Example:</b>"
                         }
 
-                        width: parent.width
-                        height: 1
-                    }
+                        Image {
+                            id: loadHelperImage
+                            mipmap: true
 
-                    Text {
-                        id: imageType
+                            anchors {
+                                top: topText.bottom
+                                right: parent.right
+                                rightMargin: UM.Theme.getSize("default_margin").width
+                                left: parent.left
+                                leftMargin: UM.Theme.getSize("default_margin").width
+                                bottom: loadHelperSeparator.top
+                            }
 
-                        anchors {
-                            bottom: weight.top
-                            topMargin: UM.Theme.getSize("default_margin").width / 2
-                            left: parent.left
-                            leftMargin: UM.Theme.getSize("default_margin").width
+                            fillMode: Image.PreserveAspectFit
+                            source: loadHelperImageRect.imageData(loadHelperData.imageLocation)
                         }
 
-                        font: UM.Theme.getFont("default")
-                        renderType: Text.NativeRendering
-                        text: loadHelperImageRect.imageData(loadHelperData.imageType)
-                    }
+                        Rectangle {
+                            id: loadHelperSeparator
+                            border.color: UM.Theme.getColor("lining")
+                            color: UM.Theme.getColor("lining")
 
-                    Text {
-                        id: weight
+                            anchors {
+                                bottom: imageType.top
+                                bottomMargin: UM.Theme.getSize("default_margin").width / 2
+                                right: parent.right
+                                left: parent.left
+                            }
 
-                        anchors {
-                            bottom: parent.bottom
-                            bottomMargin: UM.Theme.getSize("default_margin").width / 2
-                            topMargin: UM.Theme.getSize("default_margin").width / 2
-                            left: parent.left
-                            leftMargin: UM.Theme.getSize("default_margin").width
+                            width: parent.width
+                            height: 1
                         }
 
-                        font: UM.Theme.getFont("default")
-                        renderType: Text.NativeRendering
-                        text: loadHelperImageRect.imageData(loadHelperData.loadHelperEquivalentValue)
+                        Text {
+                            id: imageType
+
+                            anchors {
+                                bottom: weight.top
+                                topMargin: UM.Theme.getSize("default_margin").width / 2
+                                left: parent.left
+                                leftMargin: UM.Theme.getSize("default_margin").width
+                            }
+
+                            font: UM.Theme.getFont("default")
+                            renderType: Text.NativeRendering
+                            text: loadHelperImageRect.imageData(loadHelperData.imageType)
+                        }
+
+                        Text {
+                            id: weight
+
+                            anchors {
+                                bottom: parent.bottom
+                                bottomMargin: UM.Theme.getSize("default_margin").width / 2
+                                topMargin: UM.Theme.getSize("default_margin").width / 2
+                                left: parent.left
+                                leftMargin: UM.Theme.getSize("default_margin").width
+                            }
+
+                            font: UM.Theme.getFont("default")
+                            renderType: Text.NativeRendering
+                            text: loadHelperImageRect.imageData(loadHelperData.loadHelperEquivalentValue)
+                        }
                     }
                 }
             }
         }
     }
 }
-

@@ -19,9 +19,11 @@ from .SmartSliceCloudStatus import SmartSliceCloudStatus
 from .select_tool.SmartSliceSelectTool import SmartSliceSelectTool
 from .requirements_tool.SmartSliceRequirements import SmartSliceRequirements
 from .utils import getModifierMeshes, getPrintableNodes
-from .stage.SmartSliceScene import Root
+from .stage.SmartSliceScene import Root, HighlightFace, LoadFace
 
 from . import SmartSliceProperty
+
+import pywim
 
 i18n_catalog = i18nCatalog("smartslice")
 
@@ -80,8 +82,9 @@ class SmartSlicePropertyHandler(QObject):
 
         Root.faceAdded.connect(self._faceAdded)
         Root.faceRemoved.connect(self._faceRemoved)
-        Root.loadPropertyChanged.connect(self._faceChanged)
         Root.rootChanged.connect(self._onRootChanged)
+
+        HighlightFace.facePropertyChanged.connect(self._faceChanged)
 
         sel_tool.selectedFaceChanged.connect(self._faceChanged)
         sel_tool.toolPropertyChanged.connect(self._onSelectToolPropertyChanged)
@@ -101,19 +104,24 @@ class SmartSlicePropertyHandler(QObject):
         # SmartSliceStage.SmartSliceStage.getInstance().smartSliceNodeChanged.connect(self._onSmartSliceNodeChanged)
 
     def _faceAdded(self, face):
-        prop = SmartSliceProperty.SmartSliceFace(face)
+        if isinstance(face, LoadFace):
+            prop = SmartSliceProperty.SmartSliceLoadFace(face)
+        else:
+            prop = SmartSliceProperty.SmartSliceFace(face)
+
         prop.cache()
         self._properties.append(prop)
         self.confirmPendingChanges(self._root)
 
-    def _faceChanged(self):
-        face_properties = [prop for prop in self._properties if isinstance(prop, SmartSliceProperty.SmartSliceFace)]
-        self.connector.updateStatus()
-        self.confirmPendingChanges(face_properties)
+    def _faceChanged(self, face):
+        for prop in self._properties:
+            if isinstance(prop, SmartSliceProperty.SmartSliceFace) and face == prop.highlight_face:
+                self.confirmPendingChanges(prop)
+                break
 
     def _faceRemoved(self, face):
         for prop in self._properties:
-            if isinstance(prop, SmartSliceProperty.SmartSliceFace) and face == prop.face:
+            if isinstance(prop, SmartSliceProperty.SmartSliceFace) and face == prop.highlight_face:
                 self._properties.remove(prop)
                 break
         self.confirmPendingChanges(self._root)
@@ -162,7 +170,8 @@ class SmartSlicePropertyHandler(QObject):
         Restores all cached values for properties upon user cancellation
         """
         for p in self._properties:
-            p.restore()
+            if p.changed():
+                p.restore()
 
         self._addProperties = False
         self._cleanRootCache()
@@ -173,10 +182,10 @@ class SmartSlicePropertyHandler(QObject):
         """
         Cleans the cache for the Root children and their individual tracking
         """
-        faces = self._root.value()
+        highlight_faces = self._root.value()
 
         for prop in self._properties:
-            if isinstance(prop, SmartSliceProperty.SmartSliceFace) and prop.face not in faces:
+            if isinstance(prop, SmartSliceProperty.SmartSliceFace) and prop.highlight_face not in highlight_faces:
                 self._properties.remove(prop)
 
         self._root.cache()
@@ -269,7 +278,7 @@ class SmartSlicePropertyHandler(QObject):
         if not any(changes):
             return
 
-        if self.connector.status in {SmartSliceCloudStatus.BusyValidating, SmartSliceCloudStatus.BusyOptimizing, SmartSliceCloudStatus.Optimized}:
+        if self.connector.status in {SmartSliceCloudStatus.Queued, SmartSliceCloudStatus.BusyValidating, SmartSliceCloudStatus.BusyOptimizing, SmartSliceCloudStatus.Optimized}:
             if self._addProperties and not self._cancelChanges:
                 self.showConfirmDialog(revalidationRequired)
         else:
@@ -283,7 +292,7 @@ class SmartSlicePropertyHandler(QObject):
             return
 
         #  Create a Confirmation Dialog Component
-        if self.connector.status is SmartSliceCloudStatus.BusyValidating:
+        if self.connector.cloudJob.job_type is pywim.smartslice.job.JobType.validation:
             self._confirmDialog = Message(
                 title="Lose Validation Results?",
                 text="Modifying this setting will invalidate your results.\nDo you want to continue and lose the current\n validation results?",
@@ -292,7 +301,7 @@ class SmartSlicePropertyHandler(QObject):
 
             self._confirmDialog.actionTriggered.connect(self.onConfirmActionRevalidate)
 
-        elif self.connector.status in { SmartSliceCloudStatus.BusyOptimizing, SmartSliceCloudStatus.Optimized }:
+        elif self.connector.cloudJob.job_type is pywim.smartslice.job.JobType.optimization:
             self._confirmDialog = Message(
                 title="Smart Slice Warning",
                 text="Modifying this setting will invalidate your results.\nDo you want to continue and lose your \noptimization results?",

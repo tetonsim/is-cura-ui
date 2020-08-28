@@ -197,12 +197,14 @@ class SmartSliceStage(CuraStage):
 
         # Recover if we have tools defined
         self.setToolVisibility(False)
-        application.getController().setFallbackTool(self._default_fallback_tool)
+        controller.setFallbackTool(self._default_fallback_tool)
         if self._previous_tool:
-            application.getController().setActiveTool(self._default_fallback_tool)
+            controller.setActiveTool(self._default_fallback_tool)
 
         for c in controller.getScene().getRoot().getAllChildren():
             if isinstance(c, SmartSliceScene.Root):
+                c.setVisible(False)
+            elif isinstance(c, SmartSliceScene.HighlightFace):
                 c.setVisible(False)
 
         for mesh in getModifierMeshes():
