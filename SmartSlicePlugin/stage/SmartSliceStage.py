@@ -233,18 +233,26 @@ class SmartSliceStage(CuraStage):
 
     # Function to make our tools either visible or not and the other tools the opposite
     def setToolVisibility(self, our_tools_visible):
-        tools = CuraApplication.getInstance().getController().getAllTools()
+        controller = CuraApplication.getInstance().getController()
+        tools = controller.getAllTools()
+
         for name in tools:
             tool_meta_data = tools[name].getMetaData()
 
             if name in self._our_toolset:
                 tool_meta_data["visible"] = our_tools_visible
+                controller.toolEnabledChanged.emit(name, our_tools_visible)
             elif name in self._default_toolset:
                 tool_meta_data["visible"] = not our_tools_visible
+                controller.toolEnabledChanged.emit(name, not our_tools_visible)
 
             Logger.log(
                 "d", "Visibility of <{}>: {}".format(name, tool_meta_data["visible"])
             )
+
+        # Turn off face to lay flat mode if it's on
+        if tools["RotateTool"].getSelectFaceToLayFlatMode() and our_tools_visible:
+            tools["RotateTool"].setSelectFaceToLayFlatMode(False)
 
         CuraApplication.getInstance().getController().toolsChanged.emit()
 
