@@ -703,13 +703,15 @@ class SmartSliceCloudConnector(QObject):
 
     def cancelCurrentJob(self):
         self.api_connection.cancelJob(self._jobs[self._current_job].api_job_id)
-        if self._jobs[self._current_job] is not None:
+        if self._jobs[self._current_job]:
             if not self._jobs[self._current_job].canceled:
                 self.status = SmartSliceCloudStatus.Cancelling
                 self.updateStatus()
-            self._jobs[self._current_job].cancel()
-            self._jobs[self._current_job].canceled = True
-            self._jobs[self._current_job] = None
+
+            if self._jobs[self._current_job]:
+                self._jobs[self._current_job].cancel()
+                self._jobs[self._current_job].canceled = True
+                self._jobs[self._current_job] = None
 
     # Resets all of the tracked properties and jobs
     def clearJobs(self):
@@ -992,6 +994,9 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.resultsTable.setResults(job.getResult().analyses, selectedRow)
 
     def updateStatus(self, show_warnings=False):
+        if not self.smartSliceJobHandle:
+            return
+
         job, self._proxy.errors = self.smartSliceJobHandle.checkJob(show_extruder_warnings=show_warnings)
 
         if len(self._proxy.errors) > 0 or job is None:

@@ -7,7 +7,7 @@ from UM.Settings.SettingInstance import InstanceState
 
 from cura.CuraApplication import CuraApplication
 
-from . utils import getPrintableNodes
+from . utils import getPrintableNodes, getNodeActiveExtruder
 from .stage.SmartSliceScene import HighlightFace, LoadFace, Root
 
 class SmartSlicePropertyColor():
@@ -88,7 +88,7 @@ class ExtruderProperty(ContainerProperty):
         "infill_extruder_nr"                # Infill extruder
     ]
 
-    NAMES = EXTRUDER_KEYS + [
+    NAMES = [
         "line_width",                       # Line Width
         "wall_line_width",                  # Wall Line Width
         "wall_line_width_x",                # Outer Wall Line Width
@@ -128,6 +128,64 @@ class ExtruderProperty(ContainerProperty):
             extruder.setProperty(self.name, "value", self._cached_value, set_from_cache=True)
             extruder.setProperty(self.name, "state", InstanceState.Default, set_from_cache=True)
 
+class ActiveExtruder(TrackedProperty):
+    def __init__(self):
+        self._active_extruder_index = None
+
+    def value(self):
+        return CuraApplication.getInstance().getExtruderManager().activeExtruderIndex
+
+    def cache(self):
+        self._active_extruder_index = self.value()
+
+    def restore(self):
+        CuraApplication.getInstance().getExtruderManager().setActiveExtruderIndex(self._active_extruder_index)
+
+    def changed(self):
+        return self.value() != self._active_extruder_index
+
+class SceneNodeExtruder(TrackedProperty):
+    def __init__(self, node=None):
+        self._node = node
+        self._active_extruder_index = None
+        self._specific_extruders = {}
+
+    def value(self):
+        if self._node:
+            active_extruder = getNodeActiveExtruder(self._node)
+
+            active_extruder_index = int(active_extruder.getMetaDataEntry("position"))
+
+            specific_indices = {}
+            for key in ExtruderProperty.EXTRUDER_KEYS:
+                specific_indices[key] = int(active_extruder.getProperty(key, "value"))
+
+            return active_extruder_index, specific_indices
+
+        return None, None
+
+    def cache(self):
+        self._active_extruder_index, self._specific_extruders = self.value()
+
+    def restore(self):
+        if self._node:
+            extruder_list = CuraApplication.getInstance().getGlobalContainerStack().extruderList
+            machine, extruder = self._getMachineAndExtruder()
+            extruder = getNodeActiveExtruder(self._node)
+
+            self._node.callDecoration("setActiveExtruder", extruder_list[self._active_extruder_index].id)
+
+            for key in ExtruderProperty.EXTRUDER_KEYS:
+                machine.setProperty(key, "value", self._specific_extruders[key])
+
+    def changed(self):
+        active_extruder_index, specific_indices = self.value()
+
+        for key, value in self._specific_extruders.items():
+            if value != specific_indices[key]:
+                return True
+
+        return active_extruder_index != self._active_extruder_index
 
 class SelectedMaterial(TrackedProperty):
     def __init__(self):
@@ -147,89 +205,73 @@ class SelectedMaterial(TrackedProperty):
             extruder.material = self._cached_material
 
     def changed(self) -> bool:
-        return not (self._cached_material is self.value())
+        return self._cached_material != self.value()
 
-
-class Scene(TrackedProperty):
-    def __init__(self):
-        self._print_node = None
-        self._print_node_scale = None
-        self._print_node_ori = None
+class Transform(TrackedProperty):
+    def __init__(self, node=None):
+        self._node = node
+        self._scale = None
+        self._orientation = None
 
     def value(self):
-        nodes = getPrintableNodes()
-        if nodes:
-            n = nodes[0]
-            return (n, n.getScale(), n.getOrientation())
-        return None, None, None
+        if self._node:
+            return self._node.getScale(), self._node.getOrientation()
+        return None, None
 
     def cache(self):
-        self._print_node, self._print_node_scale, self._print_node_ori = self.value()
+        self._scale, self._orientation = self.value()
 
     def restore(self):
-        self._print_node.setScale(self._print_node_scale)
-        self._print_node.setOrientation(self._print_node_ori)
-        self._print_node.transformationChanged.emit(self._print_node)
+        if self._node:
+            self._node.setScale(self._scale)
+            self._node.setOrientation(self._orientation)
+            self._node.transformationChanged.emit(self._node)
 
     def changed(self) -> bool:
-        node, scale, ori = self.value()
+        scale, orientation = self.value()
+        return scale != self._scale or orientation != self._orientation
 
-        if self._print_node is not node:
-            # What should we do here? The entire model was swapped out
-            self.cache()
-            return False
-
-        return \
-            scale != self._print_node_scale or \
-            ori != self._print_node_ori
-
-
-class ModifierMesh(TrackedProperty):
+class SceneNode(TrackedProperty):
     def __init__(self, node=None, name=None):
         self.parent_changed = False
         self.mesh_name = name
         self._node = node
-        self._properties = None
-        self._prop_changed = None
-        self._names = [
-            "line_width",                       #  Line Width
-            "wall_line_width",                  #  Wall Line Width
-            "wall_line_width_x",                #  Outer Wall Line Width
-            "wall_line_width_0",                #  Inner Wall Line Width
-            "wall_line_count",                  #  Wall Line Count
-            "wall_thickness",                   #  Wall Thickness
-            "top_layers",                       #  Top Layers
-            "bottom_layers",                    #  Bottom Layers
-            "infill_pattern",                   #  Infill Pattern
-            "infill_sparse_density",            #  Infill Density
-            "infill_sparse_thickness",          #  Infill Line Width
-            "infill_line_width",                #  Infill Line Width
-            "top_bottom_pattern",               # Top / Bottom pattern
-        ]
+        self._properties = {}
+        self._transform = Transform(node)
+        self._extruder = SceneNodeExtruder(node)
+        self._names = ExtruderProperty.NAMES
 
     def value(self):
         if self._node:
             stack = self._node.callDecoration("getStack").getTop()
-            properties = tuple([stack.getProperty(property, "value") for property in self._names])
-            return properties
+            properties = {}
+            for prop in self._names:
+                properties[prop] = stack.getProperty(prop, "value")
+            return properties, self._extruder.value(), self._transform.value()
         return None
 
     def cache(self):
-        self._properties = self.value()
+        self._extruder.cache()
+        self._transform.cache()
+        self._properties, extruder, transform = self.value()
 
     def changed(self):
         if self._node:
-            properties = self.value()
-            prop_changed = [[name, prop] for name, prop in zip(self._names, self._properties) if prop not in properties]
-            if prop_changed:
-                self._prop_changed = prop_changed[0]
-                return True
+            properties, extruder, transform = self.value()
+            for key, value in self._properties.items():
+                if value != properties[key]:
+                    return True
+
+            return self._extruder.changed() or self._transform.changed()
 
     def restore(self):
-        if self._node and self._prop_changed:
-            node = self._node.callDecoration("getStack").getTop()
-            node.setProperty(self._prop_changed[0], "value", self._prop_changed[1])
-            self._prop_changed = None
+        if self._node:
+            stack = self._node.callDecoration("getStack").getTop()
+            for key, value in self._properties.items():
+                stack.setProperty(key, "value", value)
+
+            self._extruder.restore()
+            self._transform.restore()
 
     def parentChanged(self, parent):
         self.parent_changed = True

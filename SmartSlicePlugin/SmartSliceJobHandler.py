@@ -70,6 +70,8 @@ class SmartSliceJobHandler:
             button_style=Message.ActionButtonStyle.LINK
         )
         self._material_warning.actionTriggered.connect(self._openMaterialsPage)
+        self.materialWarning.connect(handler.materialWarned)
+
 
     # Builds and checks a smart slice job for errors based on current setup defined by the property handler
     # Will return the job, and a dictionary of error keys and associated error resolutions
