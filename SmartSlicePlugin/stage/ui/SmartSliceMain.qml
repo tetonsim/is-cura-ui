@@ -104,6 +104,7 @@ Item {
 
                     // Main status message
                     Label {
+                        id: mainMessage
                         Layout.fillHeight: true
                         Layout.fillWidth: true
                         font: smartSliceMain.proxy.isValidated ? UM.Theme.getFont("medium_bold") : UM.Theme.getFont("default")

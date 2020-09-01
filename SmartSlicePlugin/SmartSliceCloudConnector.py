@@ -23,6 +23,7 @@ from UM.Job import Job
 from UM.Logger import Logger
 from UM.Message import Message
 from UM.PluginRegistry import PluginRegistry
+from UM.Qt.Duration import Duration, DurationFormat
 
 from UM.Signal import Signal
 
@@ -228,6 +229,10 @@ class JobStatusTracker:
         elif job.status == pywim.http.thor.JobInfo.Status.running and self.connector.status not in (SmartSliceCloudStatus.BusyOptimizing, SmartSliceCloudStatus.BusyValidating):
             self.connector.status = self._previous_status
             self.connector.updateSliceWidget()
+
+        if job.status == pywim.http.thor.JobInfo.Status.running and self.connector.status is SmartSliceCloudStatus.BusyOptimizing:
+            self.connector._proxy.sliceStatus = "Optimizing...&nbsp;&nbsp;&nbsp;&nbsp;(<i>Remaining Time: {}</i>)".format(Duration(job.runtime_remaining).getDisplayString())
+
         return False
 
 
@@ -797,7 +802,7 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.progressBarVisible = False
             self._proxy.jobProgress = 0
         elif self.status is SmartSliceCloudStatus.BusyValidating:
-            self._proxy.sliceStatus = "Validating requirements..."
+            self._proxy.sliceStatus = "Validating..."
             self._proxy.sliceHint = ""
             self._proxy.secondaryButtonText = "Cancel"
             self._proxy.sliceButtonVisible = False
@@ -833,7 +838,7 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.progressBarVisible = False
             self._proxy.jobProgress = 0
         elif self.status is SmartSliceCloudStatus.BusyOptimizing:
-            self._proxy.sliceStatus = "Optimizing..."
+            self._proxy.sliceStatus = "Optimizing...&nbsp;&nbsp;&nbsp;&nbsp;(<i>Remaining Time: calculating</i>)"
             self._proxy.sliceHint = ""
             self._proxy.secondaryButtonText = "Cancel"
             self._proxy.sliceButtonVisible = False
