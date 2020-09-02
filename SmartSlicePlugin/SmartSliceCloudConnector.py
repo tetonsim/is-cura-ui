@@ -70,7 +70,6 @@ class SmartSliceCloudJob(Job):
             pywim.smartslice.job.JobType.optimization : SmartSliceCloudStatus.BusyOptimizing,
         }
 
-        #TODO: Get API connection
         self._client = self.connector.api_connection
 
     @property
@@ -233,8 +232,7 @@ class JobStatusTracker:
         if job.status == pywim.http.thor.JobInfo.Status.running and self.connector.status is SmartSliceCloudStatus.BusyOptimizing:
             self.connector._proxy.sliceStatus = "Optimizing...&nbsp;&nbsp;&nbsp;&nbsp;(<i>Remaining Time: {}</i>)".format(Duration(job.runtime_remaining).getDisplayString())
 
-        return False
-
+        return self.connector.cloudJob.canceled if self.connector.cloudJob else True
 
 # This class defines and contains our API connection. API errors, login and token
 #   checking is all handled here.
@@ -481,7 +479,7 @@ class SmartSliceAPIClient(QObject):
         # While the task status is not finished/failed/crashed/aborted continue to
         # wait on the status using the API.
         thor_status_code = None
-        while thor_status_code != 1 and not cloud_job.canceled and task.status not in (
+        while thor_status_code != self.ConnectionErrorCodes.genericInternetConnectionError and not cloud_job.canceled and task.status not in (
             pywim.http.thor.JobInfo.Status.failed,
             pywim.http.thor.JobInfo.Status.crashed,
             pywim.http.thor.JobInfo.Status.aborted,
@@ -702,16 +700,18 @@ class SmartSliceCloudConnector(QObject):
         self._jobs[self._current_job].finished.connect(self._onJobFinished)
 
     def cancelCurrentJob(self):
-        self.api_connection.cancelJob(self._jobs[self._current_job].api_job_id)
-        if self._jobs[self._current_job]:
+        if self._jobs[self._current_job] and not self._jobs[self._current_job].canceled:
+
+            # Cancel the job if it has been submitted
+            if self._jobs[self._current_job].api_job_id:
+                self.api_connection.cancelJob(self._jobs[self._current_job].api_job_id)
+
             if not self._jobs[self._current_job].canceled:
                 self.status = SmartSliceCloudStatus.Cancelling
                 self.updateStatus()
 
-            if self._jobs[self._current_job]:
-                self._jobs[self._current_job].cancel()
-                self._jobs[self._current_job].canceled = True
-                self._jobs[self._current_job] = None
+            self._jobs[self._current_job].cancel()
+            self._jobs[self._current_job].canceled = True
 
     # Resets all of the tracked properties and jobs
     def clearJobs(self):
@@ -932,7 +932,7 @@ class SmartSliceCloudConnector(QObject):
             self.status = SmartSliceCloudStatus.Errors
 
     def _onJobFinished(self, job):
-        if self._jobs[self._current_job] is None or self._jobs[self._current_job].canceled:
+        if not self._jobs[self._current_job] or self._jobs[self._current_job].canceled:
             Logger.log("d", "Smart Slice Job was Cancelled")
             return
 
@@ -1076,7 +1076,6 @@ class SmartSliceCloudConnector(QObject):
     def onSliceButtonClicked(self):
         if self.status in SmartSliceCloudStatus.busy():
             self._jobs[self._current_job].cancel()
-            self._jobs[self._current_job] = None
         else:
             self._subscription = self.api_connection.getSubscription()
             if self._subscription is not None:
