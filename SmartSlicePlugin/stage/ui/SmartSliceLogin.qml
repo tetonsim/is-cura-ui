@@ -1,7 +1,7 @@
-import QtQuick 2.7
-import QtQuick.Controls 1.4
+import QtQuick 2.10
+import QtQuick.Controls 2.2
 import QtQuick.Layouts 1.3
-import QtQuick.Controls.Styles 1.1
+import QtQuick.Controls.Styles 1.4
 
 import Cura 1.0 as Cura
 import UM 1.2 as UM
@@ -37,7 +37,10 @@ MouseArea {
     Item {
         id: loginItem
 
-        width: 0.2 * smartSliceMain.width
+        property int minimumWidth: 350
+        property int computedWidth: 0.2 * smartSliceMain.width
+
+        width: computedWidth >= minimumWidth ? computedWidth : minimumWidth
         height: childrenRect.height
 
         x: (0.5 * smartSliceMain.width) - (loginContainer.width * 0.5)
@@ -95,7 +98,7 @@ MouseArea {
 
                     Image {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        width: contentColumn.width - 2 * UM.Theme.getSize("default_margin").width;
+                        width: contentColumn.width - 2 * UM.Theme.getSize("default_margin").width
                         fillMode: Image.PreserveAspectFit
                         source: "../images/only_symbol_logo.png"
                         mipmap: true
@@ -139,35 +142,20 @@ MouseArea {
 
                         validator: RegExpValidator { regExp: /^([a-zA-Z0-9_\-\.]+)@([a-zA-Z0-9_\-\.]+)\.([a-zA-Z]{2,5})$/ }
 
-                        style: TextFieldStyle {
-                            textColor: UM.Theme.getColor("setting_control_text")
-                            placeholderTextColor: UM.Theme.getColor("text_inactive")
-                            font: UM.Theme.getFont("default")
+                        background: Rectangle {
+                            anchors.fill: parent
 
-                            background: Rectangle {
-                                implicitHeight: control.height;
-                                implicitWidth: control.width;
+                            border.width: UM.Theme.getSize("default_lining").width
+                            border.color: username_input.hovered ? UM.Theme.getColor("setting_control_border_highlight") : UM.Theme.getColor("setting_control_border")
+                            radius: UM.Theme.getSize("setting_control_radius").width
 
-                                border.width: UM.Theme.getSize("default_lining").width;
-                                border.color: control.hovered ? UM.Theme.getColor("setting_control_border_highlight") : UM.Theme.getColor("setting_control_border");
-                                radius: UM.Theme.getSize("setting_control_radius").width
+                            color: UM.Theme.getColor("setting_validation_ok")
 
-                                color: UM.Theme.getColor("setting_validation_ok");
-
-                                Label {
-                                    anchors.right: parent.right;
-                                    anchors.rightMargin: UM.Theme.getSize("setting_unit_margin").width;
-                                    anchors.verticalCenter: parent.verticalCenter;
-
-                                    text: control.unit ? control.unit : ""
-                                    color: UM.Theme.getColor("setting_unit");
-                                    font: UM.Theme.getFont("default");
-                                    renderType: Text.NativeRendering
-                                }
-                            }
                         }
 
+                        color: UM.Theme.getColor("setting_control_text")
                         font: UM.Theme.getFont("default")
+
                         text: smartSliceMain.api.loginUsername
 
                         onTextChanged: {
@@ -186,35 +174,20 @@ MouseArea {
 
                         validator: RegExpValidator { regExp: /.+/ }
 
-                        style: TextFieldStyle {
-                            textColor: UM.Theme.getColor("setting_control_text")
-                            placeholderTextColor: UM.Theme.getColor("text_inactive")
-                            font: UM.Theme.getFont("default")
+                        background: Rectangle {
+                            anchors.fill: parent
 
-                            background: Rectangle {
-                                implicitHeight: control.height;
-                                implicitWidth: control.width;
+                            border.width: UM.Theme.getSize("default_lining").width
+                            border.color: password_input.hovered ? UM.Theme.getColor("setting_control_border_highlight") : UM.Theme.getColor("setting_control_border")
+                            radius: UM.Theme.getSize("setting_control_radius").width
 
-                                border.width: UM.Theme.getSize("default_lining").width;
-                                border.color: control.hovered ? UM.Theme.getColor("setting_control_border_highlight") : UM.Theme.getColor("setting_control_border");
-                                radius: UM.Theme.getSize("setting_control_radius").width
+                            color: UM.Theme.getColor("setting_validation_ok")
 
-                                color: UM.Theme.getColor("setting_validation_ok");
-
-                                Label {
-                                    anchors.right: parent.right;
-                                    anchors.rightMargin: UM.Theme.getSize("setting_unit_margin").width;
-                                    anchors.verticalCenter: parent.verticalCenter;
-
-                                    text: control.unit ? control.unit : ""
-                                    color: UM.Theme.getColor("setting_unit");
-                                    font: UM.Theme.getFont("default");
-                                    renderType: Text.NativeRendering
-                                }
-                            }
                         }
 
+                        color: UM.Theme.getColor("setting_control_text")
                         font: UM.Theme.getFont("default")
+
                         text: smartSliceMain.api.loginPassword
 
                         onTextChanged: {
@@ -243,10 +216,10 @@ MouseArea {
 
                             anchors.horizontalCenter: parent.horizontalCenter
 
-                            font.underline: false
+                            font: UM.Theme.getFont("default")
+
                             color: "#266faa"
                             text: "Forgot password?"
-                            renderType: Text.NativeRendering
 
                             MouseArea {
                                 anchors.fill: parent
@@ -261,10 +234,10 @@ MouseArea {
 
                             anchors.horizontalCenter: parent.horizontalCenter
 
-                            font.underline: true
+                            font: UM.Theme.getFont("medium_bold")
+
                             color: "#266faa"
-                            text: "<b>Don't have an account?</b>"
-                            renderType: Text.NativeRendering
+                            text: "Don't have an account?"
 
                             MouseArea {
                                 anchors.fill: parent
