@@ -378,6 +378,8 @@ class SmartSliceLoadFace(SmartSliceFace):
         super().restore()
 
         self.highlight_face.setArrow(self._properties.direction)
+        if not self.highlight_face.isVisible():
+            self.highlight_face.disableTools()
 
 class SmartSliceSceneRoot(TrackedProperty):
     def __init__(self, root: Root = None):

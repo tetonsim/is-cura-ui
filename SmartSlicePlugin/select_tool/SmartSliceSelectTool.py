@@ -251,6 +251,7 @@ class SmartSliceSelectTool(Tool):
             self._enabled = False
             if self._bc_list and self._bc_list.getActiveNode():
                 self._controller.getScene().sceneChanged.emit(self._bc_list.getActiveNode())
+                self._bc_list = None
             return False
 
         if not self.getEnabled():
