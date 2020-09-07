@@ -24,10 +24,12 @@ from UM.Scene.SceneNode import SceneNode
 from UM.Operations.AddSceneNodeOperation import AddSceneNodeOperation
 from UM.Math.Matrix import Matrix
 from UM.Qt.Duration import Duration
+from UM.Signal import Signal
 
 from .SmartSliceCloudStatus import SmartSliceCloudStatus
 from .SmartSliceProperty import SmartSlicePropertyColor
 from .SmartSliceJobHandler import SmartSliceJobHandler
+from .SmartSliceDecorator import SmartSliceAddedDecorator, SmartSliceRemovedDecorator
 from .requirements_tool.SmartSliceRequirements import SmartSliceRequirements
 from .select_tool.SmartSliceSelectTool import SmartSliceSelectTool
 from .stage.ui.ResultTable import ResultsTableHeader, ResultTableData
@@ -793,8 +795,10 @@ class SmartSliceCloudProxy(QObject):
         if len(mod_meshes) > 0:
             op = GroupedOperation()
             for node in mod_meshes:
+                node.addDecorator(SmartSliceRemovedDecorator())
                 op.addOperation(RemoveSceneNodeOperation(node))
             op.push()
+            Application.getInstance().getController().getScene().sceneChanged.emit(node)
 
         # Add in the new modifier meshes
         for modifier_mesh in analysis.modifier_meshes:
@@ -822,6 +826,7 @@ class SmartSliceCloudProxy(QObject):
             active_build_plate = Application.getInstance().getMultiBuildPlateModel().activeBuildPlate
             modifier_mesh_node.addDecorator(BuildPlateDecorator(active_build_plate))
             modifier_mesh_node.addDecorator(SliceableObjectDecorator())
+            modifier_mesh_node.addDecorator(SmartSliceAddedDecorator())
 
             stack = modifier_mesh_node.callDecoration("getStack")
             settings = stack.getTop()
@@ -858,7 +863,6 @@ class SmartSliceCloudProxy(QObject):
             ))
             op.push()
 
-
             # Use the data from the SmartSlice engine to translate / rotate / scale the mod mesh
             parent_transformation = our_only_node.getLocalTransformation()
             modifier_mesh_transform_matrix = parent_transformation.multiply(Matrix(modifier_mesh.transform))
@@ -866,4 +870,5 @@ class SmartSliceCloudProxy(QObject):
 
             # emit changes and connect error tracker
             Application.getInstance().getController().getScene().sceneChanged.emit(modifier_mesh_node)
+
 

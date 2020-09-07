@@ -928,9 +928,6 @@ class SmartSliceCloudConnector(QObject):
 
         sel_tool = SmartSliceSelectTool.getInstance()
 
-        if printable_nodes_count != 1 or len(self._proxy.errors) > 0:
-            self.status = SmartSliceCloudStatus.Errors
-
     def _onJobFinished(self, job):
         if not self._jobs[self._current_job] or self._jobs[self._current_job].canceled:
             Logger.log("d", "Smart Slice Job was Cancelled")

@@ -362,8 +362,8 @@ class LoadFace(HighlightFace):
         self.activeArrow.setPosition(-self._rotator.center)
         self.inactiveArrow.setPosition(-self._rotator.center)
 
-        self.activeArrow.rotate(matrix, SceneNode.TransformSpace.World)
-        self.inactiveArrow.rotate(matrix, SceneNode.TransformSpace.World)
+        self.activeArrow.rotate(matrix, SceneNode.TransformSpace.Parent)
+        self.inactiveArrow.rotate(matrix, SceneNode.TransformSpace.Parent)
 
         self.activeArrow.setPosition(self._rotator.center)
         self.inactiveArrow.setPosition(self._rotator.center)
@@ -393,9 +393,9 @@ class LoadFace(HighlightFace):
         matrix = Quaternion.fromAngleAxis(angle, axis)
 
         self.inactiveArrow.setEnabled(True)
-        self.activeArrow.rotate(matrix, SceneNode.TransformSpace.World)
-        self.inactiveArrow.rotate(matrix, SceneNode.TransformSpace.World)
-        self._rotator.rotate(matrix, SceneNode.TransformSpace.World)
+        self.activeArrow.rotate(matrix, SceneNode.TransformSpace.Parent)
+        self.inactiveArrow.rotate(matrix, SceneNode.TransformSpace.Parent)
+        self._rotator.rotate(matrix, SceneNode.TransformSpace.Parent)
 
         self.activeArrow.direction = matrix.rotate(self.activeArrow.direction)
         self.inactiveArrow.direction = matrix.rotate(self.inactiveArrow.direction)

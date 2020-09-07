@@ -3,11 +3,16 @@ from typing import List, Optional
 import copy
 from enum import Enum
 
+from UM.Application import Application
 from UM.Settings.SettingInstance import InstanceState
+from UM.Operations.AddSceneNodeOperation import AddSceneNodeOperation
+from UM.Operations.RemoveSceneNodeOperation import RemoveSceneNodeOperation
+from UM.Operations.GroupedOperation import GroupedOperation
 
 from cura.CuraApplication import CuraApplication
 
-from . utils import getPrintableNodes, getNodeActiveExtruder
+from .SmartSliceDecorator import SmartSliceRemovedDecorator, SmartSliceAddedDecorator
+from . utils import getPrintableNodes, getNodeActiveExtruder, getModifierMeshes
 from .stage.SmartSliceScene import HighlightFace, LoadFace, Root
 
 class SmartSlicePropertyColor():
@@ -276,6 +281,68 @@ class SceneNode(TrackedProperty):
     def parentChanged(self, parent):
         self.parent_changed = True
 
+class Scene(TrackedProperty):
+    def __init__(self):
+        self._root = None
+        self._nodes = None
+        self.cache()
+
+    def value(self):
+        root = Application.getInstance().getController().getScene().getRoot()
+        nodes = getPrintableNodes() + getModifierMeshes()
+        return root, nodes
+
+    def cache(self):
+        self._root, self._nodes = self.value()
+
+    def restore(self):
+        root, nodes = self.value()
+
+        if root != self._root:
+            Application.getInstance().getController().getScene().setRoot(self._root)
+
+        for n in self._nodes:
+            if n in nodes:
+                continue
+
+            self._root.addChild(n)
+
+        for n in nodes:
+            if n in self._nodes:
+                continue
+
+            self._root.removeChild(n)
+
+    def changed(self):
+        if not self._root:
+            return False
+
+        root, nodes = self.value()
+        _changed = False
+
+        if self._root != root:
+            return True
+
+        for node in nodes:
+            if node not in self._nodes and not node.getDecorator(SmartSliceAddedDecorator):
+                return True
+
+        for node in self._nodes:
+            if node not in nodes and not node.getDecorator(SmartSliceRemovedDecorator):
+                return True
+
+        return False
+
+    def cacheSmartSliceNodes(self):
+        root, nodes = self.value()
+
+        for node in nodes:
+            if node not in self._nodes and node.getDecorator(SmartSliceAddedDecorator):
+                self._nodes.append(node)
+
+        for node in self._nodes:
+            if node not in nodes and node.getDecorator(SmartSliceRemovedDecorator):
+                self._nodes.remove(node)
 
 class ToolProperty(TrackedProperty):
     def __init__(self, tool, property):
