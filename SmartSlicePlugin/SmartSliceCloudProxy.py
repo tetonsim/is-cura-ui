@@ -12,6 +12,7 @@ from cura.Scene.CuraSceneNode import CuraSceneNode
 from cura.Scene.BuildPlateDecorator import BuildPlateDecorator
 from cura.Scene.SliceableObjectDecorator import SliceableObjectDecorator
 from cura.Operations.SetParentOperation import SetParentOperation
+from cura.Scene.ZOffsetDecorator import ZOffsetDecorator
 
 from UM.i18n import i18nCatalog
 from UM.Application import Application
@@ -21,6 +22,7 @@ from UM.Operations.GroupedOperation import GroupedOperation
 from UM.Mesh.MeshBuilder import MeshBuilder
 from UM.Settings.SettingInstance import SettingInstance
 from UM.Scene.SceneNode import SceneNode
+from UM.Scene.GroupDecorator import GroupDecorator
 from UM.Operations.AddSceneNodeOperation import AddSceneNodeOperation
 from UM.Math.Matrix import Matrix
 from UM.Qt.Duration import Duration
@@ -808,6 +810,11 @@ class SmartSliceCloudProxy(QObject):
             modifier_mesh_node.setSelectable(True)
             modifier_mesh_node.setCalculateBoundingBox(True)
 
+            # Use the data from the SmartSlice engine to translate / rotate / scale the mod mesh
+            parent_transformation = our_only_node.getLocalTransformation()
+            modifier_mesh_transform_matrix = parent_transformation.multiply(Matrix(modifier_mesh.transform))
+            modifier_mesh_node.setTransformation(modifier_mesh_transform_matrix)
+
             # Building the mesh
 
             # # Preparing the data from pywim for MeshBuilder
@@ -827,6 +834,16 @@ class SmartSliceCloudProxy(QObject):
             modifier_mesh_node.addDecorator(BuildPlateDecorator(active_build_plate))
             modifier_mesh_node.addDecorator(SliceableObjectDecorator())
             modifier_mesh_node.addDecorator(SmartSliceAddedDecorator())
+
+            group_decorator = GroupDecorator()
+            group_decorator.setNode(modifier_mesh_node)
+            modifier_mesh_node.addDecorator(group_decorator)
+
+            bottom = modifier_mesh_node.getBoundingBox().bottom
+
+            z_offset_decorator = ZOffsetDecorator()
+            z_offset_decorator.setZOffset(bottom)
+            modifier_mesh_node.addDecorator(z_offset_decorator)
 
             stack = modifier_mesh_node.callDecoration("getStack")
             settings = stack.getTop()
@@ -863,12 +880,6 @@ class SmartSliceCloudProxy(QObject):
             ))
             op.push()
 
-            # Use the data from the SmartSlice engine to translate / rotate / scale the mod mesh
-            parent_transformation = our_only_node.getLocalTransformation()
-            modifier_mesh_transform_matrix = parent_transformation.multiply(Matrix(modifier_mesh.transform))
-            modifier_mesh_node.setTransformation(modifier_mesh_transform_matrix)
-
             # emit changes and connect error tracker
             Application.getInstance().getController().getScene().sceneChanged.emit(modifier_mesh_node)
-
 
