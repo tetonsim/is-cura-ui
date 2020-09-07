@@ -54,6 +54,7 @@ class SmartSlicePropertyHandler(QObject):
         self._scene = SmartSliceProperty.Scene()
         self._root = SmartSliceProperty.SmartSliceSceneRoot()
         self._active_extruder = SmartSliceProperty.ActiveExtruder()
+        self._quality_group = SmartSliceProperty.ActiveQualityGroup()
 
         self._mod_mesh_removal_msg = None
 
@@ -74,6 +75,7 @@ class SmartSlicePropertyHandler(QObject):
                 self._scene,
                 self._root,
                 self._selected_material,
+                self._quality_group,
                 self._active_extruder
             ]
 
@@ -81,6 +83,8 @@ class SmartSlicePropertyHandler(QObject):
 
         self._activeMachineManager = CuraApplication.getInstance().getMachineManager()
         self._activeMachineManager.printerConnectedStatusChanged.connect(self.printerCheck)
+        self._activeMachineManager.globalContainerChanged.connect(self._onQualityGroupChanged)
+        self._activeMachineManager.activeQualityGroupChanged.connect(self._onQualityGroupChanged)
         self.printerCheck()
 
         Root.faceAdded.connect(self._faceAdded)
@@ -232,6 +236,9 @@ class SmartSlicePropertyHandler(QObject):
         self.confirmPendingChanges(
             list(filter(lambda p: p.name == key, self._extruder_properties))
         )
+
+    def _onQualityGroupChanged(self):
+        self.confirmPendingChanges(self._quality_group)
 
     def _onActiveExtruderChanged(self):
         self.confirmPendingChanges(self._active_extruder)

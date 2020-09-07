@@ -10,6 +10,7 @@ from UM.Operations.RemoveSceneNodeOperation import RemoveSceneNodeOperation
 from UM.Operations.GroupedOperation import GroupedOperation
 
 from cura.CuraApplication import CuraApplication
+from cura.Machines.QualityGroup import QualityGroup
 
 from .SmartSliceDecorator import SmartSliceRemovedDecorator, SmartSliceAddedDecorator
 from . utils import getPrintableNodes, getNodeActiveExtruder, getModifierMeshes
@@ -132,6 +133,22 @@ class ExtruderProperty(ContainerProperty):
         if extruder and self._cached_value and self._cached_value != self.value():
             extruder.setProperty(self.name, "value", self._cached_value, set_from_cache=True)
             extruder.setProperty(self.name, "state", InstanceState.Default, set_from_cache=True)
+
+class ActiveQualityGroup(TrackedProperty):
+    def __init__(self):
+        self._quality_group = self.value()
+
+    def value(self):
+        return CuraApplication.getInstance().getMachineManager().activeQualityGroup()
+
+    def cache(self):
+        self._quality_group = self.value()
+
+    def restore(self):
+        CuraApplication.getInstance().getMachineManager().setQualityGroup(self._quality_group, no_dialog=True)
+
+    def changed(self):
+        return self._quality_group != self.value()
 
 class ActiveExtruder(TrackedProperty):
     def __init__(self):
