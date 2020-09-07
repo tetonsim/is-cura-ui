@@ -343,7 +343,7 @@ class SmartSlicePropertyHandler(QObject):
                 p.cache()
 
     def showConfirmDialog(self, revalidationRequired : bool):
-        if self._confirmDialog and self._confirmDialog.visible:
+        if (self._confirmDialog and self._confirmDialog.visible) or self.connector.cloudJob is None:
             return
 
         #  Create a Confirmation Dialog Component

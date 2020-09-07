@@ -949,10 +949,11 @@ class SmartSliceCloudConnector(QObject):
 
         if self._jobs[self._current_job].getResult():
             if len(self._jobs[self._current_job].getResult().analyses) > 0:
-                self.processAnalysisResult()
                 if self._jobs[self._current_job].job_type == pywim.smartslice.job.JobType.optimization:
                     self.status = SmartSliceCloudStatus.Optimized
+                    self.processAnalysisResult()
                 else:
+                    self.processAnalysisResult()
                     self.prepareOptimization()
                 self.saveSmartSliceJob.emit()
             else:
