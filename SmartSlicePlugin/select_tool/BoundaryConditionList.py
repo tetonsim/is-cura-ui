@@ -15,6 +15,7 @@ class BoundaryConditionListModel(QAbstractListModel):
     Force = 1
 
     propertyChanged = pyqtSignal()
+    updateDialog = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -116,7 +117,7 @@ class BoundaryConditionListModel(QAbstractListModel):
 
     @loadMagnitude.setter
     def loadMagnitude(self, value: float):
-        if isinstance(self._active_node, SmartSliceScene.LoadFace) and self._active_node.force.magnitude != value:
+        if isinstance(self._active_node, SmartSliceScene.LoadFace):
             self._active_node.force.magnitude = value
             self._active_node.facePropertyChanged.emit(self._active_node)
 
@@ -241,4 +242,4 @@ class BoundaryConditionListModel(QAbstractListModel):
                 self.loadType = self._active_node.force.direction_type.value
 
             self.surfaceType = self._active_node.surface_type.value
-            self.propertyChanged.emit()
+            self.updateDialog.emit()

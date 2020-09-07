@@ -106,6 +106,13 @@ Item {
             onSelectionChanged: {
                 loadColumn.iconsEnabled();
             }
+
+            Connections {
+                target: bcListAnchors.model
+                onUpdateDialog: {
+                    loadColumn.iconsEnabled()
+                }
+            }
         }
 
         SmartSlice.BoundaryConditionList {
@@ -119,6 +126,13 @@ Item {
             onSelectionChanged: {
                 textLoadDialogMagnitude.text = model.loadMagnitude;
                 loadColumn.iconsEnabled();
+            }
+
+            Connections {
+                target: bcListForces.model
+                onUpdateDialog: {
+                    loadColumn.iconsEnabled()
+                }
             }
         }
     }
@@ -193,13 +207,6 @@ Item {
             }
         }
 
-        Connections {
-            target: bcListForces.model, bcListAnchors.model
-            onPropertyChanged: {
-                loadColumn.iconsEnabled()
-            }
-        }
-
         Column {
             id: loadColumn
 
@@ -252,6 +259,8 @@ Item {
                 } else {
                     flipIcon.color = UM.Theme.getColor("text_inactive");
                 }
+
+                textLoadDialogMagnitude.text = bcListForces.model.loadMagnitude;
             }
 
             MouseArea {
