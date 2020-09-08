@@ -318,14 +318,24 @@ class SmartSlicePropertyHandler(QObject):
 
     def _onRequirementToolPropertyChanged(self, property_name):
         # We handle changes in the requirements tool differently, depending on the current
-        # status. We only need to ask for confirmation if the model has been optimized
-        if self.connector.status in {SmartSliceCloudStatus.Underdimensioned, SmartSliceCloudStatus.Overdimensioned }:
+        # status. We only need to ask for confirmation if the model is optimizing or has been optimized
+        if self.connector.status in { SmartSliceCloudStatus.Underdimensioned, SmartSliceCloudStatus.Overdimensioned }:
             self.connector.prepareOptimization()
-        else:
+            for p in self._req_tool_properties:
+                p.cache()
+
+        # Optimizing or optimized, confirm the changes
+        elif self.connector.status == SmartSliceCloudStatus.Optimized or \
+            (self.connector.status in SmartSliceCloudStatus.busy() and self.connector.cloudJob and self.connector.cloudJob.job_type == pywim.smartslice.job.JobType.optimization):
             self.confirmPendingChanges(
                 list(filter(lambda p: p.name == property_name, self._req_tool_properties)),
                 revalidationRequired=False
             )
+
+        # Busy validating or nothing - just cache the values directly
+        else:
+            for p in self._req_tool_properties:
+                p.cache()
 
         self.connector._proxy.targetSafetyFactorChanged.emit()
         self.connector._proxy.targetMaximalDisplacementChanged.emit()

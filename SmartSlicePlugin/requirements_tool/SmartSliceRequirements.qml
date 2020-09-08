@@ -14,18 +14,18 @@ Item {
     property string targetSafetyFactorText
 
     Grid {
-        id: textfields;
+        id: textfields
 
-        anchors.top: parent.top;
+        anchors.top: parent.top
 
-        columns: 2;
-        flow: Grid.TopToBottom;
-        spacing: Math.round(UM.Theme.getSize("default_margin").width / 2);
+        columns: 2
+        flow: Grid.TopToBottom
+        spacing: Math.round(UM.Theme.getSize("default_margin").width / 2)
 
         Label {
-            height: UM.Theme.getSize("setting_control").height;
+            height: UM.Theme.getSize("setting_control").height
 
-            font: UM.Theme.getFont("default");
+            font: UM.Theme.getFont("default")
             renderType: Text.NativeRendering
 
             text: catalog.i18nc("@action:button", "Factor of Safety \u2265")
@@ -33,9 +33,9 @@ Item {
         }
 
         Label {
-            height: UM.Theme.getSize("setting_control").height;
+            height: UM.Theme.getSize("setting_control").height
 
-            font: UM.Theme.getFont("default");
+            font: UM.Theme.getFont("default")
             renderType: Text.NativeRendering
 
             text: catalog.i18nc("@action:button", "Max Deflection  \u2264")
@@ -44,9 +44,9 @@ Item {
 
         TextField {
             id: valueSafetyFactor
-            width: UM.Theme.getSize("setting_control").width;
-            height: UM.Theme.getSize("setting_control").height;
-            style: UM.Theme.styles.text_field;
+            width: UM.Theme.getSize("setting_control").width
+            height: UM.Theme.getSize("setting_control").height
+            style: UM.Theme.styles.text_field
 
             onEditingFinished: {
                 var value = parseFloat(text)
@@ -60,14 +60,14 @@ Item {
             inputMethodHints: Qt.ImhFormattedNumbersOnly
 
             placeholderText: catalog.i18nc("@action:button", "Must be above 1")
-            property string unit: " ";
+            property string unit: " "
         }
 
         TextField {
             id: valueMaxDeflect
-            width: UM.Theme.getSize("setting_control").width;
-            height: UM.Theme.getSize("setting_control").height;
-            style: UM.Theme.styles.text_field;
+            width: UM.Theme.getSize("setting_control").width
+            height: UM.Theme.getSize("setting_control").height
+            style: UM.Theme.styles.text_field
 
             onEditingFinished: {
                 UM.ActiveTool.setProperty("MaxDisplacement", text)
@@ -77,7 +77,7 @@ Item {
             inputMethodHints: Qt.ImhFormattedNumbersOnly
 
             placeholderText: ""
-            property string unit: "[mm]";
+            property string unit: "[mm]"
         }
 
         Binding {
