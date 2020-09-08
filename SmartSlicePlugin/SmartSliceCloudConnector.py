@@ -712,6 +712,7 @@ class SmartSliceCloudConnector(QObject):
 
             self._jobs[self._current_job].cancel()
             self._jobs[self._current_job].canceled = True
+            self._jobs[self._current_job].setResult(None)
 
     # Resets all of the tracked properties and jobs
     def clearJobs(self):

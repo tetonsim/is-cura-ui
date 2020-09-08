@@ -238,6 +238,7 @@ class SmartSliceExtension(Extension):
 
         if results:
             self.cloud.cloudJob.setResult(results)
+            self.cloud.cloudJob.saved = True
             self.cloud.processAnalysisResult(selected_row)
 
         self.cloud.propertyHandler.resetProperties()
