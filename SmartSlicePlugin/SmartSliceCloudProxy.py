@@ -835,10 +835,6 @@ class SmartSliceCloudProxy(QObject):
             modifier_mesh_node.addDecorator(SliceableObjectDecorator())
             modifier_mesh_node.addDecorator(SmartSliceAddedDecorator())
 
-            group_decorator = GroupDecorator()
-            group_decorator.setNode(modifier_mesh_node)
-            modifier_mesh_node.addDecorator(group_decorator)
-
             bottom = modifier_mesh_node.getBoundingBox().bottom
 
             z_offset_decorator = ZOffsetDecorator()
