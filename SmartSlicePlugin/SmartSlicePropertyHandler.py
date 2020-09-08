@@ -51,6 +51,7 @@ class SmartSlicePropertyHandler(QObject):
         self._global_properties = SmartSliceProperty.GlobalProperty.CreateAll()
         self._extruder_properties = SmartSliceProperty.ExtruderProperty.CreateAll()
         self._selected_material = SmartSliceProperty.SelectedMaterial()
+        self._selected_material_variant = SmartSliceProperty.SelectedMaterialVariant()
         self._scene = SmartSliceProperty.Scene()
         self._root = SmartSliceProperty.SmartSliceSceneRoot()
         self._active_extruder = SmartSliceProperty.ActiveExtruder()
@@ -75,6 +76,7 @@ class SmartSlicePropertyHandler(QObject):
                 self._scene,
                 self._root,
                 self._selected_material,
+                self._selected_material_variant,
                 self._quality_group,
                 self._active_extruder
             ]
@@ -246,13 +248,13 @@ class SmartSlicePropertyHandler(QObject):
     def _onMachineChanged(self):
         active_extruder_index = CuraApplication.getInstance().getExtruderManager().activeExtruderIndex
         self._activeMachineManager.activeMachine.extruderList[active_extruder_index].propertyChanged.connect(self._onExtruderPropertyChanged)
-        self.confirmPendingChanges([self._active_extruder, self._selected_material])
+        self.confirmPendingChanges([self._active_extruder, self._selected_material, self._selected_material_variant])
 
         self._onActiveExtruderChanged()
         CuraApplication.getInstance().getExtruderManager().activeExtruderChanged.connect(self._onActiveExtruderChanged)
 
     def _onMaterialChanged(self):
-        self.confirmPendingChanges([self._active_extruder, self._selected_material])
+        self.confirmPendingChanges([self._active_extruder, self._selected_material, self._selected_material_variant])
 
         # If we've spawned a cancellation from the event, don't update the status
         if self._confirmDialog and self._confirmDialog.visible:

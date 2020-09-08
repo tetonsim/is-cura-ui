@@ -229,6 +229,26 @@ class SelectedMaterial(TrackedProperty):
     def changed(self) -> bool:
         return self._cached_material != self.value()
 
+class SelectedMaterialVariant(TrackedProperty):
+    def __init__(self):
+        self._cached_material_variant = None
+
+    def value(self):
+        machine, extruder = self._getMachineAndExtruder()
+        if extruder:
+            return extruder.variant
+
+    def cache(self):
+        self._cached_material_variant = self.value()
+
+    def restore(self):
+        machine, extruder = self._getMachineAndExtruder()
+        if extruder and self._cached_material_variant:
+            extruder.variant = self._cached_material_variant
+
+    def changed(self) -> bool:
+        return self._cached_material_variant != self.value()
+
 class Transform(TrackedProperty):
     def __init__(self, node=None):
         self._node = node
