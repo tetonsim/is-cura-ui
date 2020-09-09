@@ -60,7 +60,7 @@ Item {
             onEditingFinished: {
                 var value = parseFloat(text)
                 if (value >= 1.0) {
-                    UM.ActiveTool.setProperty("TargetSafetyFactor", text)
+                    UM.ActiveTool.setProperty("TargetSafetyFactor", value)
                 } else {
                     text = "1"
                 }
@@ -79,8 +79,9 @@ Item {
             style: UM.Theme.styles.text_field
 
             onTextChanged: {
-                if (text != "") {
-                    UM.ActiveTool.setProperty("MaxDisplacement", text)
+                var value = parseFloat(text)
+                if (value > 0.) {
+                    UM.ActiveTool.setProperty("MaxDisplacement", value)
                 }
             }
 
@@ -106,6 +107,7 @@ Item {
         Connections {
             target: UM.Controller.activeStage.proxy
             onUpdateTargetUi: {
+                UM.ActiveTool.forceUpdate()
                 valueSafetyFactor.text = UM.ActiveTool.properties.getValue("TargetSafetyFactor")
                 valueMaxDeflect.text = UM.ActiveTool.properties.getValue("MaxDisplacement")
             }
