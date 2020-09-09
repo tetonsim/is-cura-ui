@@ -245,6 +245,8 @@ class SmartSliceExtension(Extension):
         self.cloud.updateSliceWidget()
         self.proxy.updateColorUI()
 
+        self._storage.getPluginMetadata(self.metadata.id).clear()
+
     def _reset(self, *args):
         if len(getPrintableNodes()) == 0:
             self._storage.getPluginMetadata(self.metadata.id).clear()
