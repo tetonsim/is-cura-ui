@@ -435,6 +435,7 @@ class SmartSlicePropertyHandler(QObject):
         self._cancelChanges = False
 
         SmartSliceSelectTool.getInstance().redraw()
+        self.connector._proxy.updateTargetUi.emit()
 
         if self._confirmDialog:
             self._confirmDialog.hide()

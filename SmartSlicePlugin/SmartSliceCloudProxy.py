@@ -326,6 +326,7 @@ class SmartSliceCloudProxy(QObject):
 
     resultSafetyFactorChanged = pyqtSignal()
     targetSafetyFactorChanged = pyqtSignal()
+    updateTargetUi = pyqtSignal()
 
     @pyqtProperty(float, notify=targetSafetyFactorChanged)
     def targetSafetyFactor(self):

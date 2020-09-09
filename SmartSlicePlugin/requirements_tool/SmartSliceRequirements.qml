@@ -48,6 +48,13 @@ Item {
             height: UM.Theme.getSize("setting_control").height
             style: UM.Theme.styles.text_field
 
+            onTextChanged: {
+                var value = parseFloat(text)
+                if (value >= 1.0) {
+                    UM.ActiveTool.setProperty("TargetSafetyFactor", text)
+                }
+            }
+
             onEditingFinished: {
                 var value = parseFloat(text)
                 if (value >= 1.0) {
@@ -69,8 +76,10 @@ Item {
             height: UM.Theme.getSize("setting_control").height
             style: UM.Theme.styles.text_field
 
-            onEditingFinished: {
-                UM.ActiveTool.setProperty("MaxDisplacement", text)
+            onTextChanged: {
+                if (text != "") {
+                    UM.ActiveTool.setProperty("MaxDisplacement", text)
+                }
             }
 
             validator: DoubleValidator {bottom: 0.0}
@@ -92,5 +101,12 @@ Item {
             value: UM.ActiveTool.properties.getValue("MaxDisplacement")
         }
 
+        Connections {
+            target: UM.Controller.activeStage.proxy
+            onUpdateTargetUi: {
+                valueSafetyFactor.text = UM.ActiveTool.properties.getValue("TargetSafetyFactor")
+                valueMaxDeflect.text = UM.ActiveTool.properties.getValue("MaxDisplacement")
+            }
+        }
     }
 }
