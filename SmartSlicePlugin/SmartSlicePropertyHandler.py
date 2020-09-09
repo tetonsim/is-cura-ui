@@ -471,7 +471,7 @@ class SmartSlicePropertyHandler(QObject):
         if action == "continue":
             op = GroupedOperation()
             for node in getModifierMeshes():
-                node.addDecorator(SmartSliceRemovedDecorator)
+                node.addDecorator(SmartSliceRemovedDecorator())
                 op.addOperation(RemoveSceneNodeOperation(node))
             op.push()
             self.connector.status = SmartSliceCloudStatus.RemoveModMesh
