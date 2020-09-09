@@ -5,7 +5,7 @@ import json
 import zipfile
 import re
 from string import Formatter
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional
 
 import pywim
 import threemf
@@ -272,16 +272,18 @@ class SmartSliceJobHandler:
     # Writes a smartslice job to a 3MF file
     @classmethod
     def write3mf(self, threemf_path, mesh_nodes, job: pywim.smartslice.job.Job):
-
         # Getting 3MF writer and write our file
-        threeMF_Writer = PluginRegistry.getInstance().getPluginObject("3MFWriter")
-        threeMF_Writer.write(threemf_path, mesh_nodes)
+        threeMF_Writer = Application.getInstance().getMeshFileHandler().getWriter("3MFWriter")
+        if threeMF_Writer is not None:
+            threeMF_Writer.write(threemf_path, mesh_nodes)
 
-        threemf_file = zipfile.ZipFile(threemf_path, 'a')
-        threemf_file.writestr('SmartSlice/job.json', job.to_json() )
-        threemf_file.close()
+            threemf_file = zipfile.ZipFile(threemf_path, 'a')
+            threemf_file.writestr('SmartSlice/job.json', job.to_json() )
+            threemf_file.close()
 
-        return True
+            return True
+
+        return False
 
     # Reads a 3MF file into a smartslice job
     @classmethod
@@ -512,7 +514,7 @@ class SmartSliceJobHandler:
         return limit_to_extruder_message
 
     # #  Create extruder message from stack
-    def _buildExtruderMessage(self, stack) -> dict:
+    def _buildExtruderMessage(self, stack) -> Optional[Dict]:
         extruder_message = {}
         extruder_message["id"] = int(stack.getMetaDataEntry("position"))
         self._cacheAllExtruderSettings()

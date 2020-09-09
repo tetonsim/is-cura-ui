@@ -794,12 +794,6 @@ Item {
                     enabled: smartSliceMain.proxy.sliceButtonEnabled
                     visible: smartSliceMain.proxy.sliceButtonVisible
 
-                    Connections {
-                        target: smartSliceMain.proxy
-                        onSliceButtonEnabledChanged: { smartSliceButton.enabled = smartSliceMain.proxy.sliceButtonEnabled }
-                        onSliceButtonFillWidthChanged: { smartSliceButton.Layout.fillWidth = smartSliceMain.proxy.sliceButtonFillWidth }
-                    }
-
                     /*
                         Smart Slice Button Click Event
                     */

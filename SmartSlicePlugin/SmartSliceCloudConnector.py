@@ -146,7 +146,11 @@ class SmartSliceCloudJob(Job):
             return None
 
         job.type = self.job_type
-        SmartSliceJobHandler.write3mf(filepath, mesh_nodes, job)
+
+        if not SmartSliceJobHandler.write3mf(filepath, mesh_nodes, job):
+            raise SmartSliceCloudJob.JobException(
+                "The Smart Slice job cannot be submitted because\nthe 3MFWriter Plugin is disabled."
+            )
 
         if not os.path.exists(filepath):
             return None
@@ -180,11 +184,6 @@ class SmartSliceCloudJob(Job):
             Logger.log("w", "Smart Slice job cannot be prepared: {}".format(exc.problem))
 
             self.setError(exc)
-            Message(
-                title='Smart Slice',
-                text=i18n_catalog.i18nc("@info:status", exc.problem)
-            ).show()
-
             return
 
         task = self.processCloudJob(job)
@@ -947,8 +946,9 @@ class SmartSliceCloudConnector(QObject):
             self.cancelCurrentJob()
             Logger.logException("e", error)
             Message(
-                title='Smart Slice job unexpectedly failed',
-                text=error
+                title='Smart Slice Job Unexpectedly Failed',
+                text=error,
+                lifetime=0
             ).show()
             return
 
