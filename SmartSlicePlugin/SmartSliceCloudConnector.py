@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 import pywim  # @UnresolvedImport
 
 from PyQt5.QtCore import pyqtSignal, pyqtProperty, pyqtSlot
-from PyQt5.QtCore import QTime, QUrl, QObject
+from PyQt5.QtCore import QTime, QUrl, QObject, QStandardPaths
 from PyQt5.QtGui import QDesktopServices
 from PyQt5.QtQml import qmlRegisterSingletonType
 
@@ -246,7 +246,6 @@ class SmartSliceAPIClient(QObject):
         self._client = None
         self.connector = connector
         self.extension = connector.extension
-        self._token_file_path = ""
         self._token = None
         self._error_message = None
 
@@ -272,12 +271,21 @@ class SmartSliceAPIClient(QObject):
         else:
             self._app_preferences.addPreference(self._username_preference, "")
 
+    @property
+    def _token_file_path(self):
+        config_path = os.path.join(
+            QStandardPaths.writableLocation(QStandardPaths.GenericConfigLocation), "smartslice"
+        )
+
+        if not os.path.exists(config_path):
+            os.makedirs(config_path)
+
+        return os.path.join(config_path, ".token")
+
     # Opening a connection is our main goal with the API client object. We get the address to connect to,
     #   then we check to see if the user has a valid token, if they are already logged in. If not, we log
     #   them in.
     def openConnection(self):
-        self._token_file_path = os.path.join(PluginRegistry.getInstance().getPluginPath("SmartSlicePlugin"), ".token")
-
         url = urlparse(self._plugin_metadata.url)
 
         protocol = url.scheme
@@ -396,7 +404,6 @@ class SmartSliceAPIClient(QObject):
 
     # Logout removes the current token, clears the last logged in username and signals the popup to reappear.
     def logout(self):
-        self._token_file_path = os.path.join(PluginRegistry.getInstance().getPluginPath("SmartSlicePlugin"), ".token")
         self._token = None
         self._login_password = ""
         self._createTokenFile()
