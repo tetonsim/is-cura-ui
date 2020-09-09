@@ -48,6 +48,8 @@ Item {
             height: UM.Theme.getSize("setting_control").height
             style: UM.Theme.styles.text_field
 
+            validator: DoubleValidator {bottom: 0.0}
+
             onTextChanged: {
                 var value = parseFloat(text)
                 if (value >= 1.0) {
