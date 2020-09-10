@@ -109,7 +109,7 @@ class SmartSliceJobHandler:
 
             # Build the data for Smart Slice error checking
             mesh = pywim.chop.mesh.Mesh(node.getName())
-            mesh.print_config.aux = self._getAuxDict(node.callDecoration("getStack"))
+            mesh.print_config.auxiliary = self._getAuxDict(node.callDecoration("getStack"))
             job.chop.meshes.add(mesh)
 
             # Check the active extruder
