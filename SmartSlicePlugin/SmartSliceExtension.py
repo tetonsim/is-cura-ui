@@ -190,7 +190,7 @@ class SmartSliceExtension(Extension):
         self._storage.setEntryToStore(plugin_id=self.metadata.id, key='status', data=self.cloud.status.value)
 
         # Need to do some checks to see if we've stored the results for the active job
-        if cloudJob and cloudJob.getResult() and not cloudJob.saved:
+        if cloudJob and cloudJob.getResult():
             self._storage.setEntryToStore(plugin_id=self.metadata.id, key='results', data=cloudJob.getResult().to_dict())
             self._storage.setEntryToStore(
                 plugin_id=self.metadata.id,
