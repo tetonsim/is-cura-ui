@@ -213,8 +213,8 @@ class SmartSliceExtension(Extension):
 
         job_dict = all_data['job']
         status = all_data['status']
-        results_dict = all_data['results']
-        row = all_data['selectedResult'] # The row is stored as the order of the results
+        results_dict = all_data.get('results', None)
+        row = all_data.get('selectedResult', None) # The row is stored as the order of the results
 
         job = pywim.smartslice.job.Job.from_dict(job_dict) if job_dict else None
         results = pywim.smartslice.result.Result.from_dict(results_dict) if results_dict else None
