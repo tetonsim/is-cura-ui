@@ -79,7 +79,7 @@ def getPrintableNodes():
 def getModifierMeshes():
     return getNodes(
         lambda isSliceable, isPrinting, isSupport, isInfillMesh: \
-            isSliceable and not isPrinting and not isSupport and isInfillMesh
+            isSliceable and not isSupport and isInfillMesh
     )
 
 

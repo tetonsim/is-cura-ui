@@ -374,7 +374,7 @@ class Scene(TrackedProperty):
         root, nodes = self.value()
 
         for node in nodes:
-            if node not in self._nodes and node.getDecorator(SmartSliceAddedDecorator):
+            if node not in self._nodes and not node.getDecorator(SmartSliceAddedDecorator):
                 self._nodes.append(node)
 
         for node in self._nodes:
