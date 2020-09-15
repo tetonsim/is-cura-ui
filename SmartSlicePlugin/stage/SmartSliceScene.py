@@ -95,7 +95,7 @@ class HighlightFace(SceneNode):
         Concave = 2
         Convex = 3
 
-    def __init__(self, name: str):
+    def __init__(self, name: str = ""):
         super().__init__(name=name, visible=True)
 
         self.face = pywim.geom.tri.Face()
@@ -195,7 +195,7 @@ class AnchorFace(HighlightFace):
 class LoadFace(HighlightFace):
     color = Color(0.4, 0.4, 1., 1.)
 
-    def __init__(self, name: str):
+    def __init__(self, name: str=""):
         super().__init__(name)
 
         self.force = Force()
@@ -594,3 +594,9 @@ class Root(SceneNode):
             return HighlightFace.SurfaceType.Convex
 
         return HighlightFace.SurfaceType.Unknown
+
+    # Removes any defined faces
+    def clearFaces(self):
+        for bc_node in DepthFirstIterator(self):
+            if isinstance(bc_node, HighlightFace):
+                self.removeFace(bc_node)

@@ -27,9 +27,10 @@ class LoadToolHandle(ToolHandle):
     ACTIVE_OUTER_RADIUS = OUTER_RADIUS + PADDING
     ACTIVE_LINE_WIDTH = LINE_WIDTH + PADDING
 
-    def __init__(self, parent = None):
+    def __init__(self, parent = None, name: str = ""):
         super().__init__(parent)
         self._auto_scale = False
+        self._name = name
 
     # Overriding this function so we have more control
     def setEnabled(self, enabled):

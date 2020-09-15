@@ -179,6 +179,13 @@ class SmartSliceStage(CuraStage):
         for mesh in getModifierMeshes():
             mesh.setSelectable(False)
 
+            # Remove any HighlightFace if they exist
+            for node in mesh.getChildren():
+                if isinstance(node, SmartSliceScene.HighlightFace):
+                    mesh.removeChild(node)
+                elif isinstance(node, SmartSliceScene.Root):
+                    mesh.removeChild(node)
+
         # Ensure we have tools defined and apply them here
         use_tool = self._our_toolset[0]
         self.setToolVisibility(True)

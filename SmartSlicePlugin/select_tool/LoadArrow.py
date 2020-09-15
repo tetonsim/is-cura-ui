@@ -8,9 +8,7 @@ class LoadArrow(LoadToolHandle):
     """Provides the arrow for the load direction"""
 
     def __init__(self, parent = None):
-        super().__init__(parent)
-
-        self._name = "LoadArrow"
+        super().__init__(parent, name="LoadArrow")
 
         self.direction = -Vector.Unit_X
 

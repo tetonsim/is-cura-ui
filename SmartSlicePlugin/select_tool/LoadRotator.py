@@ -8,9 +8,7 @@ class LoadRotator(LoadToolHandle):
     """Provides the circular toolhandle and arrow for the load direction"""
 
     def __init__(self, parent = None):
-        super().__init__(parent)
-
-        self._name = "LoadRotator"
+        super().__init__(parent, name="LoadRotator")
 
         self.rotation_axis = Vector.Unit_Z
 

@@ -92,6 +92,8 @@ class SmartSliceSelectTool(Tool):
             SmartSliceScene.Root().initialize(normal_mesh)
             smart_slice_node = findChildSceneNode(normal_mesh, SmartSliceScene.Root)
 
+        smart_slice_node.clearFaces()
+
         self.setActiveBoundaryConditionList(BoundaryConditionListModel())
 
         step = job.chop.steps[0]
