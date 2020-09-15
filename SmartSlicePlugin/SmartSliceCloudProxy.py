@@ -699,10 +699,10 @@ class SmartSliceCloudProxy(QObject):
         self.updateColorMaxDisplacement()
 
     # Updates the properties from a job setup
-    def updatePropertiesFromJob(self, job: pywim.smartslice.job.Job):
+    def updatePropertiesFromJob(self, job: pywim.smartslice.job.Job, callback):
 
         select_tool = SmartSliceSelectTool.getInstance()
-        select_tool.updateFromJob(job)
+        select_tool.updateFromJob(job, callback)
 
         requirements = SmartSliceRequirements.getInstance()
         requirements.targetSafetyFactor = job.optimization.min_safety_factor

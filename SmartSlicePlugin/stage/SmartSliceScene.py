@@ -2,9 +2,12 @@ from typing import List, Any, Union
 from enum import Enum
 
 import math
+import time
 
+from UM.Job import Job
 from UM.Logger import Logger
 from UM.Mesh.MeshBuilder import MeshBuilder
+from UM.Message import Message
 from UM.Math.Color import Color
 from UM.Math.Vector import Vector
 from UM.Math.Matrix import Matrix
@@ -15,6 +18,8 @@ from UM.Scene.Iterator.DepthFirstIterator import DepthFirstIterator
 from UM.Signal import Signal
 from UM.Application import Application
 
+from UM.i18n import i18nCatalog
+
 from ..utils import makeInteractiveMesh, getPrintableNodes, angleBetweenVectors
 from ..select_tool.LoadArrow import LoadArrow
 from .. select_tool.LoadRotator import LoadRotator
@@ -22,6 +27,8 @@ from .. select_tool.LoadToolHandle import LoadToolHandle
 
 import pywim
 import numpy
+
+i18n_catalog = i18nCatalog("smartslice")
 
 class Force:
 
@@ -432,7 +439,10 @@ class Root(SceneNode):
     def __init__(self):
         super().__init__(name='_SmartSlice', visible=True)
 
-    def initialize(self, parent: SceneNode):
+        self._interactive_mesh = None
+        self._mesh_analyzing_message = None
+
+    def initialize(self, parent: SceneNode, step=None, callback=None):
         parent.addChild(self)
 
         mesh_data = parent.getMeshData()
@@ -440,9 +450,51 @@ class Root(SceneNode):
         if mesh_data:
             Logger.log('d', 'Compute interactive mesh from SceneNode {}'.format(parent.getName()))
 
-            self._interactive_mesh = makeInteractiveMesh(mesh_data)
+            if mesh_data.getVertexCount() < 1000:
+                self._interactive_mesh = makeInteractiveMesh(mesh_data)
+                if step:
+                    self.loadStep(step)
+                    self.setOrigin()
+                if callback:
+                    callback()
+            else:
+                job = AnalyzeMeshJob(mesh_data, step, callback)
+                job.finished.connect(self._process_mesh_analysis)
+
+                self._mesh_analyzing_message = Message(
+                    title=i18n_catalog.i18n("Smart Slice"),
+                    text=i18n_catalog.i18n("Analyzing geometry - this may take a few moments"),
+                    progress=-1,
+                    dismissable=False,
+                    lifetime=0,
+                    use_inactivity_timer=False
+                )
+                self._mesh_analyzing_message.show()
+
+                job.start()
 
         self.rootChanged.emit(self)
+
+    def _process_mesh_analysis(self, job : "AnalyzeMeshJob"):
+        self._interactive_mesh = job.interactive_mesh
+        if self._mesh_analyzing_message:
+            self._mesh_analyzing_message.hide()
+
+        exc = job.getError()
+
+        if exc:
+            Message(
+                title=i18n_catalog.i18n("Unable to analyze geometry"),
+                text=i18n_catalog.i18n("Smart Slice could not analyze the mesh for face selection. It may be ill-formed."),
+                lifetime=0,
+                dismissable=True
+            ).show()
+        else:
+            if job.step:
+                self.loadStep(job.step)
+                self.setOrigin()
+            if job.callback:
+                job.callback()
 
     def getInteractiveMesh(self) -> pywim.geom.tri.Mesh:
         return self._interactive_mesh
@@ -600,3 +652,18 @@ class Root(SceneNode):
         for bc_node in DepthFirstIterator(self):
             if isinstance(bc_node, HighlightFace):
                 self.removeFace(bc_node)
+
+
+class AnalyzeMeshJob(Job):
+    def __init__(self, mesh_data, step, callback):
+        super().__init__()
+        self.mesh_data = mesh_data
+        self.step = step
+        self.callback = callback
+        self.interactive_mesh = None
+
+    def run(self):
+        # Sleep for a second to allow the UI to catch up (hopefully) and display the progress message
+        time.sleep(1)
+        self.interactive_mesh = makeInteractiveMesh(self.mesh_data)
+

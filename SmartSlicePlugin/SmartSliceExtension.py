@@ -222,30 +222,31 @@ class SmartSliceExtension(Extension):
 
         self.cloud.clearJobs()
 
+        def afterSmartSliceNodeInit():
+            if status:
+                self.cloud.status = SmartSliceCloudStatus(status)
+            else:
+                self.proxy.updateStatusFromResults(job, results)
+                self.cloud.updateStatus()
+
+            if self.cloud.status == SmartSliceCloudStatus.Optimized:
+                self.cloud.addJob(pywim.smartslice.job.JobType.optimization)
+            else:
+                self.cloud.addJob(pywim.smartslice.job.JobType.validation)
+
+            if results:
+                self.cloud.cloudJob.setResult(results)
+                self.cloud.cloudJob.saved = True
+                self.cloud.processAnalysisResult(selected_row)
+
+            self.cloud.propertyHandler.resetProperties()
+            self.cloud.updateSliceWidget()
+            self.proxy.updateColorUI()
+
+            self._storage.getPluginMetadata(self.metadata.id).clear()
+
         if job:
-            self.proxy.updatePropertiesFromJob(job)
-
-        if status:
-            self.cloud.status = SmartSliceCloudStatus(status)
-        else:
-            self.proxy.updateStatusFromResults(job, results)
-            self.cloud.updateStatus()
-
-        if self.cloud.status == SmartSliceCloudStatus.Optimized:
-            self.cloud.addJob(pywim.smartslice.job.JobType.optimization)
-        else:
-            self.cloud.addJob(pywim.smartslice.job.JobType.validation)
-
-        if results:
-            self.cloud.cloudJob.setResult(results)
-            self.cloud.cloudJob.saved = True
-            self.cloud.processAnalysisResult(selected_row)
-
-        self.cloud.propertyHandler.resetProperties()
-        self.cloud.updateSliceWidget()
-        self.proxy.updateColorUI()
-
-        self._storage.getPluginMetadata(self.metadata.id).clear()
+            self.proxy.updatePropertiesFromJob(job, afterSmartSliceNodeInit)
 
     def _reset(self, *args):
         if len(getPrintableNodes()) == 0:

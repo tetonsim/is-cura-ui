@@ -162,9 +162,9 @@ class SmartSliceStage(CuraStage):
             try:
                 smart_slice_node.initialize(printable_node)
             except Exception as exc:
-                Logger.logException("e", "Unable to analyze mesh")
+                Logger.logException("e", "Unable to analyze geometry")
                 self._scene_not_ready(
-                    i18n_catalog.i18n("Smart Slice could not analyze the mesh for face selection. It may be ill-formed.")
+                    i18n_catalog.i18n("Smart Slice could not analyze the geometry for face selection. It may be ill-formed.")
                 )
                 if smart_slice_node:
                     printable_node.removeChild(smart_slice_node)
