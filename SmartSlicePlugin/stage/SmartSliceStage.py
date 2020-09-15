@@ -65,6 +65,8 @@ class SmartSliceStage(CuraStage):
             "SmartSlicePlugin_RequirementsTool",
         )
 
+        self._invalid_scene_message = None
+
     @staticmethod
     def getInstance() -> 'SmartSliceStage':
         return Application.getInstance().getController().getStage(
@@ -82,11 +84,15 @@ class SmartSliceStage(CuraStage):
     def _scene_not_ready(self, text):
         app = CuraApplication.getInstance()
 
+        if self._invalid_scene_message and self._invalid_scene_message.visible:
+            self._invalid_scene_message.hide()
+
         title = i18n_catalog.i18n("Invalid print for Smart Slice")
 
-        Message(
-            title=title, text=text, lifetime=120, dismissable=True
-        ).show()
+        self._invalid_scene_message = Message(
+            title=title, text=text, lifetime=30, dismissable=True
+        )
+        self._invalid_scene_message.show()
 
         app.getController().setActiveStage("PrepareStage")
 
