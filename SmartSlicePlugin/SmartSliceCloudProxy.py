@@ -161,6 +161,8 @@ class SmartSliceCloudProxy(QObject):
 
     resultsTableUpdated = pyqtSignal()
 
+    optimizationResultAppliedToScene = Signal()
+
     @pyqtProperty(QObject)
     def loadDialog(self):
         return self._loadDialog
@@ -792,6 +794,7 @@ class SmartSliceCloudProxy(QObject):
                     active_extruder.setProperty(key, "value", value, set_from_cache=True)
 
             Application.getInstance().getMachineManager().forceUpdateAllSettings()
+            self.optimizationResultAppliedToScene.emit()
 
         # Remove any modifier meshes which are present from a previous result
         mod_meshes = getModifierMeshes()

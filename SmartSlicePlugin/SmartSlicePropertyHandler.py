@@ -118,6 +118,7 @@ class SmartSlicePropertyHandler(QObject):
         # Warnings for untested materials
         self._material_warnings = set() # Set[guid]
 
+        self.proxy.optimizationResultAppliedToScene.connect(self.cacheChanges)
         # SmartSliceStage.SmartSliceStage.getInstance().smartSliceNodeChanged.connect(self._onSmartSliceNodeChanged)
 
     def _faceAdded(self, face):
