@@ -183,11 +183,9 @@ class SmartSliceSelectTool(Tool):
         if Selection.hasSelection():
             # self._changeRenderMode(True)
             Selection.setFaceSelectMode(True)
-            Logger.log("d", "Enabled faceSelectMode!")
         else:
             # self._changeRenderMode(False)
             Selection.setFaceSelectMode(False)
-            Logger.log("d", "Disabled faceSelectMode!")
 
         self.extension.cloud._onApplicationActivityChanged()
 

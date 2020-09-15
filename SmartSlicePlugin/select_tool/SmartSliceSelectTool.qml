@@ -672,13 +672,7 @@ Item {
 
                                     background:
                                         Rectangle {
-                                            function indexHelper(index) {
-                                                if (index === 3) {
-                                                    return loadHelper.availableWidth * (index + 1) / (tickmarks.model + 1) - 3;
-                                                };
-                                                return loadHelper.availableWidth * (index + 1) / (tickmarks.model + 1);
-                                            }
-                                            x: indexHelper(index)
+                                            x: 0
                                             y: loadHelper.topPadding + loadHelper.availableHeight / 2 - height / 2
                                             height: UM.Theme.getSize("print_setup_slider_groove").height
                                             width: loadHelper.width - UM.Theme.getSize("print_setup_slider_handle").width

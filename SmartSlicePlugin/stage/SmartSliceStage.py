@@ -73,11 +73,11 @@ class SmartSliceStage(CuraStage):
             "SmartSlicePlugin"
         )
 
-    @pyqtProperty(QObject)
+    @pyqtProperty(QObject, constant=True)
     def proxy(self):
         return self._connector.getProxy()
 
-    @pyqtProperty(QObject)
+    @pyqtProperty(QObject, constant=True)
     def api(self):
         return self._connector.getAPI()
 
@@ -190,6 +190,9 @@ class SmartSliceStage(CuraStage):
         self._connector.propertyHandler.cacheChanges()
 
         self._connector.updateSliceWidget()
+
+        if self._invalid_scene_message and self._invalid_scene_message.visible:
+            self._invalid_scene_message.hide()
 
     #   onStageDeselected:
     #       Sets attributes that allow the Smart Slice Stage to properly deactivate

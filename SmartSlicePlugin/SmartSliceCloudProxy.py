@@ -163,7 +163,7 @@ class SmartSliceCloudProxy(QObject):
 
     optimizationResultAppliedToScene = Signal()
 
-    @pyqtProperty(QObject)
+    @pyqtProperty(QObject, constant=True)
     def loadDialog(self):
         return self._loadDialog
 
