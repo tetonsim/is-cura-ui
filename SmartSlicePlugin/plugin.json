@@ -2,9 +2,9 @@
     "name": "Smart Slice",
     "id" : "SmartSlicePlugin",
     "author": "Teton Simulation, Inc.",
-    "version": "20.1.52",
+    "version": "20.1.53",
     "description": "Optimize and validate slice parameters to minimize print time while meeting end-use requirements.",
-    "supported_sdk_versions": ["7.0.0", "6.3.0"],
+    "supported_sdk_versions": ["7.2.0", "7.3.0"],
     "i18n-catalog": "smartslice",
     "smartSliceApi": {
         "url": "https://api.smartslice.xyz:443",

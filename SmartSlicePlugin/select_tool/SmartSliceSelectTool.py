@@ -124,7 +124,11 @@ class SmartSliceSelectTool(Tool):
             if bc_node is None:
                 return
 
-            selected_face, axis = self._getSelectedTriangles(current_surface, bc_node.surface_type)
+            try:
+                selected_face, axis = self._getSelectedTriangles(current_surface, bc_node.surface_type)
+            except Exception as exc:
+                Logger.logException("e", "Unable to select face")
+                selected_face = None
 
             if selected_face is not None:
                 bc_node.selection = Selection.getSelectedFace()

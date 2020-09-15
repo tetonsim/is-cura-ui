@@ -152,7 +152,18 @@ class SmartSliceStage(CuraStage):
 
         if not smart_slice_node:
             smart_slice_node = SmartSliceScene.Root()
-            smart_slice_node.initialize(printable_node)
+
+            try:
+                smart_slice_node.initialize(printable_node)
+            except Exception as exc:
+                Logger.logException("e", "Unable to analyze mesh")
+                self._scene_not_ready(
+                    i18n_catalog.i18n("Smart Slice could not analyze the mesh for face selection. It may be ill-formed.")
+                )
+                if smart_slice_node:
+                    printable_node.removeChild(smart_slice_node)
+                return
+
             self.smartSliceNodeChanged.emit(smart_slice_node)
 
         for c in controller.getScene().getRoot().getAllChildren():
