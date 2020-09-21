@@ -32,6 +32,12 @@ class LoadToolHandle(ToolHandle):
         self._auto_scale = False
         self._name = name
 
+    def setOutsideBuildArea(self, new_value: bool) -> None:
+        pass
+
+    def isOutsideBuildArea(self) -> bool:
+        return False
+
     # Overriding this function so we have more control
     def setEnabled(self, enabled):
         self._enabled = enabled

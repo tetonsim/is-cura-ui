@@ -110,6 +110,12 @@ class HighlightFace(SceneNode):
         self.axis = None #pywim.geom.vector
         self.selection = None
 
+    def setOutsideBuildArea(self, new_value: bool) -> None:
+        pass
+
+    def isOutsideBuildArea(self) -> bool:
+        return False
+
     @property
     def surface_type(self):
         return self._surface_type
@@ -441,6 +447,12 @@ class Root(SceneNode):
 
         self._interactive_mesh = None
         self._mesh_analyzing_message = None
+
+    def setOutsideBuildArea(self, new_value: bool) -> None:
+        pass
+
+    def isOutsideBuildArea(self) -> bool:
+        return False
 
     def initialize(self, parent: SceneNode, step=None, callback=None):
         parent.addChild(self)
