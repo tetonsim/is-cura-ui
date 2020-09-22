@@ -21,6 +21,7 @@ from UM.Operations.RemoveSceneNodeOperation import RemoveSceneNodeOperation
 from UM.Operations.GroupedOperation import GroupedOperation
 from UM.Mesh.MeshBuilder import MeshBuilder
 from UM.Settings.SettingInstance import SettingInstance
+from UM.Settings.SettingInstance import InstanceState
 from UM.Scene.SceneNode import SceneNode
 from UM.Scene.GroupDecorator import GroupDecorator
 from UM.Operations.AddSceneNodeOperation import AddSceneNodeOperation
@@ -792,6 +793,7 @@ class SmartSliceCloudProxy(QObject):
             for key, value in extruder_dict.items():
                 if value is not None:
                     active_extruder.setProperty(key, "value", value, set_from_cache=True)
+                    active_extruder.setProperty(key, "state", InstanceState.User, set_from_cache=True)
 
             Application.getInstance().getMachineManager().forceUpdateAllSettings()
             self.optimizationResultAppliedToScene.emit()

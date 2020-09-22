@@ -49,6 +49,7 @@ class ContainerProperty(TrackedProperty):
     def __init__(self, name):
         self.name = name
         self._cached_value = None
+        self._cached_state = None
 
     @classmethod
     def CreateAll(cls) -> List['ContainerProperty']:
@@ -56,8 +57,12 @@ class ContainerProperty(TrackedProperty):
             map( lambda n: cls(n), cls.NAMES )
         )
 
+    def state(self):
+        raise NotImplementedError()
+
     def cache(self):
         self._cached_value = self.value()
+        self._cached_state = self.state()
 
     def changed(self) -> bool:
         return self._cached_value != self.value()
@@ -79,12 +84,20 @@ class GlobalProperty(ContainerProperty):
             return machine.getProperty(self.name, "value")
         return None
 
+    def state(self):
+        machine, extruder = self._getMachineAndExtruder()
+        if machine:
+            return machine.getProperty(self.name, "state")
+        return None
+
     def restore(self):
         machine, extruder = self._getMachineAndExtruder()
         if machine and self._cached_value and self._cached_value != self.value():
             machine.setProperty(self.name, "value", self._cached_value, set_from_cache=True)
-            machine.setProperty(self.name, "state", InstanceState.Default, set_from_cache=True)
+            if self._cached_state == InstanceState.User:
+                machine.setProperty(self.name, "state", self._cached_state, set_from_cache=True)
 
+            CuraApplication.getInstance().getMachineManager().activeStackValueChanged.emit()
 
 class ExtruderProperty(ContainerProperty):
     EXTRUDER_KEYS = [
@@ -128,11 +141,21 @@ class ExtruderProperty(ContainerProperty):
             return extruder.getProperty(self.name, "value")
         return None
 
+    def state(self):
+        machine, extruder = self._getMachineAndExtruder()
+        if extruder:
+            return extruder.getProperty(self.name, "state")
+        return None
+
     def restore(self):
         machine, extruder = self._getMachineAndExtruder()
         if extruder and self._cached_value and self._cached_value != self.value():
             extruder.setProperty(self.name, "value", self._cached_value, set_from_cache=True)
-            extruder.setProperty(self.name, "state", InstanceState.Default, set_from_cache=True)
+
+            if self._cached_state == InstanceState.User:
+                extruder.setProperty(self.name, "state", self._cached_state, set_from_cache=True)
+
+            CuraApplication.getInstance().getMachineManager().activeStackValueChanged.emit()
 
 class ActiveQualityGroup(TrackedProperty):
     def __init__(self):
