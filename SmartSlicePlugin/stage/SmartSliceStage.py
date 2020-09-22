@@ -194,8 +194,6 @@ class SmartSliceStage(CuraStage):
         if self._previous_tool:
             controller.setActiveTool(use_tool)
 
-        self._connector.propertyHandler.cacheChanges()
-
         self._connector.updateSliceWidget()
 
         if self._invalid_scene_message and self._invalid_scene_message.visible:

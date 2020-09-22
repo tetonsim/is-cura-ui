@@ -483,3 +483,5 @@ class SmartSlicePropertyHandler(QObject):
     def resetProperties(self):
         self.cacheChanges()
         self._propertiesChanged.clear()
+        if self._confirmDialog and self._confirmDialog.visible:
+            self._confirmDialog.hide()

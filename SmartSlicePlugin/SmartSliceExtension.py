@@ -9,6 +9,9 @@ from UM.i18n import i18nCatalog
 from UM.Application import Application
 from UM.Extension import Extension
 from UM.PluginRegistry import PluginRegistry
+from UM.Job import Job
+from UM.FileHandler.ReadFileJob import ReadFileJob
+from UM.Workspace.WorkspaceFileHandler import WorkspaceFileHandler
 
 from cura.CuraApplication import CuraApplication
 
@@ -58,6 +61,7 @@ class SmartSliceExtension(Extension):
         controller = Application.getInstance().getController()
         controller.getScene().getRoot().childrenChanged.connect(self._reset)
 
+        Application.getInstance().engineCreatedSignal.connect(self._onEngineCreated)
 
         # Data storage location for workspaces - this is where we store our data for saving to the Cura project
         self._storage = Application.getInstance().getWorkspaceMetadataStorage()
@@ -73,6 +77,9 @@ class SmartSliceExtension(Extension):
         # The handle to the class which does all of the checks on application exit. Add our function to the callback list
         self._exitManager = CuraApplication.getInstance().getOnExitCallbackManager()
         self._exitManager.addCallback(self._saveOnExit)
+
+    def _onEngineCreated(self):
+        Application.getInstance()._job_queue.jobStarted.connect(self._workspaceLoading)
 
     @staticmethod
     def _openHelp():
@@ -211,6 +218,11 @@ class SmartSliceExtension(Extension):
         if len(all_data) == 0:
             return
 
+        # Send the user back to Prepare if they are in Smart Slice
+        controller = Application.getInstance().getController()
+        if controller.getActiveStage() and controller.getActiveStage().getPluginId() == self.metadata.id:
+            controller.setActiveStage("PrepareStage")
+
         job_dict = all_data['job']
         status = all_data['status']
         results_dict = all_data.get('results', None)
@@ -252,6 +264,12 @@ class SmartSliceExtension(Extension):
         if len(getPrintableNodes()) == 0:
             self._storage.getPluginMetadata(self.metadata.id).clear()
 
+    def _workspaceLoading(self, job: Job):
+        if isinstance(job, ReadFileJob):
+            if job._handler and isinstance(job._handler, WorkspaceFileHandler):
+                self._storage.getPluginMetadata(self.metadata.id).clear()
+                self.cloud.propertyHandler.resetProperties()
+                self.cloud.status = SmartSliceCloudStatus.Errors
 
 class PluginMetaData:
     def __init__(self):

@@ -799,11 +799,9 @@ class SmartSliceCloudProxy(QObject):
         # Remove any modifier meshes which are present from a previous result
         mod_meshes = getModifierMeshes()
         if len(mod_meshes) > 0:
-            op = GroupedOperation()
             for node in mod_meshes:
                 node.addDecorator(SmartSliceRemovedDecorator())
-                op.addOperation(RemoveSceneNodeOperation(node))
-            op.push()
+                Application.getInstance().getController().getScene().getRoot().removeChild(node)
             Application.getInstance().getController().getScene().sceneChanged.emit(node)
 
         # Add in the new modifier meshes
@@ -868,17 +866,7 @@ class SmartSliceCloudProxy(QObject):
                     new_instance.resetState()  # Ensure that the state is not seen as a user state.
                     settings.addInstance(new_instance)
 
-            op = GroupedOperation()
-            # First add node to the scene at the correct position/scale, before parenting, so the eraser mesh does not get scaled with the parent
-            op.addOperation(AddSceneNodeOperation(
-                modifier_mesh_node,
-                Application.getInstance().getController().getScene().getRoot()
-            ))
-            op.addOperation(SetParentOperation(
-                modifier_mesh_node,
-                Application.getInstance().getController().getScene().getRoot()
-            ))
-            op.push()
+            Application.getInstance().getController().getScene().getRoot().addChild(modifier_mesh_node)
 
             # emit changes and connect error tracker
             Application.getInstance().getController().getScene().sceneChanged.emit(modifier_mesh_node)
