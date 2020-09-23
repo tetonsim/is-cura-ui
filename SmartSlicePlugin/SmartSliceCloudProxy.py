@@ -803,7 +803,8 @@ class SmartSliceCloudProxy(QObject):
         if len(mod_meshes) > 0:
             for node in mod_meshes:
                 node.addDecorator(SmartSliceRemovedDecorator())
-                Application.getInstance().getController().getScene().getRoot().removeChild(node)
+                # Application.getInstance().getController().getScene().getRoot().removeChild(node)
+                our_only_node.removeChild(node)
             Application.getInstance().getController().getScene().sceneChanged.emit(node)
 
         # Add in the new modifier meshes
@@ -815,9 +816,7 @@ class SmartSliceCloudProxy(QObject):
             modifier_mesh_node.setCalculateBoundingBox(True)
 
             # Use the data from the SmartSlice engine to translate / rotate / scale the mod mesh
-            parent_transformation = our_only_node.getLocalTransformation()
-            modifier_mesh_transform_matrix = parent_transformation.multiply(Matrix(modifier_mesh.transform))
-            modifier_mesh_node.setTransformation(modifier_mesh_transform_matrix)
+            modifier_mesh_node.setTransformation(Matrix(modifier_mesh.transform))
 
             # Building the mesh
 
@@ -868,7 +867,8 @@ class SmartSliceCloudProxy(QObject):
                     new_instance.resetState()  # Ensure that the state is not seen as a user state.
                     settings.addInstance(new_instance)
 
-            Application.getInstance().getController().getScene().getRoot().addChild(modifier_mesh_node)
+            # Application.getInstance().getController().getScene().getRoot().addChild(modifier_mesh_node)
+            our_only_node.addChild(modifier_mesh_node)
 
             # emit changes and connect error tracker
             Application.getInstance().getController().getScene().sceneChanged.emit(modifier_mesh_node)
