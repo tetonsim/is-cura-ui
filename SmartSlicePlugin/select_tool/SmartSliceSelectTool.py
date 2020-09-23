@@ -52,6 +52,8 @@ class SmartSliceSelectTool(Tool):
 
         Selection.selectedFaceChanged.connect(self._onSelectedFaceChanged)
 
+        self._active = False
+
         self._selection_mode = SelectionMode.AnchorMode
 
         self._bc_list = None
@@ -113,7 +115,7 @@ class SmartSliceSelectTool(Tool):
         Gets face id and triangles from current face selection
         """
         if getPrintableNodes() and Selection.isSelected(getPrintableNodes()[0]): # Fixes bug for when scene is unselected
-            if not self.getEnabled() or not self._select:
+            if not self._active or not self._select:
                 return
 
             if self._bc_list is None:
@@ -247,7 +249,7 @@ class SmartSliceSelectTool(Tool):
         # Tool activated - make sure we render the faces
         if event.type == Event.ToolActivateEvent:
             self._changeRenderMode(faces=True)
-            self._enabled = True
+            self._active = True
             if self._bc_list and self._bc_list.getActiveNode():
                 self._controller.getScene().sceneChanged.emit(self._bc_list.getActiveNode())
             return False
@@ -255,13 +257,13 @@ class SmartSliceSelectTool(Tool):
         # Tool deactivated - make sure we render the faces
         if event.type == Event.ToolDeactivateEvent:
             self._changeRenderMode(faces=False)
-            self._enabled = False
+            self._active = False
             if self._bc_list and self._bc_list.getActiveNode():
                 self._controller.getScene().sceneChanged.emit(self._bc_list.getActiveNode())
                 self._bc_list = None
             return False
 
-        if not self.getEnabled():
+        if not self._active:
             return False
 
         # Not a load face - make sure we render faces
