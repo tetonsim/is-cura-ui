@@ -803,7 +803,6 @@ class SmartSliceCloudProxy(QObject):
         if len(mod_meshes) > 0:
             for node in mod_meshes:
                 node.addDecorator(SmartSliceRemovedDecorator())
-                # Application.getInstance().getController().getScene().getRoot().removeChild(node)
                 our_only_node.removeChild(node)
             Application.getInstance().getController().getScene().sceneChanged.emit(node)
 
@@ -867,7 +866,6 @@ class SmartSliceCloudProxy(QObject):
                     new_instance.resetState()  # Ensure that the state is not seen as a user state.
                     settings.addInstance(new_instance)
 
-            # Application.getInstance().getController().getScene().getRoot().addChild(modifier_mesh_node)
             our_only_node.addChild(modifier_mesh_node)
 
             # emit changes and connect error tracker

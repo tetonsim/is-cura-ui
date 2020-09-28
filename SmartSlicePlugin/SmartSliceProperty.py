@@ -9,8 +9,10 @@ from UM.Operations.AddSceneNodeOperation import AddSceneNodeOperation
 from UM.Operations.RemoveSceneNodeOperation import RemoveSceneNodeOperation
 from UM.Operations.GroupedOperation import GroupedOperation
 
+from cura.Scene.CuraSceneNode import CuraSceneNode
 from cura.CuraApplication import CuraApplication
 from cura.Machines.QualityGroup import QualityGroup
+from cura.Scene.ZOffsetDecorator import ZOffsetDecorator
 
 from .SmartSliceDecorator import SmartSliceRemovedDecorator, SmartSliceAddedDecorator
 from . utils import getPrintableNodes, getNodeActiveExtruder, getModifierMeshes
@@ -273,31 +275,60 @@ class SelectedMaterialVariant(TrackedProperty):
         return self._cached_material_variant != self.value()
 
 class Transform(TrackedProperty):
-    def __init__(self, node=None):
+    def __init__(self, node: CuraSceneNode = None):
         self._node = node
+        self._intersecting_nodes = []
         self._scale = None
         self._orientation = None
+        self._position = None
+        self._z_offset = None
 
     def value(self):
         if self._node:
-            return self._node.getScale(), self._node.getOrientation()
-        return None, None
+            return self._node.getScale(), self._node.getOrientation(), self._node.getPosition(), self._node.getDecorator(ZOffsetDecorator), self.findIntersectingNodes()
+        return None, None, None, None, []
 
     def cache(self):
-        self._scale, self._orientation = self.value()
+        self._scale, self._orientation, self._position, self._z_offset, self._intersecting_nodes = self.value()
 
     def restore(self):
         if self._node:
             self._node.setScale(self._scale)
             self._node.setOrientation(self._orientation)
+            self._node.setPosition(self._position)
+            if self._z_offset:
+                self._node.addDecorator(self._z_offset)
+
             self._node.transformationChanged.emit(self._node)
 
     def changed(self) -> bool:
-        scale, orientation = self.value()
+        scale, orientation, position, z_offset, intersecting_nodes = self.value()
+        if intersecting_nodes != self._intersecting_nodes or len(intersecting_nodes) > 0:
+            return scale != self._scale or orientation != self._orientation or position != self._position
+
         return scale != self._scale or orientation != self._orientation
 
+    # Finds all of the nodes which intersect this node - this does not find modifier meshes which are children of a printable node,
+    # because they move with the parent printable node (e.g. mod meshes from an optimization)
+    def findIntersectingNodes(self) -> List[CuraSceneNode]:
+        intersecting_nodes = []
+
+        if self._node and self._node in getPrintableNodes():
+            for node in getModifierMeshes():
+                collision = self._node.collidesWithBbox(node.getBoundingBox()) or node.collidesWithBbox(self._node.getBoundingBox())
+                if collision and node not in self._node.getChildren():
+                    intersecting_nodes.append(node)
+
+        elif self._node and self._node in getModifierMeshes():
+            for node in getPrintableNodes():
+                collision = self._node.collidesWithBbox(node.getBoundingBox()) or node.collidesWithBbox(self._node.getBoundingBox())
+                if collision:
+                    intersecting_nodes.append(node)
+
+        return intersecting_nodes
+
 class SceneNode(TrackedProperty):
-    def __init__(self, node=None, name=None):
+    def __init__(self, node: CuraSceneNode = None, name=None):
         self.parent_changed = False
         self.mesh_name = name
         self._node = node

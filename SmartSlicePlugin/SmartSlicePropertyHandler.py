@@ -112,6 +112,7 @@ class SmartSlicePropertyHandler(QObject):
         #  Attune to scene changes and mesh changes
         controller.getTool("ScaleTool").operationStopped.connect(self._onSceneNodeChanged)
         controller.getTool("RotateTool").operationStopped.connect(self._onSceneNodeChanged)
+        controller.getTool("TranslateTool").operationStopped.connect(self._onSceneNodeChanged)
 
         CuraApplication.getInstance().getExtruderManager().activeExtruderChanged.connect(self._onActiveExtruderChanged)
 
