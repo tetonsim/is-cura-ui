@@ -766,6 +766,15 @@ class SmartSliceCloudProxy(QObject):
             self._sliceStatusEnum = SmartSliceCloudStatus.Optimized
 
     def updateSceneFromOptimizationResult(self, analysis: pywim.smartslice.result.Analysis):
+
+        type_map = {
+            'int': int,
+            'float': float,
+            'str': str,
+            'enum': str,
+            'bool': bool
+        }
+
         our_only_node =  getPrintableNodes()[0]
         active_extruder = getNodeActiveExtruder(our_only_node)
 
@@ -792,8 +801,12 @@ class SmartSliceCloudProxy(QObject):
 
             for key, value in extruder_dict.items():
                 if value is not None:
-                    active_extruder.setProperty(key, "value", value, set_from_cache=True)
-                    active_extruder.setProperty(key, "state", InstanceState.User, set_from_cache=True)
+                    property_type = type_map.get(active_extruder.getProperty(key, "type"))
+                    if property_type:
+                        active_extruder.setProperty(
+                            key, "value", property_type(value), set_from_cache=True
+                        )
+                        active_extruder.setProperty(key, "state", InstanceState.User, set_from_cache=True)
 
             Application.getInstance().getMachineManager().forceUpdateAllSettings()
             self.optimizationResultAppliedToScene.emit()
@@ -860,11 +873,14 @@ class SmartSliceCloudProxy(QObject):
             for key, value in definition_dict.items():
                 if value is not None:
                     definition = stack.getSettingDefinition(key)
-                    new_instance = SettingInstance(definition, settings)
-                    new_instance.setProperty("value", value)
+                    property_type = type_map.get(stack.getProperty(key, "type"))
+                    if property_type:
+                        new_instance = SettingInstance(definition, settings)
 
-                    new_instance.resetState()  # Ensure that the state is not seen as a user state.
-                    settings.addInstance(new_instance)
+                        new_instance.setProperty("value", property_type(value))
+
+                        new_instance.resetState()  # Ensure that the state is not seen as a user state.
+                        settings.addInstance(new_instance)
 
             our_only_node.addChild(modifier_mesh_node)
 
