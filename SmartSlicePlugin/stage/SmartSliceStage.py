@@ -21,6 +21,7 @@ from UM.Application import Application
 from UM.PluginRegistry import PluginRegistry
 from UM.Message import Message
 from UM.Scene.Selection import Selection
+from UM.Scene.SceneNode import SceneNode
 from UM.Signal import Signal
 from UM.Version import Version
 from UM.View.GL.OpenGL import OpenGL
@@ -30,7 +31,7 @@ from cura.CuraApplication import CuraApplication
 
 from . import SmartSliceScene
 from ..utils import findChildSceneNode, getPrintableNodes
-from ..utils import getModifierMeshes
+from ..utils import getModifierMeshes, intersectingNodes
 
 i18n_catalog = i18nCatalog("smartslice")
 
@@ -66,6 +67,7 @@ class SmartSliceStage(CuraStage):
         )
 
         self._invalid_scene_message = None
+        self._parent_prompt = None
 
     @staticmethod
     def getInstance() -> 'SmartSliceStage':
@@ -186,6 +188,11 @@ class SmartSliceStage(CuraStage):
                 elif isinstance(node, SmartSliceScene.Root):
                     mesh.removeChild(node)
 
+        # We have modifier meshes in the scene, we need to change their parent
+        # to the intersecting printable node
+        if self._changeParent():
+            self._parentAssigned()
+
         # Ensure we have tools defined and apply them here
         use_tool = self._our_toolset[0]
         self.setToolVisibility(True)
@@ -205,7 +212,8 @@ class SmartSliceStage(CuraStage):
     def onStageDeselected(self):
         application = CuraApplication.getInstance()
         controller = application.getController()
-        controller.setActiveView(self._previous_view)
+        if self._previous_view:
+            controller.setActiveView(self._previous_view)
 
         # Recover if we have tools defined
         self.setToolVisibility(False)
@@ -318,6 +326,32 @@ class SmartSliceStage(CuraStage):
 
         if active_stage and active_stage.getPluginId() == self.getPluginId():
             self._exit_stage_if_scene_is_invalid()
+
+    def _parentAssigned(self):
+        if not self._parent_prompt:
+            self._parent_prompt = Message(
+                title="Smart Slice",
+                text="Modifier meshes without an assigned parent have been added as a child to the intersecting printable model.",
+                lifetime=15,
+                dismissable=True
+            )
+
+        self._parent_prompt.show()
+
+    def _changeParent(self) -> bool:
+        if len(getModifierMeshes()) == 0:
+            return False
+
+        parent_changed = False
+        for node in getPrintableNodes():
+            for intersecting_node in intersectingNodes(node):
+                if intersecting_node.getParent() != node:
+                    position = intersecting_node.getWorldPosition()
+                    intersecting_node.setParent(node)
+                    intersecting_node.setPosition(position, SceneNode.TransformSpace.World)
+                    parent_changed = True
+
+        return parent_changed
 
     ##  Get whether the select face feature is supported.
     #   \return True if it is supported, or False otherwise.

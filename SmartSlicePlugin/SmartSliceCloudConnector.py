@@ -1023,7 +1023,7 @@ class SmartSliceCloudConnector(QObject):
     """
 
     def prepareOptimization(self):
-        self._proxy.optimizationStatus()
+        self.status = self._proxy.optimizationStatus()
         self.updateSliceWidget()
 
     def doOptimization(self):

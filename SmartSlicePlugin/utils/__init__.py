@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 import numpy
 
 from UM.Math.Vector import Vector
@@ -8,6 +8,7 @@ from UM.Scene.SceneNode import SceneNode
 
 from cura.CuraApplication import CuraApplication
 from cura.Settings.ExtruderStack import ExtruderStack
+from cura.Scene.CuraSceneNode import CuraSceneNode
 from UM.Scene.SceneNode import SceneNode
 
 
@@ -119,3 +120,24 @@ def angleBetweenVectors(vector1: Vector, vector2: Vector) -> float:
             angle = numpy.arccos(dot / denom)
             return 0.0 if numpy.isnan(angle) else angle
         return 0.0
+
+def intersectingNodes(node: CuraSceneNode) -> List[CuraSceneNode]:
+    '''
+        Returns a list of CuraSceneNodes which intersect the node in question, depending on if the
+        node is a printable node, or a modifier mesh
+    '''
+    intersecting_nodes = []
+
+    if node in getPrintableNodes():
+        for n in getModifierMeshes():
+            collision = node.collidesWithBbox(n.getBoundingBox()) or n.collidesWithBbox(node.getBoundingBox())
+            if collision and n not in node.getChildren():
+                intersecting_nodes.append(n)
+
+    elif node in getModifierMeshes():
+        for n in getPrintableNodes():
+            collision = node.collidesWithBbox(n.getBoundingBox()) or n.collidesWithBbox(node.getBoundingBox())
+            if collision:
+                intersecting_nodes.append(n)
+
+    return intersecting_nodes

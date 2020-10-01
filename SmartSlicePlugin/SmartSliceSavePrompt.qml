@@ -15,14 +15,17 @@ UM.Dialog {
 
     title: "Smart Slice Warning"
 
-    width: screenScaleFactor * 300;
-    height: screenScaleFactor * 150;
+    width: Math.floor(screenScaleFactor * 300)
+    height: Math.floor(screenScaleFactor * 150)
 
     minimumWidth: width;
     maximumWidth: width;
 
     minimumHeight: height;
     maximumHeight: height;
+
+    x: 0.5 * (CuraApplication.appWidth() - width)
+    y: 0.5 * (CuraApplication.appHeight() - height)
 
     closeOnAccept: false
 

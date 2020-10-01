@@ -12,13 +12,15 @@ from UM.PluginRegistry import PluginRegistry
 from UM.Job import Job
 from UM.FileHandler.ReadFileJob import ReadFileJob
 from UM.Workspace.WorkspaceFileHandler import WorkspaceFileHandler
+from UM.Scene.SceneNode import SceneNode
+from UM.Message import Message
 
 from cura.CuraApplication import CuraApplication
 
 from .SmartSliceCloudConnector import SmartSliceCloudConnector
 from .SmartSliceCloudProxy import SmartSliceCloudProxy
 from .SmartSliceCloudStatus import SmartSliceCloudStatus
-from .utils import getPrintableNodes
+from .utils import getPrintableNodes, getModifierMeshes, intersectingNodes
 
 import pywim
 
@@ -191,10 +193,19 @@ class SmartSliceExtension(Extension):
         if cloudJob:
             job.type = cloudJob.job_type
 
+        # Reset the status if we're saving during a run. In the future, we should try to pull
+        # down the results when the user opens a project which was in the middle of running
+        status = self.cloud.status
+        if status in SmartSliceCloudStatus.busy():
+            if job.type == pywim.smartslice.job.JobType.validation:
+                status = SmartSliceCloudStatus.ReadyToVerify
+            else:
+                status = self.cloud.getProxy().optimizationStatus()
+
         # Place the job in the metadata under our plugin ID
         self._storage.setEntryToStore(plugin_id=self.metadata.id, key='job', data=job.to_dict())
         self._storage.setEntryToStore(plugin_id=self.metadata.id, key='version', data=self.metadata.version)
-        self._storage.setEntryToStore(plugin_id=self.metadata.id, key='status', data=self.cloud.status.value)
+        self._storage.setEntryToStore(plugin_id=self.metadata.id, key='status', data=status.value)
 
         # Need to do some checks to see if we've stored the results for the active job
         if cloudJob and cloudJob.getResult():
@@ -237,6 +248,7 @@ class SmartSliceExtension(Extension):
         def afterSmartSliceNodeInit():
             if status:
                 self.cloud.status = SmartSliceCloudStatus(status)
+
             else:
                 self.proxy.updateStatusFromResults(job, results)
                 self.cloud.updateStatus()

@@ -744,12 +744,12 @@ class SmartSliceCloudProxy(QObject):
         if job:
             if job.type == pywim.smartslice.job.JobType.validation:
                 if results:
-                    self.optimizationStatus()
+                    self._sliceStatusEnum = optimizationStatus()
                     self.sliceInfoOpen = True
                 else:
                     self._sliceStatusEnum = SmartSliceCloudStatus.ReadyToVerify
             else:
-                self.optimizationStatus()
+                self._sliceStatusEnum = optimizationStatus()
                 self.sliceInfoOpen = True
         else:
             self._sliceStatusEnum = SmartSliceCloudStatus.Errors
@@ -759,11 +759,11 @@ class SmartSliceCloudProxy(QObject):
     def optimizationStatus(self):
         req_tool = SmartSliceRequirements.getInstance()
         if req_tool.maxDisplacement > self.resultMaximalDisplacement and req_tool.targetSafetyFactor < self.resultSafetyFactor:
-            self._sliceStatusEnum = SmartSliceCloudStatus.Overdimensioned
+            return SmartSliceCloudStatus.Overdimensioned
         elif req_tool.maxDisplacement <= self.resultMaximalDisplacement or req_tool.targetSafetyFactor >= self.resultSafetyFactor:
-            self._sliceStatusEnum = SmartSliceCloudStatus.Underdimensioned
+            return SmartSliceCloudStatus.Underdimensioned
         else:
-            self._sliceStatusEnum = SmartSliceCloudStatus.Optimized
+            return SmartSliceCloudStatus.Optimized
 
     def updateSceneFromOptimizationResult(self, analysis: pywim.smartslice.result.Analysis):
 

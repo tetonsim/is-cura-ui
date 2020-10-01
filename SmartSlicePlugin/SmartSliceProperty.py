@@ -15,7 +15,8 @@ from cura.Machines.QualityGroup import QualityGroup
 from cura.Scene.ZOffsetDecorator import ZOffsetDecorator
 
 from .SmartSliceDecorator import SmartSliceRemovedDecorator, SmartSliceAddedDecorator
-from . utils import getPrintableNodes, getNodeActiveExtruder, getModifierMeshes
+from .utils import getPrintableNodes, getNodeActiveExtruder, getModifierMeshes
+from .utils import intersectingNodes
 from .stage.SmartSliceScene import HighlightFace, LoadFace, Root
 
 class SmartSlicePropertyColor():
@@ -285,7 +286,8 @@ class Transform(TrackedProperty):
 
     def value(self):
         if self._node:
-            return self._node.getScale(), self._node.getOrientation(), self._node.getPosition(), self._node.getDecorator(ZOffsetDecorator), self.findIntersectingNodes()
+            return self._node.getScale(), self._node.getOrientation(), self._node.getPosition(), \
+                self._node.getDecorator(ZOffsetDecorator), intersectingNodes(self._node)
         return None, None, None, None, []
 
     def cache(self):
@@ -307,25 +309,6 @@ class Transform(TrackedProperty):
             return scale != self._scale or orientation != self._orientation or position != self._position
 
         return scale != self._scale or orientation != self._orientation
-
-    # Finds all of the nodes which intersect this node - this does not find modifier meshes which are children of a printable node,
-    # because they move with the parent printable node (e.g. mod meshes from an optimization)
-    def findIntersectingNodes(self) -> List[CuraSceneNode]:
-        intersecting_nodes = []
-
-        if self._node and self._node in getPrintableNodes():
-            for node in getModifierMeshes():
-                collision = self._node.collidesWithBbox(node.getBoundingBox()) or node.collidesWithBbox(self._node.getBoundingBox())
-                if collision and node not in self._node.getChildren():
-                    intersecting_nodes.append(node)
-
-        elif self._node and self._node in getModifierMeshes():
-            for node in getPrintableNodes():
-                collision = self._node.collidesWithBbox(node.getBoundingBox()) or node.collidesWithBbox(self._node.getBoundingBox())
-                if collision:
-                    intersecting_nodes.append(node)
-
-        return intersecting_nodes
 
 class SceneNode(TrackedProperty):
     def __init__(self, node: CuraSceneNode = None, name=None):
