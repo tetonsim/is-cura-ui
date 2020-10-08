@@ -1,0 +1,24 @@
+name: Smart Slice Tests
+
+on:
+  push:
+
+jobs:
+  unit-tests:
+    container: ultimaker/cura-build-environment:python3.7-debian-latest
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        cura-version: [4.6]
+    steps:
+    - name: Checkout Smart Slice
+      uses: actions/checkout@v2
+    - name:  Build Cura ${{ matrix.cura-version }} with Smart Slice
+      run: |
+        chmod +x build_unit_tests.sh
+        ./build_unit_tests.sh ${{ matrix.cura-version }}
+    - name: Run Unit Tests
+      run: |
+        chmod +x run_unit_tests.sh
+        ./run_unit_tests.sh
