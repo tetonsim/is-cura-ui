@@ -34,6 +34,7 @@ class ResultsTableHeader(Enum):
             ResultsTableHeader.Mass.value: str.encode(ResultsTableHeader.Mass.name.lower()),
             ResultsTableHeader.Strength.value: str.encode(ResultsTableHeader.Strength.name.lower()),
             ResultsTableHeader.Displacement.value: str.encode(ResultsTableHeader.Displacement.name.lower()),
+            ResultsTableHeader.Cost.value: str.encode(ResultsTableHeader.Cost.name.lower())
         }
 
     @staticmethod
@@ -45,6 +46,7 @@ class ResultTableData(QAbstractListModel):
     selectedRowChanged = pyqtSignal()
     sortColumnChanged = pyqtSignal()
     sortOrderChanged = pyqtSignal()
+    tableStateChanged = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -55,6 +57,7 @@ class ResultTableData(QAbstractListModel):
         self._selectedRow = 0
         self._sortColumn = 0
         self._sortOrder = Qt.AscendingOrder
+        self._tableState = "noCost"
 
         self.updateDisplaySignal = Signal() # Tells the owner of the table when to  update the display (like when a row is clicked)
         self.resultsUpdated = Signal()
@@ -80,6 +83,11 @@ class ResultTableData(QAbstractListModel):
             if rank - 1 == requested_result:
                 row = rank - 1
 
+        if self._resultsDict[0][ResultsTableHeader.Cost.value] > 0.0:
+            self._tableState = "withCost"
+        else:
+            self._tableState = "noCost"
+
         self.beginInsertRows(QModelIndex(), 0, len(self._resultsDict) - 1)
         self.endInsertRows()
 
@@ -90,6 +98,16 @@ class ResultTableData(QAbstractListModel):
 
     def roleNames(self):
         return ResultsTableHeader.rolesAsBytes()
+
+    @pyqtProperty(str, notify=tableStateChanged)
+    def tableState(self):
+        return self._tableState
+
+    @tableState.setter
+    def tableState(self, value):
+        if self._tableState is not value:
+            self._tableState = value
+            self.tableStateChanged.emit()
 
     @pyqtProperty(int, notify=selectedRowChanged)
     def selectedRow(self):
@@ -150,6 +168,10 @@ class ResultTableData(QAbstractListModel):
 
                 elif role == ResultsTableHeader.Strength.value:
                     return round(value, 1)
+
+                elif role == ResultsTableHeader.Cost.value:
+                    currency = Application.getInstance().getPreferences().getValue("cura/currency")
+                    return "{} {}".format(currency, round(value, 2))
 
                 else:
                     return value
@@ -257,7 +279,7 @@ class ResultTableData(QAbstractListModel):
             radius = extruder_stack.getProperty("material_diameter", "value") / 2
 
             weight = float(amount) * float(density) / 1000
-            cost = 0.
+            cost = 0.0
 
             material_guid = material.getMetaDataEntry("GUID")
             material_name = material.getName()
@@ -275,7 +297,7 @@ class ResultTableData(QAbstractListModel):
                 if weight_per_spool != 0:
                     cost = cost_per_spool * weight / weight_per_spool
                 else:
-                    cost = 0
+                    cost = 0.0
 
             # Material amount is sent as an amount of mm^3, so calculate length from that
             if radius != 0:

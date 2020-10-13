@@ -285,30 +285,6 @@ class SmartSliceJobHandler:
 
         return False
 
-    # Reads a 3MF file into a smartslice job
-    @classmethod
-    def extractSmartSliceJobFrom3MF(self, file) -> pywim.smartslice.job.Job:
-        tmf = threemf.ThreeMF()
-
-        tmf_reader = threemf.io.Reader()
-        tmf_reader.register_extension(pywim.smartslice.ThreeMFExtension)
-
-        tmf_reader.read(tmf, file)
-
-        if len(tmf.extensions) != 1:
-            raise Exception('3MF extension count is not 1')
-
-        ext = tmf.extensions[0]
-
-        job_assets = list(
-            filter(lambda a: isinstance(a, pywim.smartslice.JobThreeMFAsset), ext.assets)
-        )
-
-        if len(job_assets) == 0:
-            raise SmartSliceCloudJob.JobException('Could not find smart slice information in 3MF')
-
-        return job_assets[0].content
-
     @classmethod
     def getMaterial(self, guid):
         '''
@@ -341,47 +317,6 @@ class SmartSliceJobHandler:
                 aux[prop] = str(val)
 
         return aux
-
-    ##  Check if a node has per object settings and ensure that they are set correctly in the message
-    #   \param node Node to check.
-    #   \param message object_lists message to put the per object settings in
-    def _handlePerObjectSettings(self, node):
-        stack = node.callDecoration("getStack")
-
-        # Check if the node has a stack attached to it and the stack has any settings in the top container.
-        if not stack:
-            return
-
-        # Check all settings for relations, so we can also calculate the correct values for dependent settings.
-        top_of_stack = stack.getTop()  # Cache for efficiency.
-        changed_setting_keys = top_of_stack.getAllKeys()
-
-        # Add all relations to changed settings as well.
-        for key in top_of_stack.getAllKeys():
-            instance = top_of_stack.getInstance(key)
-            self._addRelations(changed_setting_keys, instance.definition.relations)
-
-        # Ensure that the engine is aware what the build extruder is.
-        changed_setting_keys.add("extruder_nr")
-
-        settings = []
-        # Get values for all changed settings
-        for key in changed_setting_keys:
-            setting = {}
-            setting["name"] = key
-            extruder = int(round(float(stack.getProperty(key, "limit_to_extruder"))))
-
-            # Check if limited to a specific extruder, but not overridden by per-object settings.
-            if extruder >= 0 and key not in changed_setting_keys:
-                limited_stack = ExtruderManager.getInstance().getActiveExtruderStacks()[extruder]
-            else:
-                limited_stack = stack
-
-            setting["value"] = str(limited_stack.getProperty(key, "value"))
-
-            settings.append(setting)
-
-        return settings
 
     def _cacheAllExtruderSettings(self):
         global_stack = Application.getInstance().getGlobalContainerStack()
@@ -545,7 +480,6 @@ class SmartSliceJobHandler:
 
 # #  Formatter class that handles token expansion in start/end gcode
 class GcodeStartEndFormatter(Formatter):
-
     def __init__(self, default_extruder_nr: int=-1) -> None:
         super().__init__()
         self._default_extruder_nr = default_extruder_nr

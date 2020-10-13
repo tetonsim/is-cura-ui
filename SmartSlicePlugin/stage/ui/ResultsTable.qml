@@ -139,6 +139,8 @@ Item {
             property int sortColumn: model.sortColumn
             property int sortOrder: model.sortOrder
 
+            property string tableState: model.tableState
+
             sortIndicatorVisible: true
             headerVisible: true
             visible: resultsTable.visible
@@ -146,45 +148,77 @@ Item {
             selectionMode: SelectionMode.SingleSelection
 
             TableViewColumn {
+                id: rank
                 role: "rank"
                 title: "Rank"
                 movable: false
                 resizable: false
-                width: 0.1 * tableArea.width
             }
             TableViewColumn {
+                id: time
                 role: "time"
                 title: "Print Time"
                 movable: false
                 resizable: false
-                width: 0.2 * tableArea.width
             }
             TableViewColumn {
+                id: cost
+                role: "cost"
+                title: "Cost"
+                movable: false
+                resizable: false
+            }
+            TableViewColumn {
+                id: mass
                 role: "mass"
                 title: "Mass"
                 movable: false
                 resizable: false
-                width: 0.1 * tableArea.width
             }
             TableViewColumn {
+                id: strength
                 role: "strength"
                 title: "Factor of Safety"
                 movable: false
                 resizable: false
-                width: 0.25 * tableArea.width
             }
             TableViewColumn {
+                id: displacement
                 role: "displacement"
                 title: "Max Displacement"
                 movable: false
                 resizable: false
-                width: 0.25 * tableArea.width
             }
             TableViewColumn {
+                id: eye
                 movable: false
                 resizable: false
-                width: 0.11 * tableArea.width
             }
+
+            state: tableState
+
+            states: [
+                State {
+                    name: "noCost"
+                    PropertyChanges {target: rank; width: 0.1 * tableArea.width}
+                    PropertyChanges {target: time; width: 0.2 * tableArea.width}
+                    PropertyChanges {target: mass; width: 0.1 * tableArea.width}
+                    PropertyChanges {target: strength; width: 0.25 * tableArea.width}
+                    PropertyChanges {target: displacement; width: 0.25 * tableArea.width}
+                    PropertyChanges {target: cost; width: 0.0; visible: false}
+                    PropertyChanges {target: eye; width: 0.11 * tableArea.width}
+                },
+                State {
+                    name: "withCost"
+                    PropertyChanges {target: rank; width: 0.1 * tableArea.width}
+                    PropertyChanges {target: time; width: 0.2 * tableArea.width}
+                    PropertyChanges {target: mass; width: 0.1 * tableArea.width}
+                    PropertyChanges {target: strength; width: 0.20 * tableArea.width}
+                    PropertyChanges {target: displacement; width: 0.20 * tableArea.width}
+                    PropertyChanges {target: cost; visible: true; width: 0.1* tableArea.width}
+                    PropertyChanges {target: eye; width: 0.11 * tableArea.width}
+                }
+            ]
 
             style: TableViewStyle {
                 decrementControl: Item { }
