@@ -140,7 +140,7 @@ MouseArea {
 
                         width: parent.width
 
-                        validator: RegExpValidator { regExp: /^([a-zA-Z0-9_\-\.]+)@([a-zA-Z0-9_\-\.]+)\.([a-zA-Z]{2,5})$/ }
+                        validator: RegExpValidator { regExp: /^([a-zA-Z0-9_\-\.\+]+)@([a-zA-Z0-9_\-\.]+)\.([a-zA-Z]{2,5})$/ }
 
                         background: Rectangle {
                             anchors.fill: parent
