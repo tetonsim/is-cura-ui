@@ -1,18 +1,3 @@
-/*
-    SmartSliceMain.qml
-    Teton Simulation
-    Last Modified October 16, 2019
-*/
-
-/*
-    Contains definitions for Smart Slice's main structural UI elements
-
-    This includes: (Vert. Horiz.)
-        *  Brand Logo (Bottom Middle)
-        *  "Smart Slice" Button (Bottom Right)
-*/
-
-
 //  API Imports
 import QtQuick 2.7
 import QtQuick.Controls 2.2
@@ -35,6 +20,17 @@ Item {
     //  Main Stage Accessible Properties
     property int smartLoads : 0
     property int smartAnchors : 0
+
+    SmartSlice.SmartSliceMessage {
+        anchors {
+            horizontalCenter: parent.horizontalCenter
+            top: parent.verticalCenter
+            topMargin: -(childrenRect.height / 2) + UM.Theme.getSize("default_margin").height
+            bottom: parent.bottom
+            bottomMargin:  UM.Theme.getSize("default_margin").height * 8
+        }
+        width: childrenRect.width
+    }
 
 
     //  1.) Brand Logo

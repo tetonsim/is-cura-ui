@@ -47,6 +47,9 @@ class SmartSliceStage(CuraStage):
 
         app = CuraApplication.getInstance()
 
+        self.smartslice_messages = []
+        self.visible_smartslice_messages = []
+
         #   Connect Stage to Cura Application
         app.engineCreatedSignal.connect(self._engineCreated)
         app.activityChanged.connect(self._checkScene)
