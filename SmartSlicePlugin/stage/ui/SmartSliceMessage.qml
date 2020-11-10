@@ -16,6 +16,9 @@ import SmartSlice 1.0 as SmartSlice
 
 ListView {
     id: base
+
+    z: 5
+
     boundsBehavior: ListView.StopAtBounds
     verticalLayoutDirection: ListView.TopToBottom
 
@@ -197,6 +200,13 @@ ListView {
                 return "%1 %2%".arg(model.text).arg(Math.floor(model.progress));
             }
 
+            MouseArea {
+                anchors.fill: parent
+                acceptedButtons: Qt.NoButton 
+                cursorShape: parent.hoveredLink ? Qt.PointingHandCursor : Qt.ArrowCursor
+            }
+
+            textFormat: Text.RichText
             text: model.progress > 0 ? messageLabel.getProgressText() : model.text == undefined ? "" : model.text
             onLinkActivated: Qt.openUrlExternally(link)
             color: UM.Theme.getColor("text")

@@ -33,12 +33,14 @@ class SmartSliceMessage(Message):
         self._font = smartslice_font
 
     removeSmartSliceMessageSignal = Signal()
+    addSmartSliceMessageSignal = Signal()
 
     def show(self) -> None:
         """Show the message (if not already visible)"""
         if not self._visible:
             self._visible = True
             SmartSliceStage.getInstance().smartslice_messages.append(self)
+            self.addSmartSliceMessageSignal.emit(self)
             self.setLifetimeTimer(QTimer())
             self.setInactivityTimer(QTimer())
             self.inactivityTimerStart.emit()
@@ -65,6 +67,7 @@ class SmartSliceMessageModel(VisibleMessagesModel):
         self.addRoleName(self.FontRole, "font")
 
         SmartSliceMessage.removeSmartSliceMessageSignal.connect(self.removeSmartSliceMessage)
+        SmartSliceMessage.addSmartSliceMessageSignal.connect(self.addMessage)
 
     def _populateMessageList(self):
         smartslice_stage = SmartSliceStage.getInstance()

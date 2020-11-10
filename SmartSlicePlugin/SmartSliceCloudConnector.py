@@ -32,6 +32,7 @@ from .SmartSliceCloudProxy import SmartSliceCloudProxy
 from .SmartSlicePropertyHandler import SmartSlicePropertyHandler
 from .SmartSliceJobHandler import SmartSliceJobHandler
 from .stage.ui.ResultTable import ResultTableData
+from .stage.ui.SmartSliceMessageExtension import SmartSliceMessage
 
 from .requirements_tool.SmartSliceRequirements import SmartSliceRequirements
 from .select_tool.SmartSliceSelectTool import SmartSliceSelectTool
@@ -559,7 +560,7 @@ class SmartSliceAPIClient(QObject):
         if self._error_message is not None:
             self._error_message.hide()
 
-        self._error_message = Message(lifetime= 180)
+        self._error_message = SmartSliceMessage(smartslice_lifetime=180)
         self._error_message.setTitle("Smart Slice API")
 
         if http_error_code == 400:
@@ -582,7 +583,10 @@ class SmartSliceAPIClient(QObject):
         elif http_error_code == 429:
             self._error_message.setText(i18n_catalog.i18nc("@info:status", "SmartSlice Server Error (429: Too Many Attempts)"))
         elif http_error_code == self.ConnectionErrorCodes.genericInternetConnectionError:
-            self._error_message.setText(i18n_catalog.i18nc("@info:status", "Internet connection issue:\nPlease check your connection and try again."))
+            self._error_message.setText(i18n_catalog.i18nc(
+                "@info:status", "Unable to contact Smart Slice servers!<br><br>Please check to ensure you have an internet connection. If you"
+                "<br>do have an internet connection, and are still receiving this<br>error, please <A HREF='mailto:help@tetonsim.com?subject=Smart Slice Cannot Connect Error'>contact us</A>."
+            ))
         elif http_error_code == self.ConnectionErrorCodes.loginCredentialsError:
             self._error_message.setText(i18n_catalog.i18nc("@info:status", "Internet connection issue:\nCould not verify your login credentials."))
         else:
