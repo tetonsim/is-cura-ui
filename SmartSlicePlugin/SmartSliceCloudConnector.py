@@ -792,6 +792,7 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.sliceInfoOpen = False
             self._proxy.progressBarVisible = False
             self._proxy.jobProgress = 0
+            self._proxy.resultsButtonsVisible = False
         elif self.status is SmartSliceCloudStatus.Cancelling:
             self._proxy.sliceStatus = ""
             self._proxy.sliceHint = ""
@@ -803,6 +804,7 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.sliceInfoOpen = False
             self._proxy.progressBarVisible = False
             self._proxy.jobProgress = 0
+            self._proxy.resultsButtonsVisible = False
         elif self.status is SmartSliceCloudStatus.ReadyToVerify:
             self._proxy.sliceStatus = ""
             self._proxy.sliceHint = ""
@@ -814,6 +816,7 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.sliceInfoOpen = False
             self._proxy.progressBarVisible = False
             self._proxy.jobProgress = 0
+            self._proxy.resultsButtonsVisible = False
         elif self.status is SmartSliceCloudStatus.BusyValidating:
             self._proxy.sliceStatus = "Validating..."
             self._proxy.sliceHint = ""
@@ -824,6 +827,7 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.sliceInfoOpen = False
             self._proxy.progressBarVisible = False
             self._proxy.jobProgress = 0
+            self._proxy.resultsButtonsVisible = False
         elif self.status is SmartSliceCloudStatus.Underdimensioned:
             self._proxy.sliceStatus = "Requirements not met!"
             self._proxy.sliceHint = "Optimize to meet requirements?"
@@ -837,6 +841,7 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.sliceInfoOpen = True
             self._proxy.progressBarVisible = False
             self._proxy.jobProgress = 0
+            self._proxy.resultsButtonsVisible = True
         elif self.status is SmartSliceCloudStatus.Overdimensioned:
             self._proxy.sliceStatus = "Part appears overdesigned"
             self._proxy.sliceHint = "Optimize to reduce print time and material?"
@@ -850,6 +855,7 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.sliceInfoOpen = True
             self._proxy.progressBarVisible = False
             self._proxy.jobProgress = 0
+            self._proxy.resultsButtonsVisible = True
         elif self.status is SmartSliceCloudStatus.BusyOptimizing:
             self._proxy.sliceStatus = "Optimizing...&nbsp;&nbsp;&nbsp;&nbsp;(<i>Remaining Time: calculating</i>)"
             self._proxy.sliceHint = ""
@@ -859,6 +865,7 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.secondaryButtonFillWidth = True
             self._proxy.sliceInfoOpen = False
             self._proxy.progressBarVisible = True
+            self._proxy.resultsButtonsVisible = False
         elif self.status is SmartSliceCloudStatus.Optimized:
             self._proxy.sliceStatus = ""
             self._proxy.sliceHint = ""
@@ -869,6 +876,7 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.sliceInfoOpen = True
             self._proxy.progressBarVisible = False
             self._proxy.jobProgress = 0
+            self._proxy.resultsButtonsVisible = False
         elif self.status is SmartSliceCloudStatus.Queued:
             self._proxy.sliceStatus = "Queued..."
             self._proxy.sliceHint = ""
@@ -879,6 +887,7 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.sliceInfoOpen = False
             self._proxy.progressBarVisible = False
             self._proxy.jobProgress = 0
+            self._proxy.resultsButtonsVisible = False
         elif self.status is SmartSliceCloudStatus.RemoveModMesh:
             self._proxy.sliceStatus = ""
             self._proxy.sliceHint = ""
@@ -889,6 +898,7 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.sliceInfoOpen = False
             self._proxy.progressBarVisible = False
             self._proxy.jobProgress = 0
+            self._proxy.resultsButtonsVisible = False
         else:
             self._proxy.sliceStatus = "Unknown status"
             self._proxy.sliceHint = "Sorry, something went wrong!"
@@ -900,6 +910,7 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.sliceInfoOpen = False
             self._proxy.progressBarVisible = False
             self._proxy.jobProgress = 0
+            self._proxy.resultsButtonsVisible = False
 
         # Setting icon path
         stage_path = PluginRegistry.getInstance().getPluginPath("SmartSlicePlugin")
@@ -971,6 +982,7 @@ class SmartSliceCloudConnector(QObject):
             else:
                 if self.status != SmartSliceCloudStatus.ReadyToVerify and self.status != SmartSliceCloudStatus.Errors:
                     self.status = SmartSliceCloudStatus.ReadyToVerify
+                    self._proxy.resultsButtonsVisible = True
                     results = self._jobs[self._current_job].getResult().feasibility_result['structural']
                     Message(
                         title="Smart Slice Error",

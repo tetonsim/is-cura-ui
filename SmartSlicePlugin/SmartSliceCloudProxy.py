@@ -66,6 +66,8 @@ class SmartSliceCloudProxy(QObject):
         self._job_progress = 0
         self._progress_bar_visible = False
 
+        self._results_buttons_visible = False
+
         # Secondary Button (Preview/Cancel)
         self._secondaryButtonText = "_SecondaryText"
         self._secondaryButtonFillWidth = False
@@ -161,6 +163,7 @@ class SmartSliceCloudProxy(QObject):
     secondaryButtonFillWidthChanged = pyqtSignal()
 
     resultsTableUpdated = pyqtSignal()
+    resultsButtonsVisibleChanged = pyqtSignal()
 
     optimizationResultAppliedToScene = Signal()
 
@@ -387,6 +390,16 @@ class SmartSliceCloudProxy(QObject):
     #
     #   SMART SLICE RESULTS
     #
+
+    @pyqtProperty(bool, notify=resultsButtonsVisibleChanged)
+    def resultsButtonsVisible(self):
+        return self._results_buttons_visible
+
+    @resultsButtonsVisible.setter
+    def resultsButtonsVisible(self, value):
+        if self._results_buttons_visible != value:
+            self._results_buttons_visible = value
+            self.resultsButtonsVisibleChanged.emit()
 
     @pyqtProperty(QAbstractListModel, notify=resultsTableUpdated)
     def resultsTable(self):

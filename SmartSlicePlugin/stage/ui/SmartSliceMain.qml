@@ -1038,6 +1038,14 @@ Item {
         }
     }
 
+    SmartSlice.SmartSliceResultsButtons {
+        id: resultsButtons
+
+        anchors {
+            right: smartSliceWindow.left
+        }
+    }
+
     SmartSlice.ResultsTable {
         implicitHeight: 0.25 * smartSliceMain.height
         width: 0.4 * smartSliceMain.width

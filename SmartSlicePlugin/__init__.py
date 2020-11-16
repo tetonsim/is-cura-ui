@@ -118,6 +118,13 @@ def register(app):
         "SmartSliceLogin"
     )
 
+    qmlRegisterType(
+        QUrl.fromLocalFile(os.path.join(directory, "stage", "ui", "SmartSliceResultsButtons.qml")),
+        "SmartSlice",
+        1, 0,
+        "SmartSliceResultsButtons"
+    )
+
     return {
         "extension": extension,
         "stage": _stage,
