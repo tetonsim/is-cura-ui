@@ -10,7 +10,6 @@ from SmartSliceTestCase import _SmartSliceTestCase
 class TestMessages(_SmartSliceTestCase):
     @classmethod
     def setUpClass(cls):
-        from SmartSlicePlugin.stage.ui.SmartSliceMessageExtension import SmartSliceMessage
         pass
 
     @classmethod
@@ -24,6 +23,8 @@ class TestMessages(_SmartSliceTestCase):
         pass
 
     def test_no_duplicate_message(self):
+        from SmartSlicePlugin.stage.ui.SmartSliceMessageExtension import SmartSliceMessage
+
         message = SmartSliceMessage()
         message.show()
 
