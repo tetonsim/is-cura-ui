@@ -99,7 +99,8 @@ class TestAPI(_SmartSliceTestCase):
         self._api._login()
 
         self.assertIsNotNone(self._api._error_message)
-        self.assertEqual(self._api._error_message.getText(), "Internet connection issue:\nPlease check your connection and try again.")
+        self.assertEqual(self._api._error_message.getText(), """Unable to contact Smart Slice servers!<br><br>Please check to ensure you have an internet connection. If you
+                <br>do have an internet connection, and are still receiving this<br>error, please <A HREF='mailto:help@tetonsim.com?subject=Smart Slice Cannot Connect Error'>contact us</A>.""")
         self.assertTrue(self._api._error_message.visible)
         self.assertFalse(self._api.logged_in)
 
@@ -157,5 +158,5 @@ class TestAPI(_SmartSliceTestCase):
         self._api.cancelJob("badCancel")
 
         self.assertIsNotNone(self._api._error_message)
-        self.assertEqual(self._api._error_message.getText(), "SmartSlice Server Error (400: Bad Request):\nFailed to abort job!")
+        self.assertEqual(self._api._error_message.getText(), "SmartSlice Server Error (400: Bad Request):<br>Failed to abort job!")
         self.assertTrue(self._api._error_message.visible)
