@@ -28,4 +28,6 @@ class TestMessages(_SmartSliceTestCase):
         message.show()
 
         app = Application.getInstance()
-        app.getVisibleMessages()
+        visible_messages = app.getVisibleMessages()
+
+        print(visible_messages)
