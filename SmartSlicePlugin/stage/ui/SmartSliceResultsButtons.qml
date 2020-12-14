@@ -29,15 +29,31 @@ Rectangle {
         onSafetyFactorColorChanged: {
             stressButton.opacity = 0.5
             stressButton.color = smartSliceMain.proxy.safetyFactorColor
+            smartSliceMain.proxy.closeResultsButtonPopup()
         }
 
         onMaxDisplaceColorChanged: {
             deflectionButton.opacity = 0.5
             deflectionButton.color = smartSliceMain.proxy.maxDisplaceColor
+            smartSliceMain.proxy.closeResultsButtonPopup()
         }
 
         onResultsButtonsVisibleChanged: {
             resultsButtonsWindow.visible = smartSliceMain.proxy.resultsButtonsVisible
+            smartSliceMain.proxy.closeResultsButtonPopup()
+        }
+
+        onResetResultsButtonsOpacity: {
+            deflectionButton.opacity = 0.5
+            stressButton.opacity = 0.5
+        }
+
+        onUnableToOptimizeStress: {
+            stressButton.opacity = 1
+        }
+
+        onUnableToOptimizeDisplacement: {
+            deflectionButton.opacity = 1
         }
     }
 
@@ -64,7 +80,7 @@ Rectangle {
                 onClicked: {
                     deflectionButton.opacity = 1
                     stressButton.opacity = 0.5
-                    //TODO: Activate popup
+                    smartSliceMain.proxy.displayResultsMessage("deflection")
                 }
 
                 onEntered: {
@@ -90,7 +106,7 @@ Rectangle {
                 onClicked: {
                     stressButton.opacity = 1
                     deflectionButton.opacity = 0.5
-                    //TODO: Activate popup
+                    smartSliceMain.proxy.displayResultsMessage("stress")
                 }
 
                 onEntered: {

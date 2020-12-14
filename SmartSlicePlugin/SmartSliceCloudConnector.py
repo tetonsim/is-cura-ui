@@ -969,6 +969,7 @@ class SmartSliceCloudConnector(QObject):
 
         self.propertyHandler._propertiesChanged.clear()
         self._proxy.shouldRaiseConfirmation = False
+        req_tool = SmartSliceRequirements.getInstance()
 
         if self._jobs[self._current_job].getResult():
             if len(self._jobs[self._current_job].getResult().analyses) > 0:
@@ -983,26 +984,12 @@ class SmartSliceCloudConnector(QObject):
                 if self.status != SmartSliceCloudStatus.ReadyToVerify and self.status != SmartSliceCloudStatus.Errors:
                     self.status = SmartSliceCloudStatus.ReadyToVerify
                     self._proxy.resultsButtonsVisible = True
-                    results = self._jobs[self._current_job].getResult().feasibility_result['structural']
-                    Message(
-                        title="Smart Slice Error",
-                        text="<p>Smart Slice cannot find a solution for the problem, "
-                             "please check the setup for errors. </p>"
-                             "<p></p>"
-                             "<p>Alternatively, you may need to modify the geometry "
-                             "and/or try a different material:</p>"
-                             "<p></p>"
-                             "<p> <u>Solid Print:</u> </p>"
-                             "<p></p>"
-                             "<p style = 'margin-left:50px;'> <i> Minimum Safety Factor: "
-                             "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; %.2f </i> </p>"
-                             "<p></p>"
-                             "<p style = 'margin-left:50px;'> <i> Maximum Displacement: "
-                             "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; %.2f </i> </p>" %
-                             (results["min_safety_factor"], results["max_displacement"]),
-                        lifetime=0,
-                        dismissable=True
-                    ).show()
+                    self._proxy.result_feasibility = self._jobs[self._current_job].getResult().feasibility_result['structural']
+                    if req_tool.targetSafetyFactor >= self._proxy.result_feasibility["min_safety_factor"]:
+                        message_type = "stress"
+                    else:
+                        message_type = "deflection"
+                    self._proxy.displayResultsMessage(message_type)
 
     def processAnalysisResult(self, selectedRow=0):
         job = self._jobs[self._current_job]

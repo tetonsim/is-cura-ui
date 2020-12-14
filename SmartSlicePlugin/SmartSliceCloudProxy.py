@@ -28,6 +28,7 @@ from UM.Operations.AddSceneNodeOperation import AddSceneNodeOperation
 from UM.Math.Matrix import Matrix
 from UM.Qt.Duration import Duration
 from UM.Signal import Signal
+from UM.Message import Message
 
 from .SmartSliceCloudStatus import SmartSliceCloudStatus
 from .SmartSliceProperty import SmartSlicePropertyColor
@@ -90,6 +91,12 @@ class SmartSliceCloudProxy(QObject):
         self._resultsTable = ResultTableData()
         self._resultsTable.updateDisplaySignal.connect(self.updatePropertiesFromResults)
         self._resultsTable.resultsUpdated.connect(self._resultsTableUpdated)
+
+        self.result_feasibility = None
+        self.results_buttons_popup = None
+        self.results_buttons_popup_visible = False
+        self.previous_message = ""
+        self.message_type = ""
 
         # Properties (mainly) for the sliceinfo widget
         self._resultSafetyFactor = 0.0 #copy.copy(self._targetFactorOfSafety)
@@ -166,6 +173,9 @@ class SmartSliceCloudProxy(QObject):
     resultsButtonsVisibleChanged = pyqtSignal()
 
     optimizationResultAppliedToScene = Signal()
+    resetResultsButtonsOpacity = pyqtSignal()
+    unableToOptimizeStress = pyqtSignal()
+    unableToOptimizeDisplacement = pyqtSignal()
 
     @pyqtProperty(QObject, constant=True)
     def loadDialog(self):
@@ -768,6 +778,151 @@ class SmartSliceCloudProxy(QObject):
             self._sliceStatusEnum = SmartSliceCloudStatus.Errors
 
         Application.getInstance().activityChanged.emit()
+
+    @pyqtSlot()
+    def closeResultsButtonPopup(self):
+        if self.results_buttons_popup != None:
+            self.results_buttons_popup.hide()
+            self.results_buttons_popup = None
+            self.results_buttons_popup_visible = False
+
+    def clearResultsPopup(self, message):
+        Application.getInstance().hideMessageSignal.disconnect(self.clearResultsPopup)
+        self.results_buttons_popup_visible = False
+        self.resetResultsButtons()
+
+    @pyqtSlot()
+    def resetResultsButtons(self):
+        if self.message_type == self.previous_message and not self.results_buttons_popup_visible:
+            self.resetResultsButtonsOpacity.emit()
+            self.previous_message = ""
+
+    @pyqtSlot(str)
+    def displayResultsMessage(self, button_string):
+        req_tool = SmartSliceRequirements.getInstance()
+
+        stress_acceptable = """<br>The minimum factor of safety of
+            <font color=\"{}\"><b>{}</b></font> is greater than the target of {}.
+            <br><br>
+            This means the component can withstand {} times the applied load before incurring permanent deformation.""".format(
+                SmartSlicePropertyColor.WarningColor, round(self.resultSafetyFactor, 1), req_tool.targetSafetyFactor, round(self.resultSafetyFactor, 1)
+            )
+
+        stress_unacceptable = """<br>The areas shaded in <font color=\"{}\"><b>red</b></font>
+            &nbsp;have factors of safety below the target value of {}.
+            <br><br>
+            We recommend taking one or multiple of the following actions:
+            <br>
+            <ol>
+            <li><b>Optimize print settings using Smart Slice</b></li>
+            <li>Change print settings to increase solid material</li>
+            <li>Change the material to a stronger material</li>
+            <li>Modify the geometry at the indicated <font color=\"{}\">positions</font></li>
+            </ol>""".format(
+                SmartSlicePropertyColor.ErrorColor, req_tool.targetSafetyFactor, SmartSlicePropertyColor.ErrorColor
+            )
+
+        displacement_acceptable = """<br>The maximum displacement of <font color=\"{}\"><b>{}<i> mm</i></b></font>
+            &nbsp;is less than the target displacement of {}<i> mm</i>.""".format(
+                SmartSlicePropertyColor.WarningColor, round(self.resultMaximalDisplacement, 2), req_tool.maxDisplacement
+            )
+
+        displacement_unacceptable = """<br>The maximum displacement of <font color=\"{}\"><b>{}<i> mm</i></b></font>
+            &nbsp;is greater than the target of {}<i> mm</i>. The areas shaded in <font color=\"{}\">red</font> are too compliant.
+            <br><br>
+            We recommend taking one or multiple of the following actions:
+            <br>
+            <ol>
+            <li><b>Optimize print settings using Smart Slice</b></li>
+            <li>Change print settings to increase solid material</li>
+            <li>Change the material to a stiffer material</li>
+            <li>Modify the geometry at the indicated <font color=\"{}\">positions</font></li>
+            </ol>""".format(
+                SmartSlicePropertyColor.ErrorColor, round(self.resultMaximalDisplacement,2), req_tool.maxDisplacement, SmartSlicePropertyColor.ErrorColor, SmartSlicePropertyColor.ErrorColor
+            )
+
+        if self.result_feasibility is not None:
+            stress_can_optimize = """<br>With a solid print we can achieve a factor of safety of
+                &nbsp;<font color=\"{}\"><b>{}</b></font>, which is greater than the target of {}""".format(
+                    SmartSlicePropertyColor.WarningColor, round(self.result_feasibility["min_safety_factor"], 1), req_tool.targetSafetyFactor
+                )
+
+            stress_cannot_optimize = """<br>We cannot find an optimized solution to this problem. With a solid print,
+                &nbsp;we can only achieve a factor of safety of <font color=\"{}\"><b>{}</b></font>. The areas shaded in
+                &nbsp;<font color=\"{}\"><b>red</b></font> have factors of safety below the target value of {}.
+                <br><br>
+                We recommend taking one or multiple of the following actions:
+                <br>
+                <ol>
+                <li>Change the material to a stronger material</li>
+                <li>Modify the geometry at the indicated <font color=\"{}\">positions</font></li>
+                </ol>""".format(
+                    SmartSlicePropertyColor.ErrorColor, round(self.result_feasibility["min_safety_factor"], 1), SmartSlicePropertyColor.ErrorColor, req_tool.targetSafetyFactor, SmartSlicePropertyColor.ErrorColor
+                )
+
+            displacement_can_optimize = """<br>With a solid print we can achieve a maximum displacement
+                &nbsp;of <font color=\"{}\"><b>{}<i> mm</i></b></font>, which is less than the target of {}<i> mm</i>""".format(
+                    SmartSlicePropertyColor.WarningColor, round(self.result_feasibility["max_displacement"], 2), req_tool.maxDisplacement
+                )
+
+            displacement_cannot_optimize = """<br>We cannot find an optimized solution to this problem. With a solid print,
+                &nbsp;the maximum displacement of <font color=\"{}\"><b>{}<i> mm</i></b></font> is greater than the target of
+                &nbsp;{}<i> mm</i>. The areas highlighted in <font color=\"{}\">red</font> are too compliant.
+                <br><br>
+                We recommend taking one or multiple of the following actions:
+                <br>
+                <ol>
+                <li>Change the material to a stronger material</li>
+                <li>Modify the geometry at the indicated <font color=\"{}\">positions</font></li>
+                </ol>""".format(
+                    SmartSlicePropertyColor.ErrorColor, round(self.result_feasibility["max_displacement"], 2), req_tool.maxDisplacement, SmartSlicePropertyColor.ErrorColor, SmartSlicePropertyColor.ErrorColor
+                )
+
+        status = self._sliceStatusEnum
+        self.message_type = button_string
+        if self.message_type != self.previous_message:
+            self.closeResultsButtonPopup()
+            self.previous_message = button_string
+            self.results_buttons_popup = Message(
+                title="Smart Slice",
+                lifetime=0,
+                dismissable=True
+            )
+            Application.getInstance().hideMessageSignal.connect(self.clearResultsPopup)
+
+            if button_string == "stress":
+                if status != SmartSliceCloudStatus.ReadyToVerify:
+                    if req_tool.targetSafetyFactor <= self.resultSafetyFactor:
+                        text = stress_acceptable
+                    else:
+                        text = stress_unacceptable
+
+                else:
+                    self.unableToOptimizeStress.emit()
+                    if req_tool.targetSafetyFactor <= self.resultSafetyFactor:
+                        text = stress_can_optimize
+                    else:
+                        self.results_buttons_popup.setTitle("Smart Slice Error")
+                        text = stress_cannot_optimize
+
+            elif button_string == "deflection":
+                if status != SmartSliceCloudStatus.ReadyToVerify:
+                    if req_tool.maxDisplacement >= self.resultMaximalDisplacement:
+                        text = displacement_acceptable
+                    else:
+                        text = displacement_unacceptable
+
+                else:
+                    self.unableToOptimizeDisplacement.emit()
+                    if req_tool.maxDisplacement >= self.resultMaximalDisplacement:
+                        text = displacement_can_optimize
+                    else:
+                        self.results_buttons_popup.setTitle("Smart Slice Error")
+                        text = displacement_cannot_optimize
+
+            self.results_buttons_popup.setText(text)
+            self.results_buttons_popup.show()
+            self.results_buttons_popup_visible = True
 
     def optimizationStatus(self):
         req_tool = SmartSliceRequirements.getInstance()
