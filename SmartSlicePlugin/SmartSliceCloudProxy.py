@@ -177,6 +177,10 @@ class SmartSliceCloudProxy(QObject):
     unableToOptimizeStress = pyqtSignal()
     unableToOptimizeDisplacement = pyqtSignal()
 
+    @pyqtProperty("QVariant", constant=True)
+    def tooltipLocations(self):
+        return {"left" : 1, "right" : 2, "top" : 3, "bottom" : 4}
+
     @pyqtProperty(QObject, constant=True)
     def loadDialog(self):
         return self._loadDialog

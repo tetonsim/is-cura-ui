@@ -44,15 +44,15 @@ def getMetaData():
         },
         "tool": [
             {
-                "name": i18n_catalog.i18nc("@label", "Smart Slice Requirements"),
-                "description": i18n_catalog.i18nc("@info:tooltip", "Allows user to set safety factor and maximum deflection"),
+                "name": i18n_catalog.i18nc("@label", "<b>Requirements</b> <p>Define the requirements for a successful part.</p>"),
+                "description": i18n_catalog.i18nc("@info:tooltip", "Define the requirements for a successful part."),
                 "icon": "requirements_tool/tool_icon.svg",
                 "tool_panel": "requirements_tool/SmartSliceRequirements.qml",
                 "weight": 20
             },
             {
-                "name": i18n_catalog.i18nc("@label", "Smart Slice SelectTool"),
-                "description": i18n_catalog.i18nc("@info:tooltip", "Allows user to set boundaries on a model."),
+                "name": i18n_catalog.i18nc("@label", "<b>Use Cases</b> <p>Define the use cases the part experiences in service.</p>"),
+                "description": i18n_catalog.i18nc("@info:tooltip", "Define the use cases the part experiences in service."),
                 "icon": "select_tool/media/tool_icon.svg",
                 "tool_panel": "select_tool/SmartSliceSelectTool.qml",
                 "weight": 10
@@ -95,6 +95,27 @@ def register(app):
         "SmartSlice",
         1, 0,
         "SmartSliceMessage"
+    )
+
+    qmlRegisterType(
+        QUrl.fromLocalFile(os.path.join(directory, "components", "SmartSliceTooltip.qml")),
+        "SmartSlice",
+        1, 0,
+        "SmartSliceTooltip"
+    )
+
+    qmlRegisterType(
+        QUrl.fromLocalFile(os.path.join(directory, "components", "HoverableTextField.qml")),
+        "SmartSlice",
+        1, 0,
+        "HoverableTextField"
+    )
+
+    qmlRegisterType(
+        QUrl.fromLocalFile(os.path.join(directory, "components", "HoverableButton.qml")),
+        "SmartSlice",
+        1, 0,
+        "HoverableButton"
     )
 
     qmlRegisterType(

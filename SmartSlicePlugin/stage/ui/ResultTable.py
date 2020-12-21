@@ -178,6 +178,34 @@ class ResultTableData(QAbstractListModel):
 
         return None
 
+    @pyqtSlot(int, result=str)
+    def getResultMetaData(self, row) -> str:
+        result = self._results[row]
+        metadata = """<p> Extruder: </p>
+            <p style = 'margin-left:50px;'> Walls: {0:d} </p>
+            <p style = 'margin-left:50px;'> Top Layers: {1:d} </p>
+            <p style = 'margin-left:50px;'> Bottom layers: {2:d} </p>
+            <p style = 'margin-left:50px;'> Infill density: {3:.1f}% </p>""".format(
+                int(round(result.print_config.walls, 0)),
+                int(round(result.print_config.top_layers, 0)),
+                int(round(result.print_config.bottom_layers, 0)),
+                round(result.print_config.infill.density, 0)
+            )
+
+        if len(result.modifier_meshes) > 0:
+            metadata += """<p> Local reinforcement: </p>
+                <p style = 'margin-left:50px;'> Walls: {0:d} </p>
+                <p style = 'margin-left:50px;'> Top Layers: {1:d} </p>
+                <p style = 'margin-left:50px;'> Bottom layers: {2:d} </p>
+                <p style = 'margin-left:50px;'> Infill density: {3:.1f}% </p>""".format(
+                    int(round(result.modifier_meshes[0].print_config.walls, 0)),
+                    int(round(result.modifier_meshes[0].print_config.top_layers, 0)),
+                    int(round(result.modifier_meshes[0].print_config.bottom_layers, 0)),
+                    round(result.modifier_meshes[0].print_config.infill.density, 0)
+                )
+
+        return metadata
+
     @pyqtSlot(int)
     def sortByColumn(self, column=0, order=None):
 

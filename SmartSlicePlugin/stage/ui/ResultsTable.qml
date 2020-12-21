@@ -8,6 +8,8 @@ import QtGraphicalEffects 1.0
 import UM 1.2 as UM
 import Cura 1.0 as Cura
 
+import SmartSlice 1.0  as SmartSlice
+
 Item {
     id: resultsTable
 
@@ -26,6 +28,8 @@ Item {
     property int xLocation: handler.xPosition
     property int yLocation: handler.yPosition
 
+    property var tooltipLocations: UM.Controller.activeStage.proxy.tooltipLocations
+
     x: {
         if (locationSet) {
             return xLocation
@@ -38,6 +42,13 @@ Item {
             return yLocation
         }
         return centerY
+    }
+
+    function updateTooltip(row, item) {
+        tooltip.description = tableArea.model.getResultMetaData(row);
+        var position = resultsTable.mapToItem(item, item.x, item.y);
+        tooltip.target.y = - (position.y - 0.5 * item.height);
+        tooltip.setPosition();
     }
 
     Column {
@@ -264,29 +275,37 @@ Item {
                 itemDelegate: Item {
                     id: itemLayout
 
-                    Text {
+                    MouseArea {
+                        width: textItem.width
+                        height: textItem.height
+
                         anchors {
                             fill: itemLayout
                         }
-                        text: styleData.value
-                        renderType: Text.NativeRendering
-                        font: UM.Theme.getFont("default")
-                        horizontalAlignment: TextInput.AlignHCenter
-                        verticalAlignment: TextInput.AlignVCenter
-                        visible: styleData.column < tableArea.columnCount - 1
-                    }
-
-                    MouseArea {
-                        width: previewImage.width
-                        height: previewImage.height
-
-                        anchors.centerIn: itemLayout
 
                         hoverEnabled: true
-                        enabled: previewImage.visible
+                        propagateComposedEvents: false
+
+                        Label {
+                            id: textItem
+                            anchors {
+                                centerIn: parent
+                            }
+                            text: styleData.value
+                            renderType: Text.NativeRendering
+                            font: UM.Theme.getFont("default")
+                            horizontalAlignment: TextInput.AlignHCenter
+                            verticalAlignment: TextInput.AlignVCenter
+                            visible: styleData.column < tableArea.columnCount - 1
+                            enabled: visible
+                        }
 
                         UM.RecolorImage {
                             id: previewImage
+
+                            anchors {
+                                centerIn: parent
+                            }
 
                             source: "../images/preview.png"
                             color: UM.Theme.getColor("main_background")
@@ -294,17 +313,31 @@ Item {
                             width: 1.5 * height
                             height: 0.5 * itemLayout.height
                             visible: styleData.column == tableArea.columnCount - 1 && styleData.row == tableArea.selectedRow
+                            enabled: visible
                         }
 
                         onEntered: {
-                            previewImage.color = UM.Theme.getColor("setting_category_hover")
+                            if (previewImage.visible) {
+                                previewImage.color = UM.Theme.getColor("setting_category_hover")
+                            } else {
+                                resultsTable.updateTooltip(styleData.row, item)
+                                tooltip.show();
+                            }
                         }
                         onExited: {
-                            previewImage.color = UM.Theme.getColor("main_background")
+                            if (previewImage.visible) {
+                                previewImage.color = UM.Theme.getColor("main_background");
+                            } else {
+                                tooltip.hide();
+                            }
                         }
                         onClicked: {
                             if (previewImage.visible) {
-                                tableArea.model.previewClicked()
+                                tableArea.model.previewClicked();
+                            } else {
+                                if (styleData.row != tableArea.currentRow) {
+                                    tableArea.model.rowClicked(styleData.row)
+                                }
                             }
                         }
                     }
@@ -502,5 +535,12 @@ Item {
                 }
             }
         }
+    }
+
+    SmartSlice.SmartSliceTooltip {
+        id: tooltip
+        header: catalog.i18nc("@textfp", "Optimized Settings")
+        target.x: 0
+        location: resultsTable.tooltipLocations["left"];
     }
 }

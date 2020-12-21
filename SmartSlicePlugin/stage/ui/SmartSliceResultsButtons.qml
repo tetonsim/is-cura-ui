@@ -12,6 +12,8 @@ Rectangle {
     width: UM.Theme.getSize("action_panel_widget").width / 3
     height: UM.Theme.getSize("action_button").height + (UM.Theme.getSize("thick_margin").height * 2)
 
+    property var tooltipLocations: UM.Controller.activeStage.proxy.tooltipLocations
+
     anchors {
         rightMargin: UM.Theme.getSize("thick_margin").width
         bottomMargin: UM.Theme.getSize("thick_margin").height
@@ -27,13 +29,13 @@ Rectangle {
     Connections {
         target: smartSliceMain.proxy
         onSafetyFactorColorChanged: {
-            stressButton.opacity = 0.5
+            stressButton.buttonOpacity = 0.5
             stressButton.color = smartSliceMain.proxy.safetyFactorColor
             smartSliceMain.proxy.closeResultsButtonPopup()
         }
 
         onMaxDisplaceColorChanged: {
-            deflectionButton.opacity = 0.5
+            deflectionButton.buttonOpacity = 0.5
             deflectionButton.color = smartSliceMain.proxy.maxDisplaceColor
             smartSliceMain.proxy.closeResultsButtonPopup()
         }
@@ -44,16 +46,16 @@ Rectangle {
         }
 
         onResetResultsButtonsOpacity: {
-            deflectionButton.opacity = 0.5
-            stressButton.opacity = 0.5
+            deflectionButton.buttonOpacity = 0.5
+            stressButton.buttonOpacity = 0.5
         }
 
         onUnableToOptimizeStress: {
-            stressButton.opacity = 1
+            stressButton.buttonOpacity = 1
         }
 
         onUnableToOptimizeDisplacement: {
-            deflectionButton.opacity = 1
+            deflectionButton.buttonOpacity = 1
         }
     }
 
@@ -63,11 +65,12 @@ Rectangle {
         width: childrenRect.width
 
         Row {
+            id: resultsButtonsRow
             spacing: UM.Theme.getSize("default_margin").width
 
             anchors.horizontalCenter: parent.horizontalCenter
 
-            UM.SimpleButton {
+            SmartSlice.HoverableButton {
                 id: deflectionButton
 
                 height: UM.Theme.getSize("action_button").height
@@ -78,22 +81,29 @@ Rectangle {
                 iconSource: "../images/displacement.png"
 
                 onClicked: {
-                    deflectionButton.opacity = 1
-                    stressButton.opacity = 0.5
+                    deflectionButton.buttonOpacity = 1
+                    stressButton.buttonOpacity = 0.5
                     smartSliceMain.proxy.displayResultsMessage("deflection")
                 }
 
                 onEntered: {
-                    deflectionButton.opacity === 1 ? deflectionButton.opacity = 1 : deflectionButton.opacity = 0.75
+                    deflectionButton.buttonOpacity === 1 ? deflectionButton.buttonOpacity = 1 : deflectionButton.buttonOpacity = 0.75
                 }
 
                 onExited: {
-                    deflectionButton.opacity === 1 ? deflectionButton.opacity = 1 : deflectionButton.opacity = 0.5
+                    deflectionButton.buttonOpacity === 1 ? deflectionButton.buttonOpacity = 1 : deflectionButton.buttonOpacity = 0.5
                 }
 
+                tooltipHeader: catalog.i18nc("@textfp", "Show Displaced Part")
+                tooltipDescription: catalog.i18nc("@textfp", "Show the deformation of the part under the defined use cases, "
+                    + "and identify the regions of the geometry which could be modified to meet the target max displacement, if any.")
+
+                tooltipTarget.x: 0.5 * width
+                tooltipTarget.y: -UM.Theme.getSize("thick_margin").height
+                tooltipLocation: resultsButtonsWindow.tooltipLocations["top"]
             }
 
-            UM.SimpleButton {
+            SmartSlice.HoverableButton {
                 id: stressButton
 
                 height: UM.Theme.getSize("action_button").height
@@ -104,18 +114,25 @@ Rectangle {
                 iconSource: "../images/failure.png"
 
                 onClicked: {
-                    stressButton.opacity = 1
-                    deflectionButton.opacity = 0.5
+                    stressButton.buttonOpacity = 1
+                    deflectionButton.buttonOpacity = 0.5
                     smartSliceMain.proxy.displayResultsMessage("stress")
                 }
 
                 onEntered: {
-                    stressButton.opacity === 1 ? stressButton.opacity = 1 : stressButton.opacity = 0.75
+                    stressButton.buttonOpacity === 1 ? stressButton.buttonOpacity = 1 : stressButton.buttonOpacity = 0.75;
                 }
 
                 onExited: {
-                    stressButton.opacity === 1 ? stressButton.opacity = 1 : stressButton.opacity = 0.5
+                    stressButton.buttonOpacity === 1 ? stressButton.buttonOpacity = 1 : stressButton.buttonOpacity = 0.5;
                 }
+
+                tooltipHeader: catalog.i18nc("@textfp", "Show “Failure” Locations")
+                tooltipDescription: catalog.i18nc("@textfp", "Identify all regions of the geometry which do not meet the target factor of safety, if any.")
+
+                tooltipTarget.x: 0.5 * width
+                tooltipTarget.y: -UM.Theme.getSize("thick_margin").height
+                tooltipLocation: resultsButtonsWindow.tooltipLocations["top"]
             }
         }
     }

@@ -51,18 +51,17 @@ Item {
         propagateComposedEvents: false
         anchors.fill: parent
 
-        Button
-        {
+        Button {
             id: selectAnchorButton
-
             anchors.left: parent.left
             z: 2
 
-            text: catalog.i18nc("@action:button", "Anchor (Mount)")
             iconSource: "./media/anchor_icon.svg"
             property bool needBorder: true
 
-            style: UM.Theme.styles.tool_button;
+            style: UM.Theme.styles.tool_button
+
+            text: catalog.i18nc("@action:button", "<b> Anchors <\b>")
 
             onClicked: {
                 UM.ActiveTool.triggerAction("setAnchorSelection");
@@ -76,15 +75,17 @@ Item {
 
         Button {
             id: selectLoadButton
+
             anchors.left: selectAnchorButton.right;
             anchors.leftMargin: UM.Theme.getSize("default_margin").width;
             z: 1
 
-            text: catalog.i18nc("@action:button", "Load (Directed force)")
             iconSource: "./media/load_icon.svg"
             property bool needBorder: true
 
-            style: UM.Theme.styles.tool_button;
+            style: UM.Theme.styles.tool_button
+
+            text: catalog.i18nc("@action:button", "<b> Loads <\b>")
 
             onClicked: {
                 UM.ActiveTool.triggerAction("setLoadSelection");
@@ -146,6 +147,7 @@ Item {
         height: childrenRect.height
 
         property var handler: UM.Controller.activeStage.proxy.loadDialog
+        property var tooltipLocations: UM.Controller.activeStage.proxy.tooltipLocations
 
         property int xStart: constraintsTooltip.x + constraintsTooltip.width + 2 * UM.Theme.getSize("default_margin").width
         property int yStart: constraintsTooltip.y - 1.5 * UM.Theme.getSize("default_margin").height
@@ -181,8 +183,7 @@ Item {
 
         z: 3 //-> A hack to get this on the top
 
-        function trySetPosition(posNewX, posNewY)
-        {
+        function trySetPosition(posNewX, posNewY) {
             var margin = UM.Theme.getSize("narrow_margin");
             var minPt = base.mapFromItem(null, margin.width, margin.height);
             var maxPt = base.mapFromItem(null,
@@ -421,6 +422,7 @@ Item {
                             spacing: UM.Theme.getSize("default_margin").width
 
                             Row {
+                                id: surfaceRow
                                 anchors {
                                     left: parent.left
                                     topMargin: UM.Theme.getSize("default_margin").width
@@ -430,7 +432,7 @@ Item {
                                 width: childrenRect.width
                                 spacing: UM.Theme.getSize("default_margin").width
 
-                                UM.SimpleButton {
+                                SmartSlice.HoverableButton {
                                     id: flatFace
                                     width: height
                                     height: comboDialogType.height
@@ -451,9 +453,19 @@ Item {
                                             loadColumn.iconsEnabled();
                                         }
                                     }
+
+                                    tooltipHeader: catalog.i18nc("@textfp", "Flat Surface Selection")
+                                    tooltipDescription: catalog.i18nc("@textfp", "Select flat surfaces.")
+
+                                    property var pos1: flatFace.mapFromItem(faceDialog, faceDialog.x, 0.)
+                                    property var pos2: flatFace.mapToItem(faceDialog, faceDialog.width, 0.)
+
+                                    tooltipTarget.x: pos2.x - pos1.x - width
+                                    tooltipTarget.y: 0.5 * height
+                                    tooltipLocation: faceDialog.tooltipLocations["right"]
                                 }
 
-                                UM.SimpleButton {
+                                SmartSlice.HoverableButton {
                                     id: concaveFace
                                     width: height
                                     height: comboDialogType.height
@@ -474,9 +486,20 @@ Item {
                                             loadColumn.iconsEnabled();
                                         }
                                     }
+
+                                    tooltipHeader: catalog.i18nc("@textfp", "Concave Surface Selection")
+                                    tooltipDescription: catalog.i18nc("@textfp", "Select the interior of rounded surfaces. "
+                                        + "For load surfaces, the surface must have a constant axis of revolution (cylindrical).")
+
+                                    property var pos1: concaveFace.mapFromItem(faceDialog, faceDialog.x, 0.)
+                                    property var pos2: concaveFace.mapToItem(faceDialog, faceDialog.width, 0.)
+
+                                    tooltipTarget.x: pos2.x - pos1.x - width - flatFace.width - surfaceRow.spacing
+                                    tooltipTarget.y: 0.5 * height
+                                    tooltipLocation: faceDialog.tooltipLocations["right"]
                                 }
 
-                                UM.SimpleButton {
+                                SmartSlice.HoverableButton {
                                     id: convexFace
                                     width: height
                                     height: comboDialogType.height
@@ -497,10 +520,22 @@ Item {
                                             loadColumn.iconsEnabled();
                                         }
                                     }
+
+                                    tooltipHeader: catalog.i18nc("@textfp", "Convex Surface Selection")
+                                    tooltipDescription: catalog.i18nc("@textfp", "Select the exterior of rounded surfaces. "
+                                        + "For load surfaces, the surface must have a constant axis of revolution (cylindrical).")
+
+                                    property var pos1: concaveFace.mapFromItem(faceDialog, faceDialog.x, 0.)
+                                    property var pos2: concaveFace.mapToItem(faceDialog, faceDialog.width, 0.)
+
+                                    tooltipTarget.x: pos2.x - pos1.x - width - flatFace.width - concaveFace.width -  2 * surfaceRow.spacing
+                                    tooltipTarget.y: 0.5 * height
+                                    tooltipLocation: faceDialog.tooltipLocations["right"]
                                 }
                             }
 
                             Row {
+                                id: loadDirectionRow
                                 visible: selectLoadButton.checked
 
                                 anchors {
@@ -512,7 +547,7 @@ Item {
                                 width: childrenRect.width
                                 spacing: UM.Theme.getSize("default_margin").width
 
-                                UM.SimpleButton {
+                                SmartSlice.HoverableButton {
                                     id: normalLoad
                                     width: height
                                     height: comboDialogType.height
@@ -527,9 +562,20 @@ Item {
                                         bcListForces.model.loadType = 1;
                                         loadColumn.iconsEnabled();
                                     }
+
+                                    tooltipHeader: catalog.i18nc("@textfp", "Normal Load Direction")
+                                    tooltipDescription: catalog.i18nc("@textfp", "For flat surface selection this will place the load arrow perpendicular to the surface. "
+                                        + "For either concave or convex surface selection this will place the load arrow perpendicular to the central axis of the cylindrical object.")
+
+                                    property var pos1: normalLoad.mapFromItem(faceDialog, faceDialog.x, 0.)
+                                    property var pos2: normalLoad.mapToItem(faceDialog, faceDialog.width, 0.)
+
+                                    tooltipTarget.x: pos2.x - pos1.x - width
+                                    tooltipTarget.y: 0.5 * height
+                                    tooltipLocation: faceDialog.tooltipLocations["right"]
                                 }
 
-                                UM.SimpleButton {
+                                SmartSlice.HoverableButton {
                                     id: parallelLoad
                                     width: height
                                     height: comboDialogType.height
@@ -544,6 +590,17 @@ Item {
                                         bcListForces.model.loadType = 2;
                                         loadColumn.iconsEnabled();
                                     }
+
+                                    tooltipHeader: catalog.i18nc("@textfp", "Parallel Load Direction")
+                                    tooltipDescription: catalog.i18nc("@textfp", "For flat surface selection this will place the load arrow parallel to the surface. "
+                                        + "For either concave or convex surface selection this will place the load arrow parallel to the central axis of the cylindrical object.")
+
+                                    property var pos1: parallelLoad.mapFromItem(faceDialog, faceDialog.x, 0.)
+                                    property var pos2: parallelLoad.mapToItem(faceDialog, faceDialog.width, 0.)
+
+                                    tooltipTarget.x: pos2.x - pos1.x - width - normalLoad.width - loadDirectionRow.spacing
+                                    tooltipTarget.y: 0.5 * height
+                                    tooltipLocation: faceDialog.tooltipLocations["right"]
                                 }
                             }
 
@@ -560,7 +617,7 @@ Item {
                                 height: childrenRect.height
                                 spacing: UM.Theme.getSize("default_margin").width
 
-                                UM.SimpleButton {
+                                SmartSlice.HoverableButton {
                                     id: flipIcon
                                     width: height
                                     height: comboDialogType.height
@@ -575,23 +632,33 @@ Item {
                                         bcListForces.model.loadDirection = !bcListForces.model.loadDirection;
                                         loadColumn.iconsEnabled();
                                     }
+
+                                    tooltipHeader: catalog.i18nc("@textfp", "Flip Arrow Direction")
+                                    tooltipDescription: catalog.i18nc("@textfp", "Flip the tail and head of the load arrow")
+
+                                    property var pos1: flipIcon.mapFromItem(faceDialog, faceDialog.x, 0.)
+                                    property var pos2: flipIcon.mapToItem(faceDialog, faceDialog.width, 0.)
+
+                                    tooltipTarget.x: pos2.x - pos1.x - width
+                                    tooltipTarget.y: 0.5 * height
+                                    tooltipLocation: faceDialog.tooltipLocations["right"]
                                 }
                             }
                         }
 
                         Column {
                             anchors {
-                                    left: contentColumn.left
-                                    right: contentColumn.right
-                                    top: iconsColumn.bottom
-                                    margins: UM.Theme.getSize("default_margin").width
-                                }
+                                left: contentColumn.left
+                                right: contentColumn.right
+                                top: iconsColumn.bottom
+                                margins: UM.Theme.getSize("default_margin").width
+                            }
 
-                                width: contentColumn.width
+                            width: contentColumn.width
 
-                                visible: selectLoadButton.checked
+                            visible: selectLoadButton.checked
 
-                                spacing: UM.Theme.getSize("default_margin").width
+                            spacing: UM.Theme.getSize("default_margin").width
 
                             Label {
                                 id: labelLoadDialogMagnitude
@@ -604,12 +671,17 @@ Item {
                                 text: "Magnitude:"
                             }
 
-                            TextField {
+                            SmartSlice.HoverableTextField {
                                 id: textLoadDialogMagnitude
 
                                 visible: selectLoadButton.checked
 
-                                style: UM.Theme.styles.text_field
+                                anchors {
+                                    left: parent.left
+                                    right: parent.right
+                                    topMargin: UM.Theme.getSize("default_margin").height
+                                    leftMargin: UM.Theme.getSize("default_margin").width
+                                }
 
                                 function loadHelperStep(value) {
                                     for (var i = 0; i < loadHelperData.textLoadDialogConverter.length - 1; i++){
@@ -618,12 +690,6 @@ Item {
                                         }
                                     }
                                     return value;
-                                }
-
-                                anchors {
-                                    left: parent.left
-                                    topMargin: UM.Theme.getSize("default_margin").height
-                                    leftMargin: UM.Theme.getSize("default_margin").width
                                 }
 
                                 onTextChanged: {
@@ -642,7 +708,15 @@ Item {
                                 inputMethodHints: Qt.ImhFormattedNumbersOnly
                                 text:  bcListForces.model.loadMagnitude
 
-                                property string unit: "[N]";
+                                tooltipHeader: catalog.i18nc("@textfp", "Load Magnitude")
+                                tooltipDescription: catalog.i18nc("@textfp", "The absolute value of the applied load on the selected surface in the prescribed direction. "
+                                        + "The load is distributed over the selected surface, and the pictures on the slider provide context to various load magnitudes.")
+
+                                tooltipTarget.x: width + anchors.leftMargin
+                                tooltipTarget.y: 0.5 * height
+                                tooltipLocation: faceDialog.tooltipLocations["right"]
+
+                                unit: "[N]"
                             }
 
                             Rectangle {

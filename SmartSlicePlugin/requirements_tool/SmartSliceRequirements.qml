@@ -6,12 +6,17 @@ import QtQuick.Controls.Styles 1.1
 import UM 1.2 as UM
 import Cura 1.0 as Cura
 
+import SmartSlice 1.0  as SmartSlice
+
 Item {
-    width: childrenRect.width
-    height: childrenRect.height
+    id: requirements
+
+    width: textfields.width
+    height: textfields.height
     UM.I18nCatalog { id: catalog; name: "smartslice"}
 
     property string targetSafetyFactorText
+    property var tooltipLocations: UM.Controller.activeStage.proxy.tooltipLocations
 
     Grid {
         id: textfields
@@ -42,11 +47,10 @@ Item {
             verticalAlignment: TextInput.AlignVCenter
         }
 
-        TextField {
+        SmartSlice.HoverableTextField {
             id: valueSafetyFactor
             width: UM.Theme.getSize("setting_control").width
             height: UM.Theme.getSize("setting_control").height
-            style: UM.Theme.styles.text_field
 
             validator: DoubleValidator {bottom: 0.0}
 
@@ -66,17 +70,23 @@ Item {
                 }
             }
 
-            inputMethodHints: Qt.ImhFormattedNumbersOnly
+            tooltipHeader: catalog.i18nc("@textfp", "Factor of Safety")
+            tooltipDescription: catalog.i18nc("@textfp", "This value is related to the uncertianty of the applied load. "
+                    + "It represents the multiple of the applied load the part should handle before it begins to permanently deform, "
+                    + "which allows the user to be confident the part will survive. Typical values are 1.5 to 3.")
 
-            placeholderText: catalog.i18nc("@action:button", "Must be above 1")
-            property string unit: " "
+            tooltipTarget.x: width + Math.round(UM.Theme.getSize("default_margin").width)
+            tooltipTarget.y: 0.5 * height
+            tooltipLocation: faceDialog.tooltipLocations["right"]
+
+            inputMethodHints: Qt.ImhFormattedNumbersOnly
+            unit: " "
         }
 
-        TextField {
+        SmartSlice.HoverableTextField {
             id: valueMaxDeflect
             width: UM.Theme.getSize("setting_control").width
             height: UM.Theme.getSize("setting_control").height
-            style: UM.Theme.styles.text_field
 
             onTextChanged: {
                 var value = parseFloat(text)
@@ -85,11 +95,18 @@ Item {
                 }
             }
 
+            tooltipHeader: catalog.i18nc("@textfp", "Maximum Displacement")
+            tooltipDescription: catalog.i18nc("@textfp", "This value indicates how stiff the part needs to be. "
+                    + "It represents the maximum amount the part can deflect (or move) under the applied loads in order to stay within tolerance.")
+
+            tooltipTarget.x: width + Math.round(UM.Theme.getSize("default_margin").width)
+            tooltipTarget.y: 0.5 * height
+            tooltipLocation: faceDialog.tooltipLocations["right"]
+
             validator: DoubleValidator {bottom: 0.0}
             inputMethodHints: Qt.ImhFormattedNumbersOnly
 
-            placeholderText: ""
-            property string unit: "[mm]"
+            unit: "[mm]"
         }
 
         Binding {
