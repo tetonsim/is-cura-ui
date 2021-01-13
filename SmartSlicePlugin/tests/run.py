@@ -52,6 +52,7 @@ class SmartSliceLoads(_SmartSliceTestCase):
         self.assertIsNotNone(path)
 
 from test_API import *
+from test_smartslice_mesh import *
 
 if __name__ == "__main__":
     app = cura_app_mock()

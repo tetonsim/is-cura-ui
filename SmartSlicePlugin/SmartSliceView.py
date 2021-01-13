@@ -9,6 +9,8 @@ from UM.Application import Application
 from cura.BuildVolume import BuildVolume
 from cura.Scene.ConvexHullNode import ConvexHullNode
 
+from .stage.SmartSliceScene import SmartSliceMeshNode
+
 import math
 
 
@@ -35,11 +37,20 @@ class SmartSliceView(View):
         scene = self.getController().getScene()
         renderer = self.getRenderer()
 
+        has_problem_area = False
+
         self._checkSetup()
+
+        for node in DepthFirstIterator(scene.getRoot()):
+            if isinstance(node, SmartSliceMeshNode):
+                if node.mesh_type == SmartSliceMeshNode.MeshType.ProblemMesh:
+                    has_problem_area = True
 
         for node in DepthFirstIterator(scene.getRoot()):
             if isinstance(node, (BuildVolume, ConvexHullNode, Platform)):
                 continue
+
+            has_get_layer_data = node.callDecoration("getLayerData")
 
             uniforms = {}
             overlay = False
@@ -49,20 +60,30 @@ class SmartSliceView(View):
                 overlay = True
 
             if not node.render(renderer):
-                if node.getMeshData() and node.isVisible() and not node.callDecoration("getLayerData"):
+                is_non_printing_mesh = node.callDecoration("isNonPrintingMesh")
+                is_problem_area = False
+                if isinstance(node, SmartSliceMeshNode):
+                    if node.mesh_type == SmartSliceMeshNode.MeshType.ProblemMesh:
+                        is_problem_area = True
+                if node.getMeshData() and node.isVisible() and not has_get_layer_data:
                     per_mesh_stack = node.callDecoration("getStack")
-
-                    if node.callDecoration("isNonPrintingMesh"):
+                    if per_mesh_stack:
+                        is_support = per_mesh_stack.getProperty("support_mesh", "value")
+                    if is_non_printing_mesh and not is_problem_area:
                         uniforms["diffuse_color"] = [.55, .69, .1, 1]
                         uniforms["hover_face"] = -1
                         renderer.queueNode(node, shader=self._non_printing_shader, uniforms=uniforms, transparent=True)
-                    elif per_mesh_stack and per_mesh_stack.getProperty("support_mesh", "value"):
+                    elif is_non_printing_mesh and is_problem_area:
+                        uniforms["diffuse_color"] = [.945, .373, .388, 1]
+                        uniforms["hover_face"] = -1
+                        renderer.queueNode(node, shader=self._non_printing_shader, uniforms=uniforms, transparent=True)
+                    elif per_mesh_stack and is_support:
                         pass
                     else:
                         if overlay:
-                            renderer.queueNode(node, shader = self._shader, uniforms = uniforms, overlay = True)
+                            renderer.queueNode(node, shader=self._shader, uniforms=uniforms, overlay=True)
                         else:
-                            renderer.queueNode(node, shader = self._shader, uniforms = uniforms)
+                            renderer.queueNode(node, shader=self._shader, uniforms=uniforms, transparent=has_problem_area)
 
     def endRendering(self):
         pass

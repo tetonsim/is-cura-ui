@@ -26,7 +26,7 @@ from .requirements_tool import SmartSliceRequirements
 from .select_tool import SmartSliceSelectTool, BoundaryConditionList
 from .stage import SmartSliceStage
 from .stage.ui import ResultTable
-from .stage.ui.SmartSliceMessageExtension import SmartSliceMessageModel
+from .components.SmartSliceMessageExtension import SmartSliceMessageModel
 
 extension = SmartSliceExtension.SmartSliceExtension()
 #extension._name = "Extension"
@@ -91,7 +91,7 @@ def register(app):
     )
 
     qmlRegisterType(
-        QUrl.fromLocalFile(os.path.join(directory, "stage", "ui", "SmartSliceMessage.qml")),
+        QUrl.fromLocalFile(os.path.join(directory, "components", "SmartSliceMessage.qml")),
         "SmartSlice",
         1, 0,
         "SmartSliceMessage"

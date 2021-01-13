@@ -7,6 +7,7 @@ import time
 from UM.Job import Job
 from UM.Logger import Logger
 from UM.Mesh.MeshBuilder import MeshBuilder
+from UM.Mesh.MeshData import MeshData
 from UM.Message import Message
 from UM.Math.Color import Color
 from UM.Math.Vector import Vector
@@ -15,15 +16,21 @@ from UM.Math.Quaternion import Quaternion
 from UM.Scene.SceneNode import SceneNode
 from UM.Scene.Selection import Selection
 from UM.Scene.Iterator.DepthFirstIterator import DepthFirstIterator
+from UM.Settings.SettingInstance import SettingInstance
 from UM.Signal import Signal
 from UM.Application import Application
 
 from UM.i18n import i18nCatalog
 
-from ..utils import makeInteractiveMesh, getPrintableNodes, angleBetweenVectors
+from ..utils import makeInteractiveMesh, getPrintableNodes, angleBetweenVectors, updateContainerStackProperties
 from ..select_tool.LoadArrow import LoadArrow
 from .. select_tool.LoadRotator import LoadRotator
 from .. select_tool.LoadToolHandle import LoadToolHandle
+
+from cura.Scene.ZOffsetDecorator import ZOffsetDecorator
+from cura.Scene.BuildPlateDecorator import BuildPlateDecorator
+from cura.Scene.SliceableObjectDecorator import SliceableObjectDecorator
+from cura.Settings.SettingOverrideDecorator import SettingOverrideDecorator
 
 import pywim
 import numpy
@@ -443,7 +450,7 @@ class Root(SceneNode):
     rootChanged = Signal()
 
     def __init__(self):
-        super().__init__(name='_SmartSlice', visible=True)
+        super().__init__(name="_SmartSlice", visible=True)
 
         self._interactive_mesh = None
         self._mesh_analyzing_message = None
@@ -460,7 +467,7 @@ class Root(SceneNode):
         mesh_data = parent.getMeshData()
 
         if mesh_data:
-            Logger.log('d', 'Compute interactive mesh from SceneNode {}'.format(parent.getName()))
+            Logger.log("d", "Compute interactive mesh from SceneNode {}".format(parent.getName()))
 
             if mesh_data.getVertexCount() < 1000:
                 self._interactive_mesh = makeInteractiveMesh(mesh_data)
@@ -613,7 +620,7 @@ class Root(SceneNode):
     def createSteps(self) -> pywim.WimList:
         steps = pywim.WimList(pywim.chop.model.Step)
 
-        step = pywim.chop.model.Step(name='step-1')
+        step = pywim.chop.model.Step(name="step-1")
 
         normal_mesh = getPrintableNodes()[0]
 
@@ -630,7 +637,7 @@ class Root(SceneNode):
 
         # Add boundary conditions from the selected faces in the Smart Slice node
         for bc_node in DepthFirstIterator(self):
-            if hasattr(bc_node, 'pywimBoundaryCondition'):
+            if hasattr(bc_node, "pywimBoundaryCondition"):
                 bc = bc_node.pywimBoundaryCondition(step, mesh_rotation)
 
         steps.add(step)
@@ -678,4 +685,114 @@ class AnalyzeMeshJob(Job):
         # Sleep for a second to allow the UI to catch up (hopefully) and display the progress message
         time.sleep(1)
         self.interactive_mesh = makeInteractiveMesh(self.mesh_data)
+
+class SmartSliceMeshNode(SceneNode):
+    class MeshType(Enum):
+        Normal = 0
+        ModifierMesh = 1
+        ProblemMesh = 2
+
+    def __init__(self, mesh: "pywim.chop.mesh.Mesh", mesh_type: MeshType = MeshType.Normal, title: str = "NormalMesh"):
+        super().__init__()
+
+        self.mesh_type = mesh_type
+        self.is_removed = False
+
+        if self.mesh_type == self.MeshType.ProblemMesh:
+            self._buildProblemMesh(mesh, title)
+
+        if self.mesh_type == self.MeshType.ModifierMesh:
+            self._buildModifierMesh(mesh, title)
+
+        if self.mesh_type == self.MeshType.Normal:
+            self._buildMesh(mesh, title)
+
+    def _buildMesh(self, mesh: "pywim.chop.mesh.Mesh", title: str) -> "SmartSliceMeshNode":
+        # Building the scene node
+        self.setName(title)
+        self.setCalculateBoundingBox(True)
+
+        # Use the data from the SmartSlice engine to translate / rotate / scale the mod mesh
+        self.setTransformation(Matrix(mesh.transform))
+
+        # Building the mesh
+
+        # # Preparing the data from pywim for MeshBuilder
+        mesh_vertices = [[v.x, v.y, v.z] for v in mesh.vertices ]
+        mesh_indices = [[triangle.v1, triangle.v2, triangle.v3] for triangle in mesh.triangles]
+
+        # Doing the actual build
+        mesh_data = MeshBuilder()
+        mesh_data.setVertices(numpy.asarray(mesh_vertices, dtype=numpy.float32))
+        mesh_data.setIndices(numpy.asarray(mesh_indices, dtype=numpy.int32))
+        mesh_data.calculateNormals()
+
+        self.setMeshData(mesh_data.build())
+        self.calculateBoundingBoxMesh()
+
+        active_build_plate = Application.getInstance().getMultiBuildPlateModel().activeBuildPlate
+        if self.mesh_type == self.MeshType.ProblemMesh:
+            self.addDecorator(BuildPlateDecorator(-1))
+        else:
+            self.addDecorator(BuildPlateDecorator(active_build_plate))
+
+        bottom = self.getBoundingBox().bottom
+
+        z_offset_decorator = ZOffsetDecorator()
+        z_offset_decorator.setZOffset(bottom)
+        self.addDecorator(z_offset_decorator)
+
+    def _buildProblemMesh(self, problem_mesh_data: "pywim.chop.mesh.Mesh", mesh_to_display: str):
+        our_only_node =  getPrintableNodes()[0]
+
+        for problem_mesh in problem_mesh_data:
+            for problem_region in problem_mesh.regions:
+                if problem_region.name == mesh_to_display:
+                    self._buildMesh(problem_region, mesh_to_display)
+                    self.setSelectable(False)
+                    settings_override = SettingOverrideDecorator()
+                    settings_override._is_non_printing_mesh = True
+                    self.addDecorator(settings_override)
+                    our_only_node.addChild(self)
+                    Application.getInstance().getController().getScene().sceneChanged.emit(self)
+
+    def _buildModifierMesh(self, modifier_mesh: "pywim.chop.mesh.Mesh", mesh_title: str):
+        from ..SmartSliceJobHandler import SmartSliceJobHandler
+
+        our_only_node =  getPrintableNodes()[0]
+
+        self._buildMesh(modifier_mesh, mesh_title)
+        self.setSelectable(True)
+        self.addDecorator(SliceableObjectDecorator())
+
+        stack = self.callDecoration("getStack")
+        if not stack:
+            self.addDecorator(SettingOverrideDecorator())
+            stack = self.callDecoration("getStack")
+
+        modifier_mesh_node_infill_pattern = SmartSliceJobHandler.INFILL_SMARTSLICE_CURA[modifier_mesh.print_config.infill.pattern]
+        definition_dict = {
+            "infill_mesh" : True,
+            "infill_pattern" : modifier_mesh_node_infill_pattern,
+            "infill_sparse_density": modifier_mesh.print_config.infill.density,
+            "wall_line_count": modifier_mesh.print_config.walls,
+            "top_layers": modifier_mesh.print_config.top_layers,
+            "bottom_layers": modifier_mesh.print_config.bottom_layers,
+        }
+        Logger.log("d", "Optimized modifier mesh settings: {}".format(definition_dict))
+
+        updateContainerStackProperties(definition_dict, self._updateSettings, stack)
+
+        our_only_node.addChild(self)
+
+        # emit changes and connect error tracker
+        Application.getInstance().getController().getScene().sceneChanged.emit(self)
+
+    def _updateSettings(self, stack, key, value, property_type, definition):
+        settings = stack.getTop()
+
+        new_instance = SettingInstance(definition, settings)
+        new_instance.setProperty("value", property_type(value))
+        new_instance.resetState()  # Ensure that the state is not seen as a user state.
+        settings.addInstance(new_instance)
 

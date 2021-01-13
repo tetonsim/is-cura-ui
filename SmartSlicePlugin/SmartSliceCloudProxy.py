@@ -8,24 +8,10 @@ from typing import Dict, List
 from PyQt5.QtCore import pyqtSignal, pyqtProperty, pyqtSlot
 from PyQt5.QtCore import QObject, QUrl, QAbstractListModel
 
-from cura.Scene.CuraSceneNode import CuraSceneNode
-from cura.Scene.BuildPlateDecorator import BuildPlateDecorator
-from cura.Scene.SliceableObjectDecorator import SliceableObjectDecorator
-from cura.Operations.SetParentOperation import SetParentOperation
-from cura.Scene.ZOffsetDecorator import ZOffsetDecorator
-
 from UM.i18n import i18nCatalog
 from UM.Application import Application
 from UM.Logger import Logger
-from UM.Operations.RemoveSceneNodeOperation import RemoveSceneNodeOperation
-from UM.Operations.GroupedOperation import GroupedOperation
-from UM.Mesh.MeshBuilder import MeshBuilder
-from UM.Settings.SettingInstance import SettingInstance
 from UM.Settings.SettingInstance import InstanceState
-from UM.Scene.SceneNode import SceneNode
-from UM.Scene.GroupDecorator import GroupDecorator
-from UM.Operations.AddSceneNodeOperation import AddSceneNodeOperation
-from UM.Math.Matrix import Matrix
 from UM.Qt.Duration import Duration
 from UM.Signal import Signal
 from UM.Message import Message
@@ -33,13 +19,11 @@ from UM.Message import Message
 from .SmartSliceCloudStatus import SmartSliceCloudStatus
 from .SmartSliceProperty import SmartSlicePropertyColor
 from .SmartSliceJobHandler import SmartSliceJobHandler
-from .SmartSliceDecorator import SmartSliceAddedDecorator, SmartSliceRemovedDecorator
+from .stage.SmartSliceScene import SmartSliceMeshNode
 from .requirements_tool.SmartSliceRequirements import SmartSliceRequirements
 from .select_tool.SmartSliceSelectTool import SmartSliceSelectTool
 from .stage.ui.ResultTable import ResultsTableHeader, ResultTableData
-from .utils import getNodeActiveExtruder
-from .utils import getModifierMeshes
-from .utils import getPrintableNodes
+from .utils import getNodeActiveExtruder, getModifierMeshes, getProblemMeshes, getPrintableNodes, updateContainerStackProperties
 from .components import Dialog
 
 import pywim
@@ -68,6 +52,9 @@ class SmartSliceCloudProxy(QObject):
         self._progress_bar_visible = False
 
         self._results_buttons_visible = False
+        self._has_problem_meshes_visible = False
+        self._stress_opacity = 0.5
+        self._deflection_opacity = 0.5
 
         # Secondary Button (Preview/Cancel)
         self._secondaryButtonText = "_SecondaryText"
@@ -97,6 +84,9 @@ class SmartSliceCloudProxy(QObject):
         self.results_buttons_popup_visible = False
         self.previous_message = ""
         self.message_type = ""
+        self.visible_problem_mesh_type = ""
+
+        self.problem_area_results = None
 
         # Properties (mainly) for the sliceinfo widget
         self._resultSafetyFactor = 0.0 #copy.copy(self._targetFactorOfSafety)
@@ -171,6 +161,9 @@ class SmartSliceCloudProxy(QObject):
 
     resultsTableUpdated = pyqtSignal()
     resultsButtonsVisibleChanged = pyqtSignal()
+    hasProblemMeshesVisibleChanged = pyqtSignal()
+    stressOpacityChanged = pyqtSignal()
+    deflectionOpacityChanged = pyqtSignal()
 
     optimizationResultAppliedToScene = Signal()
     resetResultsButtonsOpacity = pyqtSignal()
@@ -414,6 +407,36 @@ class SmartSliceCloudProxy(QObject):
         if self._results_buttons_visible != value:
             self._results_buttons_visible = value
             self.resultsButtonsVisibleChanged.emit()
+
+    @pyqtProperty(float, notify=stressOpacityChanged)
+    def stressOpacity(self):
+        return self._stress_opacity
+
+    @stressOpacity.setter
+    def stressOpacity(self, value):
+        if self._stress_opacity != value:
+            self._stress_opacity = value
+            self.stressOpacityChanged.emit()
+
+    @pyqtProperty(float, notify=deflectionOpacityChanged)
+    def deflectionOpacity(self):
+        return self._deflection_opacity
+
+    @deflectionOpacity.setter
+    def deflectionOpacity(self, value):
+        if self._deflection_opacity != value:
+            self._deflection_opacity = value
+            self.deflectionOpacityChanged.emit()
+
+    @pyqtProperty(bool, notify=hasProblemMeshesVisibleChanged)
+    def hasProblemMeshesVisible(self):
+        return self._has_problem_meshes_visible
+
+    @hasProblemMeshesVisible.setter
+    def hasProblemMeshesVisible(self, value):
+        if self._has_problem_meshes_visible != value:
+            self._has_problem_meshes_visible = value
+            self.hasProblemMeshesVisibleChanged.emit()
 
     @pyqtProperty(QAbstractListModel, notify=resultsTableUpdated)
     def resultsTable(self):
@@ -786,20 +809,66 @@ class SmartSliceCloudProxy(QObject):
     @pyqtSlot()
     def closeResultsButtonPopup(self):
         if self.results_buttons_popup != None:
+            self.stressOpacity = 0.5
+            self.deflectionOpacity = 0.5
             self.results_buttons_popup.hide()
             self.results_buttons_popup = None
             self.results_buttons_popup_visible = False
 
     def clearResultsPopup(self, message):
-        Application.getInstance().hideMessageSignal.disconnect(self.clearResultsPopup)
-        self.results_buttons_popup_visible = False
-        self.resetResultsButtons()
+        if message == self.results_buttons_popup:
+            Application.getInstance().hideMessageSignal.disconnect(self.clearResultsPopup)
+            self.stressOpacity = 0.5
+            self.deflectionOpacity = 0.5
+            self.results_buttons_popup_visible = False
+            self.resetResultsButtons()
+
+    def showProblemMeshes(self):
+        problem_meshes = getProblemMeshes()
+        if self.message_type == "stress":
+            meshes_to_show = ("low_safety_factor",)
+        else:
+            meshes_to_show = ("high_strain",)
+        for mesh in problem_meshes:
+            if mesh.getName() in meshes_to_show:
+                mesh.setVisible(True)
+            Application.getInstance().getController().getScene().sceneChanged.emit(mesh)
+
+    @pyqtSlot()
+    def hideProblemMeshes(self):
+        for mesh in getProblemMeshes():
+            mesh.setVisible(False)
+            Application.getInstance().getController().getScene().sceneChanged.emit(mesh)
+
+    @pyqtSlot()
+    def removeProblemMeshes(self):
+        problem_meshes = getProblemMeshes()
+        if problem_meshes != []:
+            our_only_node =  getPrintableNodes()[0]
+            for node in problem_meshes:
+                node.is_removed = True
+                our_only_node.removeChild(node)
+            Application.getInstance().getController().getScene().sceneChanged.emit(node)
+
+    def clearProblemMeshes(self):
+        self.hasProblemMeshesVisible = False
+        self.visible_problem_mesh_type = ""
+        self.removeProblemMeshes()
 
     @pyqtSlot()
     def resetResultsButtons(self):
         if self.message_type == self.previous_message and not self.results_buttons_popup_visible:
             self.resetResultsButtonsOpacity.emit()
             self.previous_message = ""
+
+    def clearResults(self):
+        self.previous_message = ""
+        self.visible_problem_mesh_type = ""
+        self.result_feasibility = None
+        self.problem_area_results = None
+        self.results_buttons_popup = None
+        self.hasProblemMeshesVisible = False
+        self.results_buttons_popup_visible = False
 
     @pyqtSlot(str)
     def displayResultsMessage(self, button_string):
@@ -886,6 +955,7 @@ class SmartSliceCloudProxy(QObject):
         self.message_type = button_string
         if self.message_type != self.previous_message:
             self.closeResultsButtonPopup()
+            self.clearProblemMeshes()
             self.previous_message = button_string
             self.results_buttons_popup = Message(
                 title="Smart Slice",
@@ -895,11 +965,14 @@ class SmartSliceCloudProxy(QObject):
             Application.getInstance().hideMessageSignal.connect(self.clearResultsPopup)
 
             if button_string == "stress":
+                self.visible_problem_mesh_type = "low_safety_factor"
                 if status != SmartSliceCloudStatus.ReadyToVerify:
                     if req_tool.targetSafetyFactor <= self.resultSafetyFactor:
                         text = stress_acceptable
                     else:
                         text = stress_unacceptable
+                        SmartSliceMeshNode(self.problem_area_results, SmartSliceMeshNode.MeshType.ProblemMesh, self.visible_problem_mesh_type)
+                        self.hasProblemMeshesVisible = True
 
                 else:
                     self.unableToOptimizeStress.emit()
@@ -908,13 +981,18 @@ class SmartSliceCloudProxy(QObject):
                     else:
                         self.results_buttons_popup.setTitle("Smart Slice Error")
                         text = stress_cannot_optimize
+                        SmartSliceMeshNode(self.problem_area_results, SmartSliceMeshNode.MeshType.ProblemMesh, self.visible_problem_mesh_type)
+                        self.hasProblemMeshesVisible = True
 
             elif button_string == "deflection":
+                self.visible_problem_mesh_type = "high_strain"
                 if status != SmartSliceCloudStatus.ReadyToVerify:
                     if req_tool.maxDisplacement >= self.resultMaximalDisplacement:
                         text = displacement_acceptable
                     else:
                         text = displacement_unacceptable
+                        SmartSliceMeshNode(self.problem_area_results, SmartSliceMeshNode.MeshType.ProblemMesh, self.visible_problem_mesh_type)
+                        self.hasProblemMeshesVisible = True
 
                 else:
                     self.unableToOptimizeDisplacement.emit()
@@ -923,6 +1001,8 @@ class SmartSliceCloudProxy(QObject):
                     else:
                         self.results_buttons_popup.setTitle("Smart Slice Error")
                         text = displacement_cannot_optimize
+                        SmartSliceMeshNode(self.problem_area_results, SmartSliceMeshNode.MeshType.ProblemMesh, self.visible_problem_mesh_type)
+                        self.hasProblemMeshesVisible = True
 
             self.results_buttons_popup.setText(text)
             self.results_buttons_popup.show()
@@ -938,16 +1018,7 @@ class SmartSliceCloudProxy(QObject):
             return SmartSliceCloudStatus.Optimized
 
     def updateSceneFromOptimizationResult(self, analysis: pywim.smartslice.result.Analysis):
-
-        type_map = {
-            'int': int,
-            'float': float,
-            'str': str,
-            'enum': str,
-            'bool': bool
-        }
-
-        our_only_node =  getPrintableNodes()[0]
+        our_only_node = getPrintableNodes()[0]
         active_extruder = getNodeActiveExtruder(our_only_node)
 
         # TODO - Move this into a common class or function to apply an am.Config to GlobalStack/ExtruderStack
@@ -971,14 +1042,7 @@ class SmartSliceCloudProxy(QObject):
 
             Logger.log("d", "Optimized extruder settings: {}".format(extruder_dict))
 
-            for key, value in extruder_dict.items():
-                if value is not None:
-                    property_type = type_map.get(active_extruder.getProperty(key, "type"))
-                    if property_type:
-                        active_extruder.setProperty(
-                            key, "value", property_type(value), set_from_cache=True
-                        )
-                        active_extruder.setProperty(key, "state", InstanceState.User, set_from_cache=True)
+            updateContainerStackProperties(extruder_dict, self._updateExtruderSettings, active_extruder)
 
             Application.getInstance().getMachineManager().forceUpdateAllSettings()
             self.optimizationResultAppliedToScene.emit()
@@ -987,75 +1051,16 @@ class SmartSliceCloudProxy(QObject):
         mod_meshes = getModifierMeshes()
         if len(mod_meshes) > 0:
             for node in mod_meshes:
-                node.addDecorator(SmartSliceRemovedDecorator())
+                node.is_removed = True
                 our_only_node.removeChild(node)
             Application.getInstance().getController().getScene().sceneChanged.emit(node)
 
         # Add in the new modifier meshes
         for modifier_mesh in analysis.modifier_meshes:
-            # Building the scene node
-            modifier_mesh_node = CuraSceneNode()
-            modifier_mesh_node.setName("SmartSliceMeshModifier")
-            modifier_mesh_node.setSelectable(True)
-            modifier_mesh_node.setCalculateBoundingBox(True)
+            SmartSliceMeshNode(modifier_mesh, SmartSliceMeshNode.MeshType.ModifierMesh, "SmartSliceMeshModifier")
 
-            # Use the data from the SmartSlice engine to translate / rotate / scale the mod mesh
-            modifier_mesh_node.setTransformation(Matrix(modifier_mesh.transform))
-
-            # Building the mesh
-
-            # # Preparing the data from pywim for MeshBuilder
-            modifier_mesh_vertices = [[v.x, v.y, v.z] for v in modifier_mesh.vertices ]
-            modifier_mesh_indices = [[triangle.v1, triangle.v2, triangle.v3] for triangle in modifier_mesh.triangles]
-
-            # Doing the actual build
-            modifier_mesh_data = MeshBuilder()
-            modifier_mesh_data.setVertices(numpy.asarray(modifier_mesh_vertices, dtype=numpy.float32))
-            modifier_mesh_data.setIndices(numpy.asarray(modifier_mesh_indices, dtype=numpy.int32))
-            modifier_mesh_data.calculateNormals()
-
-            modifier_mesh_node.setMeshData(modifier_mesh_data.build())
-            modifier_mesh_node.calculateBoundingBoxMesh()
-
-            active_build_plate = Application.getInstance().getMultiBuildPlateModel().activeBuildPlate
-            modifier_mesh_node.addDecorator(BuildPlateDecorator(active_build_plate))
-            modifier_mesh_node.addDecorator(SliceableObjectDecorator())
-            modifier_mesh_node.addDecorator(SmartSliceAddedDecorator())
-
-            bottom = modifier_mesh_node.getBoundingBox().bottom
-
-            z_offset_decorator = ZOffsetDecorator()
-            z_offset_decorator.setZOffset(bottom)
-            modifier_mesh_node.addDecorator(z_offset_decorator)
-
-            stack = modifier_mesh_node.callDecoration("getStack")
-            settings = stack.getTop()
-
-            modifier_mesh_node_infill_pattern = SmartSliceJobHandler.INFILL_SMARTSLICE_CURA[modifier_mesh.print_config.infill.pattern]
-            definition_dict = {
-                "infill_mesh" : True,
-                "infill_pattern" : modifier_mesh_node_infill_pattern,
-                "infill_sparse_density": modifier_mesh.print_config.infill.density,
-                "wall_line_count": modifier_mesh.print_config.walls,
-                "top_layers": modifier_mesh.print_config.top_layers,
-                "bottom_layers": modifier_mesh.print_config.bottom_layers,
-                }
-            Logger.log("d", "Optimized modifier mesh settings: {}".format(definition_dict))
-
-            for key, value in definition_dict.items():
-                if value is not None:
-                    definition = stack.getSettingDefinition(key)
-                    property_type = type_map.get(stack.getProperty(key, "type"))
-                    if property_type:
-                        new_instance = SettingInstance(definition, settings)
-
-                        new_instance.setProperty("value", property_type(value))
-
-                        new_instance.resetState()  # Ensure that the state is not seen as a user state.
-                        settings.addInstance(new_instance)
-
-            our_only_node.addChild(modifier_mesh_node)
-
-            # emit changes and connect error tracker
-            Application.getInstance().getController().getScene().sceneChanged.emit(modifier_mesh_node)
-
+    def _updateExtruderSettings(self, active_extruder, key, value, property_type, definition):
+        active_extruder.setProperty(
+            key, "value", property_type(value), set_from_cache=True
+        )
+        active_extruder.setProperty(key, "state", InstanceState.User, set_from_cache=True)

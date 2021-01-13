@@ -20,7 +20,7 @@ from cura.CuraApplication import CuraApplication
 from .SmartSliceCloudConnector import SmartSliceCloudConnector
 from .SmartSliceCloudProxy import SmartSliceCloudProxy
 from .SmartSliceCloudStatus import SmartSliceCloudStatus
-from .utils import getPrintableNodes, getModifierMeshes, intersectingNodes
+from .utils import getPrintableNodes, getProblemMeshes
 
 import pywim
 
@@ -109,8 +109,8 @@ class SmartSliceExtension(Extension):
         return mainApp.createQmlComponent(os.path.join(directory, dialog_qml), vars)
 
     def _aboutText(self):
-        about = 'Smart Slice for Cura\n'
-        about += 'Version: {}'.format(self.metadata.version)
+        about = "Smart Slice for Cura\n"
+        about += "Version: {}".format(self.metadata.version)
         return about
 
     # Function which is called on application exit
@@ -203,23 +203,23 @@ class SmartSliceExtension(Extension):
                 status = self.cloud.getProxy().optimizationStatus()
 
         # Place the job in the metadata under our plugin ID
-        self._storage.setEntryToStore(plugin_id=self.metadata.id, key='job', data=job.to_dict())
-        self._storage.setEntryToStore(plugin_id=self.metadata.id, key='version', data=self.metadata.version)
-        self._storage.setEntryToStore(plugin_id=self.metadata.id, key='status', data=status.value)
+        self._storage.setEntryToStore(plugin_id=self.metadata.id, key="job", data=job.to_dict())
+        self._storage.setEntryToStore(plugin_id=self.metadata.id, key="version", data=self.metadata.version)
+        self._storage.setEntryToStore(plugin_id=self.metadata.id, key="status", data=status.value)
 
         # Need to do some checks to see if we've stored the results for the active job
         if cloudJob and cloudJob.getResult():
-            self._storage.setEntryToStore(plugin_id=self.metadata.id, key='results', data=cloudJob.getResult().to_dict())
+            self._storage.setEntryToStore(plugin_id=self.metadata.id, key="results", data=cloudJob.getResult().to_dict())
             self._storage.setEntryToStore(
                 plugin_id=self.metadata.id,
-                key='selectedResult',
+                key="selectedResult",
                 data=self.proxy.resultsTable.getSelectedResultId()
             )
             if writing_workspace:
                 cloudJob.saved = True
         elif job.type == pywim.smartslice.job.JobType.validation and (not cloudJob or not cloudJob.getResult()):
-            self._storage.setEntryToStore(plugin_id=self.metadata.id, key='results', data=None)
-            self._storage.setEntryToStore(plugin_id=self.metadata.id, key='selectedResult', data=None)
+            self._storage.setEntryToStore(plugin_id=self.metadata.id, key="results", data=None)
+            self._storage.setEntryToStore(plugin_id=self.metadata.id, key="selectedResult", data=None)
 
     # Acquires all of the smart slice data from Cura storage and updates the UI
     def _getState(self, filename=None):
@@ -234,10 +234,10 @@ class SmartSliceExtension(Extension):
         if controller.getActiveStage() and controller.getActiveStage().getPluginId() == self.metadata.id:
             controller.setActiveStage("PrepareStage")
 
-        job_dict = all_data['job']
-        status = all_data['status']
-        results_dict = all_data.get('results', None)
-        row = all_data.get('selectedResult', None) # The row is stored as the order of the results
+        job_dict = all_data["job"]
+        status = all_data["status"]
+        results_dict = all_data.get("results", None)
+        row = all_data.get("selectedResult", None) # The row is stored as the order of the results
 
         job = pywim.smartslice.job.Job.from_dict(job_dict) if job_dict else None
         results = pywim.smartslice.result.Result.from_dict(results_dict) if results_dict else None
@@ -255,8 +255,14 @@ class SmartSliceExtension(Extension):
 
             if self.cloud.status == SmartSliceCloudStatus.Optimized:
                 self.cloud.addJob(pywim.smartslice.job.JobType.optimization)
+                if results.fea_results is not None and results.fea_results.steps != []:
+                    self.proxy.problem_area_results = results.fea_results.steps[0].increments[0].model_results.problem_regions
+                    self.proxy.resultsButtonsVisible = True
             else:
                 self.cloud.addJob(pywim.smartslice.job.JobType.validation)
+                if results.fea_results is not None and results.fea_results.steps != []:
+                    self.proxy.problem_area_results = results.fea_results.steps[0].increments[0].model_results.problem_regions
+                    self.proxy.resultsButtonsVisible = True
 
             if results:
                 self.cloud.cloudJob.setResult(results)
@@ -275,6 +281,7 @@ class SmartSliceExtension(Extension):
     def _reset(self, *args):
         if len(getPrintableNodes()) == 0:
             self._storage.getPluginMetadata(self.metadata.id).clear()
+            self.proxy.clearResults()
 
     def _workspaceLoading(self, job: Job):
         if isinstance(job, ReadFileJob):
@@ -285,31 +292,31 @@ class SmartSliceExtension(Extension):
 
 class PluginMetaData:
     def __init__(self):
-        self.name = 'Smart Slice Plugin'
-        self.id = 'SmartSlicePlugin'
-        self.version = 'N/A'
-        self.url = 'https://api.smartslice.xyz'
+        self.name = "Smart Slice Plugin"
+        self.id = "SmartSlicePlugin"
+        self.version = "N/A"
+        self.url = "https://api.smartslice.xyz"
         self.cluster = None
 
         pluginMetaData = PluginMetaData.getMetadata()
 
         if pluginMetaData:
-            self.name = pluginMetaData.get('name', self.name)
-            self.id = pluginMetaData.get('id', self.id)
-            self.version = pluginMetaData.get('version', self.version)
+            self.name = pluginMetaData.get("name", self.name)
+            self.id = pluginMetaData.get("id", self.id)
+            self.version = pluginMetaData.get("version", self.version)
 
-            apiInfo = pluginMetaData.get('smartSliceApi', None)
+            apiInfo = pluginMetaData.get("smartSliceApi", None)
 
             if apiInfo:
-                self.url = apiInfo.get('url', self.url)
-                self.cluster = apiInfo.get('cluster', self.cluster)
+                self.url = apiInfo.get("url", self.url)
+                self.cluster = apiInfo.get("cluster", self.cluster)
 
     @staticmethod
     def getMetadata() -> Dict[str, str]:
         try:
             plugin_json_path = os.path.dirname(os.path.abspath(__file__))
-            plugin_json_path = os.path.join(plugin_json_path, 'plugin.json')
-            with open(plugin_json_path, 'r') as f:
+            plugin_json_path = os.path.join(plugin_json_path, "plugin.json")
+            with open(plugin_json_path, "r") as f:
                 plugin_info = json.load(f)
             return plugin_info
         except:

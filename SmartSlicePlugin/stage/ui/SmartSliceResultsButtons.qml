@@ -7,7 +7,7 @@ import SmartSlice 1.0 as SmartSlice
 Rectangle {
     id: resultsButtonsWindow
 
-    visible: false
+    visible: smartSliceMain.proxy.resultsButtonsVisible
 
     width: UM.Theme.getSize("action_panel_widget").width / 3
     height: UM.Theme.getSize("action_button").height + (UM.Theme.getSize("thick_margin").height * 2)
@@ -32,22 +32,33 @@ Rectangle {
             stressButton.buttonOpacity = 0.5
             stressButton.color = smartSliceMain.proxy.safetyFactorColor
             smartSliceMain.proxy.closeResultsButtonPopup()
+            smartSliceMain.proxy.hideProblemMeshes()
         }
 
         onMaxDisplaceColorChanged: {
             deflectionButton.buttonOpacity = 0.5
             deflectionButton.color = smartSliceMain.proxy.maxDisplaceColor
             smartSliceMain.proxy.closeResultsButtonPopup()
+            smartSliceMain.proxy.hideProblemMeshes()
         }
 
         onResultsButtonsVisibleChanged: {
             resultsButtonsWindow.visible = smartSliceMain.proxy.resultsButtonsVisible
             smartSliceMain.proxy.closeResultsButtonPopup()
+            smartSliceMain.proxy.removeProblemMeshes()
         }
 
         onResetResultsButtonsOpacity: {
-            deflectionButton.buttonOpacity = 0.5
-            stressButton.buttonOpacity = 0.5
+            deflectionButton.buttonOpacity = smartSliceMain.proxy.deflectionOpacity
+            stressButton.buttonOpacity = smartSliceMain.proxy.stressOpacity
+        }
+
+        onDeflectionOpacityChanged: {
+            deflectionButton.buttonOpacity = smartSliceMain.proxy.deflectionOpacity
+        }
+
+        onStressOpacityChanged: {
+            stressButton.buttonOpacity = smartSliceMain.proxy.stressOpacity
         }
 
         onUnableToOptimizeStress: {
@@ -76,7 +87,8 @@ Rectangle {
                 height: UM.Theme.getSize("action_button").height
                 width: height
 
-                color: UM.Theme.getColor("action_button_text")
+                color: smartSliceMain.proxy.maxDisplaceColor
+                buttonOpacity: smartSliceMain.proxy.deflectionOpacity
 
                 iconSource: "../images/displacement.png"
 
@@ -109,7 +121,8 @@ Rectangle {
                 height: UM.Theme.getSize("action_button").height
                 width: height
 
-                color: UM.Theme.getColor("action_button_text")
+                color: smartSliceMain.proxy.safetyFactorColor
+                buttonOpacity: smartSliceMain.proxy.stressOpacity
 
                 iconSource: "../images/failure.png"
 

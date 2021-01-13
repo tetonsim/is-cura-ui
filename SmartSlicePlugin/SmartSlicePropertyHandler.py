@@ -16,7 +16,6 @@ from UM.Operations.GroupedOperation import GroupedOperation
 from cura.CuraApplication import CuraApplication
 
 from .SmartSliceCloudStatus import SmartSliceCloudStatus
-from .SmartSliceDecorator import SmartSliceRemovedDecorator
 from .select_tool.SmartSliceSelectTool import SmartSliceSelectTool
 from .requirements_tool.SmartSliceRequirements import SmartSliceRequirements
 from .utils import getModifierMeshes, getPrintableNodes, getNodeActiveExtruder
@@ -360,6 +359,8 @@ class SmartSlicePropertyHandler(QObject):
         else:
             self.connector.status = SmartSliceCloudStatus.Cancelling
             self.connector.updateStatus()
+            self.connector._proxy.clearProblemMeshes()
+            self.connector._proxy.results_buttons_popup_visible = False
             for p in props:
                 p.cache()
 
@@ -414,6 +415,8 @@ class SmartSlicePropertyHandler(QObject):
             self.connector.status = SmartSliceCloudStatus.Cancelling
             self.connector.updateStatus()
             self.connector.cancelCurrentJob()
+            self.connector._proxy.clearProblemMeshes()
+            self.connector._proxy.results_buttons_popup_visible = False
             self.cacheChanges()
             self._reset()
 
@@ -425,6 +428,8 @@ class SmartSlicePropertyHandler(QObject):
         elif action == "continue":
             self.connector.cancelCurrentJob()
             self.connector.prepareOptimization()
+            self.connector._proxy.clearProblemMeshes()
+            self.connector._proxy.results_buttons_popup_visible = False
             self.cacheChanges()
             self._reset()
         msg.hide()
@@ -473,7 +478,7 @@ class SmartSlicePropertyHandler(QObject):
         if action == "continue":
             op = GroupedOperation()
             for node in getModifierMeshes():
-                node.addDecorator(SmartSliceRemovedDecorator())
+                node.is_removed = True
                 op.addOperation(RemoveSceneNodeOperation(node))
             op.push()
             self.connector.status = SmartSliceCloudStatus.RemoveModMesh

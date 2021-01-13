@@ -30,6 +30,7 @@ from cura.Stages.CuraStage import CuraStage
 from cura.CuraApplication import CuraApplication
 
 from . import SmartSliceScene
+from .SmartSliceScene import SmartSliceMeshNode
 from ..utils import findChildSceneNode, getPrintableNodes
 from ..utils import getModifierMeshes, intersectingNodes
 
@@ -73,7 +74,7 @@ class SmartSliceStage(CuraStage):
         self._parent_prompt = None
 
     @staticmethod
-    def getInstance() -> 'SmartSliceStage':
+    def getInstance() -> "SmartSliceStage":
         return Application.getInstance().getController().getStage(
             "SmartSlicePlugin"
         )
@@ -148,7 +149,7 @@ class SmartSliceStage(CuraStage):
         # When the Smart Slice stage is active we want to use our SmartSliceView
         # to control the rendering of various nodes. Views are referred to by their
         # plugin name.
-        controller.setActiveView('SmartSlicePlugin')
+        controller.setActiveView("SmartSlicePlugin")
 
         self._connector.propertyHandler.jobCheck()
 
@@ -205,9 +206,24 @@ class SmartSliceStage(CuraStage):
             controller.setActiveTool(use_tool)
 
         self._connector.updateSliceWidget()
+        proxy = self._connector._proxy
 
         if self._invalid_scene_message and self._invalid_scene_message.visible:
             self._invalid_scene_message.hide()
+
+        if proxy.hasProblemMeshesVisible:
+            proxy.resultsButtonsVisible = True
+            SmartSliceMeshNode(SmartSliceMeshNode.MeshType.ProblemMesh, proxy.problem_area_results, proxy.visible_problem_mesh_type)
+
+        if proxy.results_buttons_popup_visible:
+            proxy.resultsButtonsVisible = True
+            proxy.displayResultsMessage(proxy.message_type)
+            if proxy.message_type == "stress":
+                proxy.deflectionOpacity = 0.5
+                proxy.stressOpacity = 1.0
+            else:
+                proxy.stressOpacity = 0.5
+                proxy.deflectionOpacity = 1.0
 
     #   onStageDeselected:
     #       Sets attributes that allow the Smart Slice Stage to properly deactivate
@@ -232,6 +248,12 @@ class SmartSliceStage(CuraStage):
 
         for mesh in getModifierMeshes():
             mesh.setSelectable(True)
+
+        proxy = self._connector._proxy
+        if proxy.results_buttons_popup_visible:
+            proxy.closeResultsButtonPopup()
+            proxy.results_buttons_popup_visible = True
+        proxy.removeProblemMeshes()
 
     @staticmethod
     def getVisibleTools():

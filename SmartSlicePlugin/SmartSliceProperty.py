@@ -5,16 +5,13 @@ from enum import Enum
 
 from UM.Application import Application
 from UM.Settings.SettingInstance import InstanceState
-from UM.Operations.AddSceneNodeOperation import AddSceneNodeOperation
-from UM.Operations.RemoveSceneNodeOperation import RemoveSceneNodeOperation
-from UM.Operations.GroupedOperation import GroupedOperation
 
 from cura.Scene.CuraSceneNode import CuraSceneNode
 from cura.CuraApplication import CuraApplication
 from cura.Machines.QualityGroup import QualityGroup
 from cura.Scene.ZOffsetDecorator import ZOffsetDecorator
 
-from .SmartSliceDecorator import SmartSliceRemovedDecorator, SmartSliceAddedDecorator
+from .stage.SmartSliceScene import SmartSliceMeshNode
 from .utils import getPrintableNodes, getNodeActiveExtruder, getModifierMeshes
 from .utils import intersectingNodes
 from .stage.SmartSliceScene import HighlightFace, LoadFace, Root
@@ -397,11 +394,11 @@ class Scene(TrackedProperty):
             return True
 
         for node in nodes:
-            if node not in self._nodes and not node.getDecorator(SmartSliceAddedDecorator):
+            if node not in self._nodes and not isinstance(node, SmartSliceMeshNode):
                 return True
 
         for node in self._nodes:
-            if node not in nodes and not node.getDecorator(SmartSliceRemovedDecorator):
+            if node not in nodes and isinstance(node, SmartSliceMeshNode) and not node.is_removed:
                 return True
 
         return False
@@ -410,11 +407,11 @@ class Scene(TrackedProperty):
         root, nodes = self.value()
 
         for node in nodes:
-            if node not in self._nodes and node.getDecorator(SmartSliceAddedDecorator):
+            if node not in self._nodes and isinstance(node, SmartSliceMeshNode):
                 self._nodes.append(node)
 
         for node in self._nodes:
-            if node not in nodes and node.getDecorator(SmartSliceRemovedDecorator):
+            if node not in nodes and isinstance(node, SmartSliceMeshNode) and node.is_removed:
                 self._nodes.remove(node)
 
 class ToolProperty(TrackedProperty):

@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Dict, Callable, Any
 import numpy
 
 from UM.Math.Vector import Vector
@@ -9,10 +9,11 @@ from UM.Scene.SceneNode import SceneNode
 from cura.CuraApplication import CuraApplication
 from cura.Settings.ExtruderStack import ExtruderStack
 from cura.Scene.CuraSceneNode import CuraSceneNode
+from cura.Settings.CuraContainerStack import CuraContainerStack
 from UM.Scene.SceneNode import SceneNode
+from UM.Settings.SettingDefinition import SettingDefinition
 
-
-def makeInteractiveMesh(mesh_data: MeshData) -> 'pywim.geom.tri.Mesh':
+def makeInteractiveMesh(mesh_data: MeshData) -> "pywim.geom.tri.Mesh":
     import pywim
 
     int_mesh = pywim.geom.tri.Mesh()
@@ -47,6 +48,8 @@ def makeInteractiveMesh(mesh_data: MeshData) -> 'pywim.geom.tri.Mesh':
 
 
 def getNodes(func):
+    from ..stage.SmartSliceScene import SmartSliceMeshNode
+
     scene = CuraApplication.getInstance().getController().getScene()
     root = scene.getRoot()
 
@@ -57,6 +60,11 @@ def getNodes(func):
         isPrinting = not node.callDecoration("isNonPrintingMesh")
         isSupport = False
         isInfillMesh = False
+        isProblemMesh = False
+
+        if isinstance(node, SmartSliceMeshNode):
+            if node.mesh_type == SmartSliceMeshNode.MeshType.ProblemMesh:
+                isProblemMesh = True
 
         stack = node.callDecoration("getStack")
 
@@ -64,7 +72,7 @@ def getNodes(func):
             isSupport = stack.getProperty("support_mesh", "value")
             isInfillMesh = stack.getProperty("infill_mesh", "value")
 
-        if func(isSliceable, isPrinting, isSupport, isInfillMesh):
+        if func(isSliceable, isPrinting, isSupport, isInfillMesh, isProblemMesh):
             nodes.append(node)
 
     return nodes
@@ -72,17 +80,23 @@ def getNodes(func):
 
 def getPrintableNodes():
     return getNodes(
-        lambda isSliceable, isPrinting, isSupport, isInfillMesh: \
+        lambda isSliceable, isPrinting, isSupport, isInfillMesh, isProblemMesh: \
             isSliceable and isPrinting and not isSupport and not isInfillMesh
     )
 
 
 def getModifierMeshes():
     return getNodes(
-        lambda isSliceable, isPrinting, isSupport, isInfillMesh: \
+        lambda isSliceable, isPrinting, isSupport, isInfillMesh, isProblemMesh: \
             isSliceable and not isSupport and isInfillMesh
     )
 
+
+def getProblemMeshes():
+    return getNodes(
+        lambda isSliceable, isPrinting, isSupport, isInfillMesh, isProblemMesh: \
+            not isSliceable and not isPrinting and not isSupport and not isInfillMesh and isProblemMesh
+    )
 
 def findChildSceneNode(node: SceneNode, node_type: type) -> Optional[SceneNode]:
     for c in node.getAllChildren():
@@ -141,3 +155,27 @@ def intersectingNodes(node: CuraSceneNode) -> List[CuraSceneNode]:
                 intersecting_nodes.append(n)
 
     return intersecting_nodes
+
+def updateContainerStackProperties(
+    property_dict: Dict[str, Any],
+    func: Callable[[CuraContainerStack, str, Any, type, SettingDefinition], None],
+    container_stack: CuraContainerStack
+):
+    type_map = {
+        "int": int,
+        "float": float,
+        "str": str,
+        "enum": str,
+        "bool": bool
+    }
+
+    definition = None
+
+    for key, value in property_dict.items():
+        if value is not None:
+            definition = container_stack.getSettingDefinition(key)
+
+            property_type = type_map.get(container_stack.getProperty(key, "type"))
+
+            if property_type:
+                func(container_stack, key, value, property_type, definition)

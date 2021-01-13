@@ -8,7 +8,7 @@ from UM.Qt.ListModel import ListModel
 from UM.Signal import Signal
 from UM.Qt.Bindings.VisibleMessagesModel import VisibleMessagesModel
 
-from ..SmartSliceStage import SmartSliceStage
+from ..stage.SmartSliceStage import SmartSliceStage
 
 from UM.Logger import Logger
 

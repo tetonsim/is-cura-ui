@@ -32,7 +32,7 @@ from .SmartSliceCloudProxy import SmartSliceCloudProxy
 from .SmartSlicePropertyHandler import SmartSlicePropertyHandler
 from .SmartSliceJobHandler import SmartSliceJobHandler
 from .stage.ui.ResultTable import ResultTableData
-from .stage.ui.SmartSliceMessageExtension import SmartSliceMessage
+from .components.SmartSliceMessageExtension import SmartSliceMessage
 
 from .requirements_tool.SmartSliceRequirements import SmartSliceRequirements
 from .select_tool.SmartSliceSelectTool import SmartSliceSelectTool
@@ -160,7 +160,7 @@ class SmartSliceCloudJob(Job):
 
     def processCloudJob(self, filepath):
         # Read the 3MF file into bytes
-        threemf_fd = open(filepath, 'rb')
+        threemf_fd = open(filepath, "rb")
         threemf_data = threemf_fd.read()
         threemf_fd.close()
 
@@ -480,7 +480,7 @@ class SmartSliceAPIClient(QObject):
             self._handleThorErrors(thor_status_code, task)
             self.connector.cancelCurrentJob()
 
-        if getattr(task, 'status', None):
+        if getattr(task, "status", None):
             Logger.log("d", "Job status after posting: {}".format(task.status))
 
         # While the task status is not finished/failed/crashed/aborted continue to
@@ -564,7 +564,7 @@ class SmartSliceAPIClient(QObject):
         self._error_message.setTitle("Smart Slice API")
 
         if http_error_code == 400:
-            if returned_object.error.startswith('User\'s maximum job queue count reached'):
+            if returned_object.error.startswith("User\'s maximum job queue count reached"):
                 print(self._error_message.getActions())
                 self._error_message.setTitle("")
                 self._error_message.setText("You have exceeded the maximum allowable "
@@ -841,7 +841,6 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.sliceInfoOpen = True
             self._proxy.progressBarVisible = False
             self._proxy.jobProgress = 0
-            self._proxy.resultsButtonsVisible = True
         elif self.status is SmartSliceCloudStatus.Overdimensioned:
             self._proxy.sliceStatus = "Part appears overdesigned"
             self._proxy.sliceHint = "Optimize to reduce print time and material?"
@@ -855,7 +854,6 @@ class SmartSliceCloudConnector(QObject):
             self._proxy.sliceInfoOpen = True
             self._proxy.progressBarVisible = False
             self._proxy.jobProgress = 0
-            self._proxy.resultsButtonsVisible = True
         elif self.status is SmartSliceCloudStatus.BusyOptimizing:
             self._proxy.sliceStatus = "Optimizing...&nbsp;&nbsp;&nbsp;&nbsp;(<i>Remaining Time: calculating</i>)"
             self._proxy.sliceHint = ""
@@ -961,7 +959,7 @@ class SmartSliceCloudConnector(QObject):
             self.cancelCurrentJob()
             Logger.logException("e", error)
             Message(
-                title='Smart Slice Job Unexpectedly Failed',
+                title="Smart Slice Job Unexpectedly Failed",
                 text=error,
                 lifetime=0
             ).show()
@@ -979,17 +977,25 @@ class SmartSliceCloudConnector(QObject):
                 else:
                     self.processAnalysisResult()
                     self.prepareOptimization()
+                    #Do we need a for loop for the steps?
+                    if self._jobs[self._current_job].getResult().fea_results.steps[0].increments[0].model_results.problem_regions is not None:
+                        self._proxy.resultsButtonsVisible = True
+                        self._proxy.removeProblemMeshes()
+                        self._proxy.problem_area_results = self._jobs[self._current_job].getResult().fea_results.steps[0].increments[0].model_results.problem_regions
                 self.saveSmartSliceJob.emit()
             else:
                 if self.status != SmartSliceCloudStatus.ReadyToVerify and self.status != SmartSliceCloudStatus.Errors:
                     self.status = SmartSliceCloudStatus.ReadyToVerify
-                    self._proxy.resultsButtonsVisible = True
-                    self._proxy.result_feasibility = self._jobs[self._current_job].getResult().feasibility_result['structural']
-                    if req_tool.targetSafetyFactor >= self._proxy.result_feasibility["min_safety_factor"]:
-                        message_type = "stress"
-                    else:
-                        message_type = "deflection"
-                    self._proxy.displayResultsMessage(message_type)
+                    if self._jobs[self._current_job].getResult().fea_results.steps[0].increments[0].model_results.problem_regions is not None:
+                        self._proxy.resultsButtonsVisible = True
+                        self._proxy.removeProblemMeshes()
+                        self._proxy.problem_area_results = self._jobs[self._current_job].getResult().fea_results.steps[0].increments[0].model_results.problem_regions
+                        self._proxy.result_feasibility = self._jobs[self._current_job].getResult().feasibility_result["structural"]
+                        if req_tool.targetSafetyFactor >= self._proxy.result_feasibility["min_safety_factor"]:
+                            message_type = "stress"
+                        else:
+                            message_type = "deflection"
+                        self._proxy.displayResultsMessage(message_type)
 
     def processAnalysisResult(self, selectedRow=0):
         job = self._jobs[self._current_job]
@@ -1001,6 +1007,7 @@ class SmartSliceCloudConnector(QObject):
 
         elif job.job_type == pywim.smartslice.job.JobType.optimization and active_extruder:
             self._proxy.resultsTable.setResults(job.getResult().analyses, selectedRow)
+            self._proxy.clearProblemMeshes()
 
     def updateStatus(self, show_warnings=False):
         if not self.smartSliceJobHandle:
@@ -1073,7 +1080,7 @@ class SmartSliceCloudConnector(QObject):
 
     def _openSubscriptionPage(self, msg, action):
         if action in ("subscribe_link", "more_products_link"):
-            QDesktopServices.openUrl(QUrl('%s/static/account.html' % self.extension.metadata.url))
+            QDesktopServices.openUrl(QUrl("%s/static/account.html" % self.extension.metadata.url))
 
     '''
       Primary Button Actions:
