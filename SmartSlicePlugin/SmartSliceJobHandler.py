@@ -166,12 +166,18 @@ class SmartSliceJobHandler:
 
         # > https://github.com/Ultimaker/CuraEngine/blob/master/src/FffGcodeWriter.cpp#L402
         skin_angles = self._propertyHandler.getExtruderProperty("skin_angles")
-        if type(skin_angles) is str:
-            skin_angles = SettingFunction(skin_angles)(self._propertyHandler)
-        if len(skin_angles) > 0:
-            print_config.skin_orientations.extend(tuple(skin_angles))
+        if isinstance(skin_angles, str):
+            parsed_skin_angles = SettingFunction(skin_angles)(self._propertyHandler)
+        if isinstance(parsed_skin_angles, list):
+            if len(parsed_skin_angles) == 0:
+                print_config.skin_orientations.extend((45, 135))
+            else:
+                print_config.skin_orientations.extend(tuple(parsed_skin_angles))
         else:
-            print_config.skin_orientations.extend((45, 135))
+            errors.append(pywim.smartslice.val.InvalidSetup(
+                "Invalid <i>Top/Bottom Line Directions</i>: {}".format(skin_angles),
+                "Enter a valid list of angles (e.g. [45, 135])"
+            ))
 
         infill_pattern = self._propertyHandler.getExtruderProperty("infill_pattern")
         print_config.infill.density = self._propertyHandler.getExtruderProperty("infill_sparse_density")
@@ -182,15 +188,21 @@ class SmartSliceJobHandler:
 
         # > https://github.com/Ultimaker/CuraEngine/blob/master/src/FffGcodeWriter.cpp#L366
         infill_angles = self._propertyHandler.getExtruderProperty("infill_angles")
-        if type(infill_angles) is str:
-            infill_angles = SettingFunction(infill_angles)(self._propertyHandler)
-        if len(infill_angles) == 0:
-            print_config.infill.orientation = self.INFILL_DIRECTION
+        if isinstance(infill_angles, str):
+            parsed_infill_angles = SettingFunction(infill_angles)(self._propertyHandler)
+        if isinstance(parsed_infill_angles, list):
+            if len(parsed_infill_angles) == 0:
+                print_config.infill.orientation = self.INFILL_DIRECTION
+            else:
+                if len(parsed_infill_angles) > 1:
+                    Logger.log("w", "More than one infill angle is set! Only the first will be taken!")
+                    Logger.log("d", "Ignoring the angles: {}".format(parsed_infill_angles[1:]))
+                print_config.infill.orientation = parsed_infill_angles[0]
         else:
-            if len(infill_angles) > 1:
-                Logger.log("w", "More than one infill angle is set! Only the first will be taken!")
-                Logger.log("d", "Ignoring the angles: {}".format(infill_angles[1:]))
-            print_config.infill.orientation = infill_angles[0]
+            errors.append(pywim.smartslice.val.InvalidSetup(
+                "Invalid <i>Infill Line Directions</i>: {}".format(infill_angles),
+                "Enter a valid list of an angle (e.g. [45])"
+            ))
 
         print_config.auxiliary = self._getAuxDict(
             Application.getInstance().getGlobalContainerStack()
@@ -377,7 +389,7 @@ class SmartSliceJobHandler:
     def _modifyInfillAnglesInSettingDict(self, settings):
         for key, value in settings.items():
             if key == "infill_angles":
-                if type(value) is str:
+                if isinstance(value, str):
                     value = SettingFunction(value)(self._propertyHandler)
                 if len(value) == 0:
                     settings[key] = [self.INFILL_DIRECTION]
@@ -424,7 +436,7 @@ class SmartSliceJobHandler:
         settings = self._modifyInfillAnglesInSettingDict(settings)
 
         for key, value in settings.items():
-            if type(value) is not str:
+            if not isinstance(value, str):
                 settings[key] = str(value)
 
         return settings
@@ -471,7 +483,7 @@ class SmartSliceJobHandler:
         settings = self._modifyInfillAnglesInSettingDict(settings)
 
         for key, value in settings.items():
-            if type(value) is not str:
+            if not isinstance(value, str):
                 settings[key] = str(value)
 
         extruder_message["settings"] = settings
