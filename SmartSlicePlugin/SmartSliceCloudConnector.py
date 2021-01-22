@@ -968,9 +968,10 @@ class SmartSliceCloudConnector(QObject):
         self.propertyHandler._propertiesChanged.clear()
         self._proxy.shouldRaiseConfirmation = False
         req_tool = SmartSliceRequirements.getInstance()
+        job_result = self._jobs[self._current_job].getResult()
 
-        if self._jobs[self._current_job].getResult():
-            if len(self._jobs[self._current_job].getResult().analyses) > 0:
+        if job_result:
+            if len(job_result.analyses) > 0:
                 if self._jobs[self._current_job].job_type == pywim.smartslice.job.JobType.optimization:
                     self.status = SmartSliceCloudStatus.Optimized
                     self.processAnalysisResult()
@@ -978,24 +979,26 @@ class SmartSliceCloudConnector(QObject):
                     self.processAnalysisResult()
                     self.prepareOptimization()
                     #Do we need a for loop for the steps?
-                    if self._jobs[self._current_job].getResult().fea_results.steps[0].increments[0].model_results.problem_regions is not None:
-                        self._proxy.resultsButtonsVisible = True
-                        self._proxy.removeProblemMeshes()
-                        self._proxy.problem_area_results = self._jobs[self._current_job].getResult().fea_results.steps[0].increments[0].model_results.problem_regions
+                    if job_result.fea_results.steps[0].increments[0].model_results.problem_regions is not None:
+                        self.setResultsFromJob(job_result)
                 self.saveSmartSliceJob.emit()
             else:
                 if self.status != SmartSliceCloudStatus.ReadyToVerify and self.status != SmartSliceCloudStatus.Errors:
                     self.status = SmartSliceCloudStatus.ReadyToVerify
-                    if self._jobs[self._current_job].getResult().fea_results.steps[0].increments[0].model_results.problem_regions is not None:
-                        self._proxy.resultsButtonsVisible = True
-                        self._proxy.removeProblemMeshes()
-                        self._proxy.problem_area_results = self._jobs[self._current_job].getResult().fea_results.steps[0].increments[0].model_results.problem_regions
-                        self._proxy.result_feasibility = self._jobs[self._current_job].getResult().feasibility_result["structural"]
+                    if job_result.fea_results.steps[0].increments[0].model_results.problem_regions is not None:
+                        self.setResultsFromJob(job_result)
+                        self._proxy.result_feasibility = job_result.feasibility_result['structural']
                         if req_tool.targetSafetyFactor >= self._proxy.result_feasibility["min_safety_factor"]:
                             message_type = "stress"
                         else:
                             message_type = "deflection"
                         self._proxy.displayResultsMessage(message_type)
+
+    def setResultsFromJob(self, job_result):
+        self._proxy.resultsButtonsVisible = True
+        self._proxy.removeProblemMeshes()
+        self._proxy.problem_area_results = job_result.fea_results.steps[0].increments[0].model_results.problem_regions
+        self._proxy.displacement_mesh_results = job_result.surface_mesh_results.steps[0].increments[0].node_results
 
     def processAnalysisResult(self, selectedRow=0):
         job = self._jobs[self._current_job]

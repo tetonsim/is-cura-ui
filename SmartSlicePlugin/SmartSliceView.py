@@ -43,7 +43,7 @@ class SmartSliceView(View):
 
         for node in DepthFirstIterator(scene.getRoot()):
             if isinstance(node, SmartSliceMeshNode):
-                if node.mesh_type == SmartSliceMeshNode.MeshType.ProblemMesh:
+                if node.mesh_type in (SmartSliceMeshNode.MeshType.ProblemMesh, SmartSliceMeshNode.MeshType.DisplacementMesh):
                     has_problem_area = True
 
         for node in DepthFirstIterator(scene.getRoot()):
@@ -62,19 +62,26 @@ class SmartSliceView(View):
             if not node.render(renderer):
                 is_non_printing_mesh = node.callDecoration("isNonPrintingMesh")
                 is_problem_area = False
+                is_displacement_mesh = False
                 if isinstance(node, SmartSliceMeshNode):
                     if node.mesh_type == SmartSliceMeshNode.MeshType.ProblemMesh:
                         is_problem_area = True
+                    elif node.mesh_type == SmartSliceMeshNode.MeshType.DisplacementMesh:
+                        is_displacement_mesh = True
                 if node.getMeshData() and node.isVisible() and not has_get_layer_data:
                     per_mesh_stack = node.callDecoration("getStack")
                     if per_mesh_stack:
                         is_support = per_mesh_stack.getProperty("support_mesh", "value")
-                    if is_non_printing_mesh and not is_problem_area:
+                    if is_non_printing_mesh and not is_problem_area and not is_displacement_mesh:
                         uniforms["diffuse_color"] = [.55, .69, .1, 1]
                         uniforms["hover_face"] = -1
                         renderer.queueNode(node, shader=self._non_printing_shader, uniforms=uniforms, transparent=True)
-                    elif is_non_printing_mesh and is_problem_area:
+                    elif is_problem_area:
                         uniforms["diffuse_color"] = [.945, .373, .388, 1]
+                        uniforms["hover_face"] = -1
+                        renderer.queueNode(node, shader=self._non_printing_shader, uniforms=uniforms, transparent=True)
+                    elif is_displacement_mesh:
+                        uniforms["diffuse_color"] = [.55, .69, .1, 2]
                         uniforms["hover_face"] = -1
                         renderer.queueNode(node, shader=self._non_printing_shader, uniforms=uniforms, transparent=True)
                     elif per_mesh_stack and is_support:

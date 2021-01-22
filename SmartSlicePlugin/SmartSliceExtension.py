@@ -257,11 +257,13 @@ class SmartSliceExtension(Extension):
                 self.cloud.addJob(pywim.smartslice.job.JobType.optimization)
                 if results.fea_results is not None and results.fea_results.steps != []:
                     self.proxy.problem_area_results = results.fea_results.steps[0].increments[0].model_results.problem_regions
+                    self.proxy.displacement_mesh_results = results.surface_mesh_results.steps[0].increments[0].node_results
                     self.proxy.resultsButtonsVisible = True
             else:
                 self.cloud.addJob(pywim.smartslice.job.JobType.validation)
                 if results.fea_results is not None and results.fea_results.steps != []:
                     self.proxy.problem_area_results = results.fea_results.steps[0].increments[0].model_results.problem_regions
+                    self.proxy.displacement_mesh_results = results.surface_mesh_results.steps[0].increments[0].node_results
                     self.proxy.resultsButtonsVisible = True
 
             if results:

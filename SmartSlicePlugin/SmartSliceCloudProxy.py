@@ -87,6 +87,7 @@ class SmartSliceCloudProxy(QObject):
         self.visible_problem_mesh_type = ""
 
         self.problem_area_results = None
+        self.displacement_mesh_results = None
 
         # Properties (mainly) for the sliceinfo widget
         self._resultSafetyFactor = 0.0 #copy.copy(self._targetFactorOfSafety)
@@ -828,7 +829,7 @@ class SmartSliceCloudProxy(QObject):
         if self.message_type == "stress":
             meshes_to_show = ("low_safety_factor",)
         else:
-            meshes_to_show = ("high_strain",)
+            meshes_to_show = ("high_strain", "displacement_mesh")
         for mesh in problem_meshes:
             if mesh.getName() in meshes_to_show:
                 mesh.setVisible(True)
@@ -989,20 +990,23 @@ class SmartSliceCloudProxy(QObject):
                 if status != SmartSliceCloudStatus.ReadyToVerify:
                     if req_tool.maxDisplacement >= self.resultMaximalDisplacement:
                         text = displacement_acceptable
+                        SmartSliceMeshNode(self.displacement_mesh_results, SmartSliceMeshNode.MeshType.DisplacementMesh, "displacement_mesh", self.resultMaximalDisplacement)
                     else:
                         text = displacement_unacceptable
+                        SmartSliceMeshNode(self.displacement_mesh_results, SmartSliceMeshNode.MeshType.DisplacementMesh, "displacement_mesh", self.resultMaximalDisplacement)
                         SmartSliceMeshNode(self.problem_area_results, SmartSliceMeshNode.MeshType.ProblemMesh, self.visible_problem_mesh_type)
-                        self.hasProblemMeshesVisible = True
 
                 else:
                     self.unableToOptimizeDisplacement.emit()
                     if req_tool.maxDisplacement >= self.resultMaximalDisplacement:
                         text = displacement_can_optimize
+                        SmartSliceMeshNode(self.displacement_mesh_results, SmartSliceMeshNode.MeshType.DisplacementMesh, "displacement_mesh", self.resultMaximalDisplacement)
                     else:
                         self.results_buttons_popup.setTitle("Smart Slice Error")
                         text = displacement_cannot_optimize
-                        SmartSliceMeshNode(self.problem_area_results, SmartSliceMeshNode.MeshType.ProblemMesh, self.visible_problem_mesh_type)
-                        self.hasProblemMeshesVisible = True
+                        SmartSliceMeshNode(SmartSliceMeshNode.MeshType.DisplacementMesh, self.displacement_mesh_results, "displacement_mesh", self.resultMaximalDisplacement)
+                        SmartSliceMeshNode(SmartSliceMeshNode.MeshType.ProblemMesh, self.problem_area_results, self.visible_problem_mesh_type)
+                self.hasProblemMeshesVisible = True
 
             self.results_buttons_popup.setText(text)
             self.results_buttons_popup.show()

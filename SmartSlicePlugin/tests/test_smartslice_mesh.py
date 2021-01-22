@@ -31,6 +31,7 @@ class TestSmartSliceMesh(_SmartSliceTestCase):
         self.testing_proxy.stressOpacity = 0.5
         self.testing_proxy.result_feasibility = None
         self.testing_proxy._sliceStatusEnum = SmartSliceCloudStatus.Underdimensioned
+        self.testing_proxy.displacement_mesh_results = None
 
     @staticmethod
     def makeProblemMeshData(name_string):
@@ -42,6 +43,16 @@ class TestSmartSliceMesh(_SmartSliceTestCase):
         mesh_data[0].name = name_string
 
         return mesh_data
+
+    @staticmethod
+    def makeDisplacementResultData():
+        displacement_result = [pywim.fea.result.Result(name="displacement")]
+        vals = []
+        for i in range(8):
+            vals.append(pywim.fea.result.ResultValue(data=[0.1, 0.1, 0.1], id=i))
+        displacement_result[0].values = vals
+
+        return displacement_result
 
     @patch("SmartSlicePlugin.stage.SmartSliceScene.SmartSliceMeshNode.getBoundingBox", MagicMock())
     def test_mesh_builder(self):
@@ -95,10 +106,11 @@ class TestSmartSliceMesh(_SmartSliceTestCase):
         self.testing_proxy.resultMaximalDisplacement = 2.0
         self.testing_proxy.resultSafetyFactor = 2.0
         self.testing_proxy.deflectionOpacity = 1.0
+        self.testing_proxy.displacement_mesh_results = self.makeDisplacementResultData()
         self.testing_proxy.displayResultsMessage("deflection")
 
         our_mesh = getProblemMeshes()
-        self.assertEqual(len(our_mesh), 1)
+        self.assertEqual(len(our_mesh), 2)
 
         self.testing_proxy.closeResultsButtonPopup()
 
@@ -137,13 +149,13 @@ class TestSmartSliceMesh(_SmartSliceTestCase):
         self.assertEqual(len(our_mesh), 1)
 
         self.testing_proxy.closeResultsButtonPopup()
-
+        self.testing_proxy.displacement_mesh_results = self.makeDisplacementResultData()
         self.testing_proxy.displayResultsMessage("deflection")
 
         our_mesh = getProblemMeshes()
-        self.assertEqual(len(our_mesh), 0)
+        self.assertEqual(len(our_mesh), 1)
         self.assertEqual(self.testing_proxy.stressOpacity, 0.5)
-        self.assertFalse(self.testing_proxy.hasProblemMeshesVisible)
+        self.assertTrue(self.testing_proxy.hasProblemMeshesVisible)
 
         self.testing_proxy.clearResultsPopup(self.testing_proxy.results_buttons_popup)
         self.assertFalse(self.testing_proxy.results_buttons_popup_visible)
@@ -157,15 +169,21 @@ class TestSmartSliceMesh(_SmartSliceTestCase):
         self.assertIsNotNone(self.testing_proxy.results_buttons_popup)
         self.assertTrue(self.testing_proxy.hasProblemMeshesVisible)
 
-    def test_deflection_no_mesh_message(self):
+    def test_deflection_no_problem_mesh_message(self):
+        from SmartSlicePlugin.utils import getProblemMeshes
+        self.testing_proxy.displacement_mesh_results = self.makeDisplacementResultData()
         self.testing_proxy.resultMaximalDisplacement = 0.5
         self.testing_proxy.displayResultsMessage("deflection")
 
         self.assertTrue(self.testing_proxy.results_buttons_popup_visible)
         self.assertIsNotNone(self.testing_proxy.results_buttons_popup)
-        self.assertFalse(self.testing_proxy.hasProblemMeshesVisible)
+        self.assertTrue(self.testing_proxy.hasProblemMeshesVisible)
+
+        our_mesh = getProblemMeshes()
+        self.assertEqual(len(our_mesh), 1)
 
     def test_stress_no_mesh_message(self):
+        from SmartSlicePlugin.utils import getProblemMeshes
         self.testing_proxy.resultSafetyFactor = 2.0
         self.testing_proxy.displayResultsMessage("stress")
 
@@ -173,18 +191,27 @@ class TestSmartSliceMesh(_SmartSliceTestCase):
         self.assertIsNotNone(self.testing_proxy.results_buttons_popup)
         self.assertFalse(self.testing_proxy.hasProblemMeshesVisible)
 
+        our_mesh = getProblemMeshes()
+        self.assertEqual(len(our_mesh), 0)
+
     def test_deflection_ok_no_optimize_mesh_message(self):
+        from SmartSlicePlugin.utils import getProblemMeshes
         from SmartSlicePlugin.SmartSliceCloudStatus import SmartSliceCloudStatus
+        self.testing_proxy.displacement_mesh_results = self.makeDisplacementResultData()
         self.testing_proxy._sliceStatusEnum = SmartSliceCloudStatus.ReadyToVerify
         self.testing_proxy.result_feasibility = {"min_safety_factor": 2.0, "max_displacement": 0.0}
         self.testing_proxy.displayResultsMessage("deflection")
 
         self.assertTrue(self.testing_proxy.results_buttons_popup_visible)
         self.assertIsNotNone(self.testing_proxy.results_buttons_popup)
-        self.assertFalse(self.testing_proxy.hasProblemMeshesVisible)
+        self.assertTrue(self.testing_proxy.hasProblemMeshesVisible)
+
+        our_mesh = getProblemMeshes()
+        self.assertEqual(len(our_mesh), 1)
 
     def test_stress_ok_no_optimize_mesh_message(self):
         from SmartSlicePlugin.SmartSliceCloudStatus import SmartSliceCloudStatus
+        from SmartSlicePlugin.utils import getProblemMeshes
         self.testing_proxy._sliceStatusEnum = SmartSliceCloudStatus.ReadyToVerify
         self.testing_proxy.resultSafetyFactor = 2.0
         self.testing_proxy.result_feasibility = {"min_safety_factor": 0.0, "max_displacement": 2.0}
@@ -193,6 +220,9 @@ class TestSmartSliceMesh(_SmartSliceTestCase):
         self.assertTrue(self.testing_proxy.results_buttons_popup_visible)
         self.assertIsNotNone(self.testing_proxy.results_buttons_popup)
         self.assertFalse(self.testing_proxy.hasProblemMeshesVisible)
+
+        our_mesh = getProblemMeshes()
+        self.assertEqual(len(our_mesh), 0)
 
     def test_reset_button_opacity(self):
         self.testing_proxy.deflectionOpacity = 1.0
@@ -207,6 +237,7 @@ class TestSmartSliceMesh(_SmartSliceTestCase):
         from SmartSlicePlugin.utils import getProblemMeshes
 
         mesh_data = self.makeProblemMeshData("high_strain")
+        self.testing_proxy.displacement_mesh_results = self.makeDisplacementResultData()
 
         self.testing_proxy.problem_area_results = mesh_data
         self.testing_proxy.resultMaximalDisplacement = 2.0
@@ -217,11 +248,11 @@ class TestSmartSliceMesh(_SmartSliceTestCase):
         self.testing_proxy.hideProblemMeshes()
 
         our_mesh = getProblemMeshes()
-        self.assertEqual(len(our_mesh), 1)
+        self.assertEqual(len(our_mesh), 2)
         self.assertFalse(our_mesh[0].isVisible())
 
         self.testing_proxy.showProblemMeshes()
 
         our_mesh = getProblemMeshes()
-        self.assertEqual(len(our_mesh), 1)
+        self.assertEqual(len(our_mesh), 2)
         self.assertTrue(our_mesh[0].isVisible())

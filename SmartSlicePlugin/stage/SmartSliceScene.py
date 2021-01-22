@@ -1,13 +1,13 @@
-from typing import List, Any, Union
+from typing import List
 from enum import Enum
 
 import math
 import time
+import sys
 
 from UM.Job import Job
 from UM.Logger import Logger
 from UM.Mesh.MeshBuilder import MeshBuilder
-from UM.Mesh.MeshData import MeshData
 from UM.Message import Message
 from UM.Math.Color import Color
 from UM.Math.Vector import Vector
@@ -25,7 +25,6 @@ from UM.i18n import i18nCatalog
 from ..utils import makeInteractiveMesh, getPrintableNodes, angleBetweenVectors, updateContainerStackProperties
 from ..select_tool.LoadArrow import LoadArrow
 from .. select_tool.LoadRotator import LoadRotator
-from .. select_tool.LoadToolHandle import LoadToolHandle
 
 from cura.Scene.ZOffsetDecorator import ZOffsetDecorator
 from cura.Scene.BuildPlateDecorator import BuildPlateDecorator
@@ -33,6 +32,7 @@ from cura.Scene.SliceableObjectDecorator import SliceableObjectDecorator
 from cura.Settings.SettingOverrideDecorator import SettingOverrideDecorator
 
 import pywim
+import threemf
 import numpy
 
 i18n_catalog = i18nCatalog("smartslice")
@@ -494,7 +494,7 @@ class Root(SceneNode):
 
         self.rootChanged.emit(self)
 
-    def _process_mesh_analysis(self, job : "AnalyzeMeshJob"):
+    def _process_mesh_analysis(self, job: "AnalyzeMeshJob"):
         self._interactive_mesh = job.interactive_mesh
         if self._mesh_analyzing_message:
             self._mesh_analyzing_message.hide()
@@ -687,12 +687,16 @@ class AnalyzeMeshJob(Job):
         self.interactive_mesh = makeInteractiveMesh(self.mesh_data)
 
 class SmartSliceMeshNode(SceneNode):
+    _LOW_NORMALIZE_CUTOFF = 0.25
+    _HIGH_NORMALIZE_CUTOFF = 1.1
+
     class MeshType(Enum):
         Normal = 0
         ModifierMesh = 1
         ProblemMesh = 2
+        DisplacementMesh = 3
 
-    def __init__(self, mesh: "pywim.chop.mesh.Mesh", mesh_type: MeshType = MeshType.Normal, title: str = "NormalMesh"):
+    def __init__(self, mesh: pywim.chop.mesh.Mesh, mesh_type: MeshType = MeshType.Normal, title: str = "NormalMesh", max_displacement = None):
         super().__init__()
 
         self.mesh_type = mesh_type
@@ -704,10 +708,13 @@ class SmartSliceMeshNode(SceneNode):
         if self.mesh_type == self.MeshType.ModifierMesh:
             self._buildModifierMesh(mesh, title)
 
+        if self.mesh_type == self.MeshType.DisplacementMesh:
+            self._buildDisplacementMesh(mesh, max_displacement)
+
         if self.mesh_type == self.MeshType.Normal:
             self._buildMesh(mesh, title)
 
-    def _buildMesh(self, mesh: "pywim.chop.mesh.Mesh", title: str) -> "SmartSliceMeshNode":
+    def _buildMesh(self, mesh: pywim.chop.mesh.Mesh, title: str):
         # Building the scene node
         self.setName(title)
         self.setCalculateBoundingBox(True)
@@ -716,33 +723,33 @@ class SmartSliceMeshNode(SceneNode):
         self.setTransformation(Matrix(mesh.transform))
 
         # Building the mesh
-
         # # Preparing the data from pywim for MeshBuilder
-        mesh_vertices = [[v.x, v.y, v.z] for v in mesh.vertices ]
-        mesh_indices = [[triangle.v1, triangle.v2, triangle.v3] for triangle in mesh.triangles]
+        mesh_vertices = [[v.x, v.y, v.z] for v in mesh.vertices]
+        mesh_indices = None
+        if mesh.triangles is not None:
+            mesh_indices = [[triangle.v1, triangle.v2, triangle.v3] for triangle in mesh.triangles]
 
         # Doing the actual build
         mesh_data = MeshBuilder()
         mesh_data.setVertices(numpy.asarray(mesh_vertices, dtype=numpy.float32))
-        mesh_data.setIndices(numpy.asarray(mesh_indices, dtype=numpy.int32))
+        if mesh_indices is not None:
+            mesh_data.setIndices(numpy.asarray(mesh_indices, dtype=numpy.int32))
         mesh_data.calculateNormals()
 
         self.setMeshData(mesh_data.build())
         self.calculateBoundingBoxMesh()
 
         active_build_plate = Application.getInstance().getMultiBuildPlateModel().activeBuildPlate
-        if self.mesh_type == self.MeshType.ProblemMesh:
+        if self.mesh_type in (self.MeshType.ProblemMesh, self.MeshType.DisplacementMesh):
             self.addDecorator(BuildPlateDecorator(-1))
         else:
             self.addDecorator(BuildPlateDecorator(active_build_plate))
 
-        bottom = self.getBoundingBox().bottom
-
         z_offset_decorator = ZOffsetDecorator()
-        z_offset_decorator.setZOffset(bottom)
+        z_offset_decorator.setZOffset(self.getBoundingBox().bottom)
         self.addDecorator(z_offset_decorator)
 
-    def _buildProblemMesh(self, problem_mesh_data: "pywim.chop.mesh.Mesh", mesh_to_display: str):
+    def _buildProblemMesh(self, problem_mesh_data: pywim.chop.mesh.Mesh, mesh_to_display: str):
         our_only_node =  getPrintableNodes()[0]
 
         for problem_mesh in problem_mesh_data:
@@ -750,16 +757,12 @@ class SmartSliceMeshNode(SceneNode):
                 if problem_region.name == mesh_to_display:
                     self._buildMesh(problem_region, mesh_to_display)
                     self.setSelectable(False)
-                    settings_override = SettingOverrideDecorator()
-                    settings_override._is_non_printing_mesh = True
-                    self.addDecorator(settings_override)
                     our_only_node.addChild(self)
-                    Application.getInstance().getController().getScene().sceneChanged.emit(self)
 
-    def _buildModifierMesh(self, modifier_mesh: "pywim.chop.mesh.Mesh", mesh_title: str):
+    def _buildModifierMesh(self, modifier_mesh: pywim.chop.mesh.Mesh, mesh_title: str):
         from ..SmartSliceJobHandler import SmartSliceJobHandler
 
-        our_only_node =  getPrintableNodes()[0]
+        our_only_node = getPrintableNodes()[0]
 
         self._buildMesh(modifier_mesh, mesh_title)
         self.setSelectable(True)
@@ -785,9 +788,6 @@ class SmartSliceMeshNode(SceneNode):
 
         our_only_node.addChild(self)
 
-        # emit changes and connect error tracker
-        Application.getInstance().getController().getScene().sceneChanged.emit(self)
-
     def _updateSettings(self, stack, key, value, property_type, definition):
         settings = stack.getTop()
 
@@ -796,3 +796,51 @@ class SmartSliceMeshNode(SceneNode):
         new_instance.resetState()  # Ensure that the state is not seen as a user state.
         settings.addInstance(new_instance)
 
+    def _buildDisplacementMesh(self, displacement_mesh: pywim.fea.result.Result, max_displacement: float):
+        model_mesh = getPrintableNodes()[0]
+
+        mesh_vertices = []
+        mesh_triangles = []
+        mesh_data = pywim.chop.mesh.Mesh()
+        model_mesh_data = model_mesh.getMeshData()
+        model_vertices = model_mesh_data.getVertices()
+
+        model_AABB = model_mesh.getBoundingBox()
+        bounding_box_lengths = [model_AABB.width, model_AABB.height, model_AABB.depth]
+        bounding_box_lengths.sort()
+        characteristic_length = bounding_box_lengths[1] / 2
+        normalize_ratio = max_displacement / characteristic_length
+
+        normalize_scalar = 1
+        if max_displacement <= sys.float_info.min:
+            pass
+        elif normalize_ratio < self._LOW_NORMALIZE_CUTOFF:
+            normalize_scalar = self._LOW_NORMALIZE_CUTOFF * characteristic_length / max_displacement
+        elif normalize_ratio > self._HIGH_NORMALIZE_CUTOFF:
+            normalize_scalar = self._HIGH_NORMALIZE_CUTOFF * characteristic_length / max_displacement
+
+        for displacement in displacement_mesh[0].values:
+            mesh_vertices.append(threemf.mesh.Vertex(
+                x=displacement.data[0] * normalize_scalar + model_vertices[displacement.id][0],
+                y=displacement.data[2] * normalize_scalar + model_vertices[displacement.id][1],
+                z=-displacement.data[1] * normalize_scalar + model_vertices[displacement.id][2]
+            ))
+
+        if model_mesh_data.getIndices() is not None:
+            for ind in model_mesh_data.getIndices():
+                mesh_triangles.append(threemf.mesh.Triangle(
+                    v1=ind.data[0],
+                    v2=ind.data[1],
+                    v3=ind.data[2]
+                ))
+        else:
+            mesh_triangles = None
+
+        mesh_data.vertices = mesh_vertices
+        mesh_data.triangles = mesh_triangles
+        mesh_data.transform = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+
+        self._buildMesh(mesh_data, "displacement_mesh")
+
+        our_only_node = getPrintableNodes()[0]
+        our_only_node.addChild(self)

@@ -63,7 +63,7 @@ def getNodes(func):
         isProblemMesh = False
 
         if isinstance(node, SmartSliceMeshNode):
-            if node.mesh_type == SmartSliceMeshNode.MeshType.ProblemMesh:
+            if node.mesh_type in (SmartSliceMeshNode.MeshType.ProblemMesh, SmartSliceMeshNode.MeshType.DisplacementMesh):
                 isProblemMesh = True
 
         stack = node.callDecoration("getStack")
@@ -95,7 +95,7 @@ def getModifierMeshes():
 def getProblemMeshes():
     return getNodes(
         lambda isSliceable, isPrinting, isSupport, isInfillMesh, isProblemMesh: \
-            not isSliceable and not isPrinting and not isSupport and not isInfillMesh and isProblemMesh
+            not isSupport and not isInfillMesh and isProblemMesh
     )
 
 def findChildSceneNode(node: SceneNode, node_type: type) -> Optional[SceneNode]:
