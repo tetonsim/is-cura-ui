@@ -49,7 +49,7 @@ class SmartSliceJobHandler:
     INFILL_CURA_SMARTSLICE = {
         "grid": pywim.am.InfillType.grid,
         "triangles": pywim.am.InfillType.triangle,
-        #"cubic": pywim.am.InfillType.cubic
+        "cubic": pywim.am.InfillType.cubic
     }
     INFILL_SMARTSLICE_CURA = {value: key for key, value in INFILL_CURA_SMARTSLICE.items()}
 
