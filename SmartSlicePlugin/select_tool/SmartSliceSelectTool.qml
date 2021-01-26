@@ -291,9 +291,7 @@ Item {
                 }
                 onDoubleClicked: {
                     dragging = false
-                    faceDialog.x = faceDialog.xStart
-                    faceDialog.y = faceDialog.yStart
-                    faceDialog.handler.setPosition(faceDialog.x, faceDialog.y)
+                    faceDialog.trySetPosition(faceDialog.xStart, faceDialog.yStart)
                 }
 
                 Rectangle {
@@ -457,10 +455,7 @@ Item {
                                     tooltipHeader: catalog.i18nc("@textfp", "Flat Surface Selection")
                                     tooltipDescription: catalog.i18nc("@textfp", "Select flat surfaces.")
 
-                                    property var pos1: flatFace.mapFromItem(faceDialog, faceDialog.x, 0.)
-                                    property var pos2: flatFace.mapToItem(faceDialog, faceDialog.width, 0.)
-
-                                    tooltipTarget.x: pos2.x - pos1.x - width
+                                    tooltipTarget.x: 3 * width + 3 * surfaceRow.spacing
                                     tooltipTarget.y: 0.5 * height
                                     tooltipLocation: faceDialog.tooltipLocations["right"]
                                 }
@@ -491,10 +486,7 @@ Item {
                                     tooltipDescription: catalog.i18nc("@textfp", "Select the interior of rounded surfaces. "
                                         + "For load surfaces, the surface must have a constant axis of revolution (cylindrical).")
 
-                                    property var pos1: concaveFace.mapFromItem(faceDialog, faceDialog.x, 0.)
-                                    property var pos2: concaveFace.mapToItem(faceDialog, faceDialog.width, 0.)
-
-                                    tooltipTarget.x: pos2.x - pos1.x - width - flatFace.width - surfaceRow.spacing
+                                    tooltipTarget.x: 2 * width + 2 * surfaceRow.spacing
                                     tooltipTarget.y: 0.5 * height
                                     tooltipLocation: faceDialog.tooltipLocations["right"]
                                 }
@@ -525,10 +517,7 @@ Item {
                                     tooltipDescription: catalog.i18nc("@textfp", "Select the exterior of rounded surfaces. "
                                         + "For load surfaces, the surface must have a constant axis of revolution (cylindrical).")
 
-                                    property var pos1: concaveFace.mapFromItem(faceDialog, faceDialog.x, 0.)
-                                    property var pos2: concaveFace.mapToItem(faceDialog, faceDialog.width, 0.)
-
-                                    tooltipTarget.x: pos2.x - pos1.x - width - flatFace.width - concaveFace.width -  2 * surfaceRow.spacing
+                                    tooltipTarget.x: width + surfaceRow.spacing
                                     tooltipTarget.y: 0.5 * height
                                     tooltipLocation: faceDialog.tooltipLocations["right"]
                                 }
@@ -567,10 +556,7 @@ Item {
                                     tooltipDescription: catalog.i18nc("@textfp", "For flat surface selection this will place the load arrow perpendicular to the surface. "
                                         + "For either concave or convex surface selection this will place the load arrow perpendicular to the central axis of the cylindrical object.")
 
-                                    property var pos1: normalLoad.mapFromItem(faceDialog, faceDialog.x, 0.)
-                                    property var pos2: normalLoad.mapToItem(faceDialog, faceDialog.width, 0.)
-
-                                    tooltipTarget.x: pos2.x - pos1.x - width
+                                    tooltipTarget.x: 3 * width + 3 * loadDirectionRow.spacing
                                     tooltipTarget.y: 0.5 * height
                                     tooltipLocation: faceDialog.tooltipLocations["right"]
                                 }
@@ -595,16 +581,14 @@ Item {
                                     tooltipDescription: catalog.i18nc("@textfp", "For flat surface selection this will place the load arrow parallel to the surface. "
                                         + "For either concave or convex surface selection this will place the load arrow parallel to the central axis of the cylindrical object.")
 
-                                    property var pos1: parallelLoad.mapFromItem(faceDialog, faceDialog.x, 0.)
-                                    property var pos2: parallelLoad.mapToItem(faceDialog, faceDialog.width, 0.)
-
-                                    tooltipTarget.x: pos2.x - pos1.x - width - normalLoad.width - loadDirectionRow.spacing
+                                    tooltipTarget.x: 2 * width + 2 * loadDirectionRow.spacing
                                     tooltipTarget.y: 0.5 * height
                                     tooltipLocation: faceDialog.tooltipLocations["right"]
                                 }
                             }
 
                             Row {
+                                id: flipRow
                                 visible: selectLoadButton.checked
 
                                 anchors {
@@ -636,10 +620,7 @@ Item {
                                     tooltipHeader: catalog.i18nc("@textfp", "Flip Arrow Direction")
                                     tooltipDescription: catalog.i18nc("@textfp", "Flip the tail and head of the load arrow")
 
-                                    property var pos1: flipIcon.mapFromItem(faceDialog, faceDialog.x, 0.)
-                                    property var pos2: flipIcon.mapToItem(faceDialog, faceDialog.width, 0.)
-
-                                    tooltipTarget.x: pos2.x - pos1.x - width
+                                    tooltipTarget.x: 3 * width + 3 * flipRow.spacing
                                     tooltipTarget.y: 0.5 * height
                                     tooltipLocation: faceDialog.tooltipLocations["right"]
                                 }
@@ -805,6 +786,8 @@ Item {
                     }
                     Rectangle {
                         id: loadHelperImageRect
+
+                        z: contentRectangle.z - 1
 
                         function isVis() {
                             if (selectLoadButton.checked) {
