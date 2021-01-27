@@ -209,15 +209,22 @@ class SmartSliceExtension(Extension):
 
         # Need to do some checks to see if we've stored the results for the active job
         if cloudJob and cloudJob.getResult():
-            self._storage.setEntryToStore(plugin_id=self.metadata.id, key="results", data=cloudJob.getResult().to_dict())
-            self._storage.setEntryToStore(
-                plugin_id=self.metadata.id,
-                key="selectedResult",
-                data=self.proxy.resultsTable.getSelectedResultId()
-            )
-            if writing_workspace:
-                cloudJob.saved = True
-        elif job.type == pywim.smartslice.job.JobType.validation and (not cloudJob or not cloudJob.getResult()):
+            if not cloudJob.getResult().status is pywim.smartslice.result.ResultStatus.no_solution_found:
+                self._storage.setEntryToStore(
+                    plugin_id=self.metadata.id,
+                    key="results",
+                    data=cloudJob.getResult().to_dict()
+                )
+                self._storage.setEntryToStore(
+                    plugin_id=self.metadata.id,
+                    key="selectedResult",
+                    data=self.proxy.resultsTable.getSelectedResultId()
+                )
+
+                if writing_workspace:
+                    cloudJob.saved = True
+
+        elif job.type:
             self._storage.setEntryToStore(plugin_id=self.metadata.id, key="results", data=None)
             self._storage.setEntryToStore(plugin_id=self.metadata.id, key="selectedResult", data=None)
 
@@ -255,18 +262,16 @@ class SmartSliceExtension(Extension):
 
             if self.cloud.status == SmartSliceCloudStatus.Optimized:
                 self.cloud.addJob(pywim.smartslice.job.JobType.optimization)
-                if results.fea_results is not None and results.fea_results.steps != []:
-                    self.proxy.problem_area_results = results.fea_results.steps[0].increments[0].model_results.problem_regions
-                    self.proxy.displacement_mesh_results = results.surface_mesh_results.steps[0].increments[0].node_results
-                    self.proxy.resultsButtonsVisible = True
+
             else:
                 self.cloud.addJob(pywim.smartslice.job.JobType.validation)
-                if results.fea_results is not None and results.fea_results.steps != []:
+
+            if results:
+                if results.fea_results and results.fea_results.steps != []:
                     self.proxy.problem_area_results = results.fea_results.steps[0].increments[0].model_results.problem_regions
                     self.proxy.displacement_mesh_results = results.surface_mesh_results.steps[0].increments[0].node_results
                     self.proxy.resultsButtonsVisible = True
 
-            if results:
                 self.cloud.cloudJob.setResult(results)
                 self.cloud.cloudJob.saved = True
                 self.cloud.processAnalysisResult(selected_row)

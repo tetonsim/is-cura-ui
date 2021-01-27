@@ -1002,14 +1002,19 @@ class SmartSliceCloudConnector(QObject):
 
     def processAnalysisResult(self, selectedRow=0):
         job = self._jobs[self._current_job]
+        analyses = job.getResult().analyses
+        if not analyses:
+            Logger.log("d", "No analyses to process")
+            return
+
         active_extruder = getNodeActiveExtruder(getPrintableNodes()[0])
 
         if job.job_type == pywim.smartslice.job.JobType.validation and active_extruder:
-            resultData = ResultTableData.analysisToResultDict(0, job.getResult().analyses[0])
+            resultData = ResultTableData.analysisToResultDict(0, analyses[0])
             self._proxy.updatePropertiesFromResults(resultData)
 
         elif job.job_type == pywim.smartslice.job.JobType.optimization and active_extruder:
-            self._proxy.resultsTable.setResults(job.getResult().analyses, selectedRow)
+            self._proxy.resultsTable.setResults(analyses, selectedRow)
             self._proxy.clearProblemMeshes()
 
     def updateStatus(self, show_warnings=False):
