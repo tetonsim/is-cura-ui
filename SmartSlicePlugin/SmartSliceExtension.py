@@ -35,10 +35,13 @@ class SmartSliceExtension(Extension):
         self.metadata = PluginMetaData()
 
         # Proxy to the UI, and the cloud connector for the cloud
-        self.proxy = SmartSliceCloudProxy()
+        self.proxy = SmartSliceCloudProxy(self.metadata)
         self.cloud = SmartSliceCloudConnector(self.proxy, self)
 
         #self.setMenuName(i18n_catalog.i18nc("@item:inmenu", "Smart Slice"))
+
+        # Account management
+        self.addMenuItem(i18n_catalog.i18n("Account"), self._accountManagement)
 
         # Help links
         self.addMenuItem(i18n_catalog.i18n("Help"), self._openHelp)
@@ -90,6 +93,9 @@ class SmartSliceExtension(Extension):
     @staticmethod
     def _contactHelp():
         QDesktopServices.openUrl(QUrl("mailto:help@tetonsim.com?subject=Request for help with Smart Slice"))
+
+    def _accountManagement(self):
+        QDesktopServices.openUrl(QUrl(self.metadata.account))
 
     def _openAboutDialog(self):
         if not self._about_dialog:
@@ -303,6 +309,7 @@ class PluginMetaData:
         self.id = "SmartSlicePlugin"
         self.version = "N/A"
         self.url = "https://api.smartslice.xyz"
+        self.account = "https://account.tetonsim.com"
         self.cluster = None
 
         pluginMetaData = PluginMetaData.getMetadata()
@@ -311,6 +318,7 @@ class PluginMetaData:
             self.name = pluginMetaData.get("name", self.name)
             self.id = pluginMetaData.get("id", self.id)
             self.version = pluginMetaData.get("version", self.version)
+            self.account = pluginMetaData.get("smartSliceAccount", self.account)
 
             apiInfo = pluginMetaData.get("smartSliceApi", None)
 
