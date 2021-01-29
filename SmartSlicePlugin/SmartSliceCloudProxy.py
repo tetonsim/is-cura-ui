@@ -32,8 +32,10 @@ i18n_catalog = i18nCatalog("smartslice")
 
 # Serves as a bridge between the main UI in QML and data regarding Smart Slice
 class SmartSliceCloudProxy(QObject):
-    def __init__(self) -> None:
+    def __init__(self, metadata: "SmartSliceExtension.PluginMetaData") -> None:
         super().__init__()
+
+        self._metadata = metadata
 
         # Primary Button (Slice/Validate/Optimize)
         self._sliceStatusEnum = SmartSliceCloudStatus.Errors
@@ -170,6 +172,10 @@ class SmartSliceCloudProxy(QObject):
     resetResultsButtonsOpacity = pyqtSignal()
     unableToOptimizeStress = pyqtSignal()
     unableToOptimizeDisplacement = pyqtSignal()
+
+    @pyqtProperty(str, constant=True)
+    def accountUrl(self):
+        return self._metadata.account
 
     @pyqtProperty("QVariant", constant=True)
     def tooltipLocations(self):

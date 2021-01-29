@@ -9,5 +9,6 @@
     "smartSliceApi": {
         "url": "https://test.smartslice.xyz:443",
         "cluster": null
-    }
+    },
+    "smartSliceAccount": "https://account.test.smartslice.xyz/"
 }

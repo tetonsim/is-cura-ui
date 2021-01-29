@@ -225,7 +225,7 @@ MouseArea {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: Qt.openUrlExternally('https://www.tetonsim.com/forgot-password')
+                                onClicked: Qt.openUrlExternally(smartSliceMain.proxy.accountUrl + '/forgot')
                             }
                         }
 
