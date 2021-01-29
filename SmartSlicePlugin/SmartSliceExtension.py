@@ -188,7 +188,7 @@ class SmartSliceExtension(Extension):
 
     def _saveState(self, writing_workspace=False):
         # Build the Smart Slice job. We want to always build in case something has changed
-        job = self.cloud.smartSliceJobHandle.buildJobFor3mf()
+        job = self.cloud.smartSliceJobHandle.buildJobFor3mf(writing_workspace)
 
         # No need to save aything if we haven't switched to the smart slice stage yet
         # This is the only time we will get a null job

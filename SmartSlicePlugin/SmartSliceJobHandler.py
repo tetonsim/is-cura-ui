@@ -75,7 +75,7 @@ class SmartSliceJobHandler:
 
     # Builds and checks a smart slice job for errors based on current setup defined by the property handler
     # Will return the job, and a dictionary of error keys and associated error resolutions
-    def checkJob(self, machine_name="printer", show_extruder_warnings=False) -> Tuple[pywim.smartslice.job.Job, Dict[str, str]]:
+    def checkJob(self, writing_workspace=False, machine_name="printer", show_extruder_warnings=False) -> Tuple[pywim.smartslice.job.Job, Dict[str, str]]:
 
         if len(getPrintableNodes()) == 0:
             return None, {}
@@ -149,7 +149,7 @@ class SmartSliceJobHandler:
         # Use Cases
         smart_sliceScene_node = findChildSceneNode(getPrintableNodes()[0], Root)
         if smart_sliceScene_node:
-            job.chop.steps = smart_sliceScene_node.createSteps()
+            job.chop.steps = smart_sliceScene_node.createSteps(transform_bcs=not writing_workspace)
 
         # Requirements
         req_tool = SmartSliceRequirements.getInstance()
@@ -229,9 +229,9 @@ class SmartSliceJobHandler:
         return job, error_dict
 
     # Builds a complete smart slice job to be written to a 3MF
-    def buildJobFor3mf(self, machine_name="printer") -> pywim.smartslice.job.Job:
+    def buildJobFor3mf(self, writing_workspace=False, machine_name="printer") -> pywim.smartslice.job.Job:
 
-        job, errors = self.checkJob(machine_name)
+        job, errors = self.checkJob(writing_workspace, machine_name)
 
         # Clear out the data we don't need or will override
         job.chop.meshes.clear()

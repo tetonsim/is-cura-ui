@@ -188,7 +188,7 @@ class HighlightFace(SceneNode):
 class AnchorFace(HighlightFace):
     color = Color(1., 0.4, 0.4, 1.)
 
-    def pywimBoundaryCondition(self, step: pywim.chop.model.Step, mesh_rotation: Matrix):
+    def pywimBoundaryCondition(self, step: pywim.chop.model.Step, mesh_rotation: Matrix, transform_bcs=True):
         # Create the fixed boundary conditions (anchor points)
         anchor = pywim.chop.model.FixedBoundaryCondition(name=self.getName())
 
@@ -262,17 +262,34 @@ class LoadFace(HighlightFace):
 
         super().setMeshDataFromPywimTriangles(tris, axis)
 
-    def pywimBoundaryCondition(self, step: pywim.chop.model.Step, mesh_rotation: Matrix):
-
+    def pywimBoundaryCondition(self, step: pywim.chop.model.Step, mesh_rotation: Matrix, transform_bcs=True):
         force = pywim.chop.model.Force(name=self.getName())
 
         load_vec = self.activeArrow.direction.normalized() * self.force.magnitude
-        rotated_load_vec = numpy.dot(mesh_rotation.getData(), load_vec.getData())
+        force_vec = [load_vec.x, load_vec.y, load_vec.z]
 
-        Logger.log("d", "Smart Slice {} Vector: {}".format(self.getName(), rotated_load_vec))
+        # To prevent incorrect load arrow restoring from file, we have to deal with the Coordinate System a little differently.
+        # If we are NOT saving the project to a file, we want to rotate the loads so they can be calculated by the back end
+        #   when they are sent in.
+        # If we ARE saving the project, we do not want to rotate the loads, since the faces are not rotated to match on the mesh.
+        #
+        # When we do rotate the mesh, we first rotate it according to the rotation of the part on the printer stage,
+        #   then we do the second rotation to change it to the coordinate system for the back end (using the cura_to_print matrix)
+        if transform_bcs:
+            cura_to_print = Matrix()
+            cura_to_print._data[1, 1] = 0
+            cura_to_print._data[1, 2] = -1
+            cura_to_print._data[2, 1] = 1
+            cura_to_print._data[2, 2] = 0
+            _, cura_to_print, _, _ = cura_to_print.decompose()
+
+            rotated_load_vec = numpy.dot(mesh_rotation.getData(), load_vec.getData())
+            force_vec = numpy.dot(cura_to_print.getData(), rotated_load_vec)
+
+        Logger.log("d", "Smart Slice {} Vector: {}".format(self.getName(), force_vec))
 
         force.force.set(
-            [float(rotated_load_vec[0]), float(rotated_load_vec[1]), float(rotated_load_vec[2])]
+            [float(force_vec[0]), float(force_vec[1]), float(force_vec[2])]
         )
 
         if self.force.pull:
@@ -553,39 +570,16 @@ class Root(SceneNode):
             face = LoadFace(str(bc.name))
             face.selection = (selected_node, bc.face[0])
 
-            load_prime = Vector(
+            load = pywim.geom.Vector(
                 bc.force[0],
                 bc.force[1],
                 bc.force[2]
             )
 
-            origin_prime = Vector(
+            load.origin = pywim.geom.Vertex(
                 bc.origin[0],
                 bc.origin[1],
                 bc.origin[2]
-            )
-
-            print_to_cura = Matrix()
-            print_to_cura._data[1, 1] = 0
-            print_to_cura._data[1, 2] = 1
-            print_to_cura._data[2, 1] = -1
-            print_to_cura._data[2, 2] = 0
-
-            _, rotation, _, _ = print_to_cura.decompose()
-
-            load = numpy.dot(rotation.getData(), load_prime.getData())
-            origin = numpy.dot(rotation.getData(), origin_prime.getData())
-
-            rotated_load = pywim.geom.Vector(
-                load[0],
-                load[1],
-                load[2]
-            )
-
-            rotated_load.origin = pywim.geom.Vertex(
-                origin[0],
-                origin[1],
-                origin[2]
             )
 
             if len(selected_face.triangles) > 0:
@@ -597,7 +591,7 @@ class Root(SceneNode):
                 elif face.surface_type != face.SurfaceType.Unknown:
                     axis =selected_face.rotation_axis()
 
-                face.force.setFromVectorAndAxis(rotated_load, axis)
+                face.force.setFromVectorAndAxis(load, axis)
 
                 # Need to reverse the load direction for concave / convex surface
                 if face.surface_type == HighlightFace.SurfaceType.Concave or face.surface_type == HighlightFace.SurfaceType.Convex:
@@ -609,36 +603,29 @@ class Root(SceneNode):
             face.setMeshDataFromPywimTriangles(selected_face, axis)
 
             face.setArrow(Vector(
-                load[0],
-                load[1],
-                load[2]
+                load.r,
+                load.s,
+                load.t
             ))
 
             self.addFace(face)
             face.disableTools()
 
-    def createSteps(self) -> pywim.WimList:
+    def createSteps(self, transform_bcs) -> pywim.WimList:
         steps = pywim.WimList(pywim.chop.model.Step)
 
         step = pywim.chop.model.Step(name="step-1")
 
         normal_mesh = getPrintableNodes()[0]
 
-        cura_to_print = Matrix()
-        cura_to_print._data[1, 1] = 0
-        cura_to_print._data[1, 2] = -1
-        cura_to_print._data[2, 1] = 1
-        cura_to_print._data[2, 2] = 0
-
         mesh_transformation = normal_mesh.getLocalTransformation()
-        mesh_transformation.preMultiply(cura_to_print)
 
         _, mesh_rotation, _, _ = mesh_transformation.decompose()
 
         # Add boundary conditions from the selected faces in the Smart Slice node
         for bc_node in DepthFirstIterator(self):
             if hasattr(bc_node, "pywimBoundaryCondition"):
-                bc = bc_node.pywimBoundaryCondition(step, mesh_rotation)
+                bc = bc_node.pywimBoundaryCondition(step, mesh_rotation, transform_bcs)
 
         steps.add(step)
 
