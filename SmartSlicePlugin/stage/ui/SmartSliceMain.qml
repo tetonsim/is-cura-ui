@@ -849,10 +849,25 @@ Item {
                     contentWidth: parent.width
                     contentHeight: smartSliceWarningContents.height
 
+                    height: contentHeight + 2 * UM.Theme.getSize("default_margin").width
+
                     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent | smartSliceButton.enabled
 
                     opacity: opened ? 1 : 0
                     Behavior on opacity { NumberAnimation { duration: 100 } }
+
+                    Connections {
+                        target: smartSliceMain.proxy
+                        onSmartSliceErrorsChanged: {
+                            smartSliceErrors.forceLayout();
+                            smartSliceWarningContents.forceLayout();
+
+                            if (errorRepeater.model.length == 0 && smartSliceWarningPopup.opened) {
+                                smartSliceWarningPopup.close();
+                                return
+                            }
+                        }
+                    }
 
                     Column {
                         id: smartSliceWarningContents
@@ -925,6 +940,7 @@ Item {
                                     }
 
                                     Repeater {
+                                        id: errorRepeater
                                         model: smartSliceErrors.getErrors()
 
                                         Column {
@@ -1009,14 +1025,6 @@ Item {
                                     bottomPadding: UM.Theme.getSize("default_margin").width
 
                                     spacing: UM.Theme.getSize("thin_margin").width
-
-                                    Connections {
-                                        target: smartSliceMain.proxy
-                                        onSmartSliceErrorsChanged: {
-                                            smartSliceErrors.forceLayout()
-                                            smartSliceWarningContents.forceLayout()
-                                        }
-                                    }
                                 }
                             }
                         }
